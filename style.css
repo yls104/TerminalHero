@@ -389,6 +389,14 @@ button,
   z-index: 4;
 }
 
+.touch-controls.is-hidden {
+  display: none;
+}
+
+.mobile-left-hud {
+  display: none;
+}
+
 .mobile-hud-dock {
   display: none;
 }
@@ -549,6 +557,10 @@ button,
     display: none;
   }
 
+  .game-area > .panel-title {
+    display: none;
+  }
+
   .panel-title {
     font-size: 0.74rem;
   }
@@ -559,16 +571,28 @@ button,
 
   #gameCanvas {
     width: auto;
-    height: min(calc(100dvh - 78px), calc((100vw - 210px) * 0.75));
+    height: min(calc(100dvh - 24px), calc((100vw - 210px) * 0.75));
     max-width: 100%;
     max-height: 100%;
   }
 
+  .mobile-left-hud {
+    position: absolute;
+    left: 6px;
+    bottom: 6px;
+    z-index: 5;
+    display: grid;
+    width: 152px;
+    gap: 4px;
+  }
+
+  .mobile-left-hud.is-hidden {
+    display: none;
+  }
+
   .touch-controls {
     display: flex;
-    align-self: flex-start;
-    width: auto;
-    margin-left: 0;
+    width: 100%;
     padding: 4px;
     gap: 4px;
     border-radius: 12px;
@@ -595,8 +619,7 @@ button,
 
   .mobile-hud-dock {
     display: grid;
-    align-self: flex-start;
-    width: 152px;
+    width: 100%;
     gap: 4px;
   }
 
@@ -739,7 +762,7 @@ button,
 
 @media (max-width: 980px) and (orientation: landscape) and (pointer: coarse) and (max-height: 430px) {
   #gameCanvas {
-    height: min(calc(100dvh - 68px), calc((100vw - 196px) * 0.75));
+    height: min(calc(100dvh - 18px), calc((100vw - 196px) * 0.75));
   }
 
   .touch-grid {
