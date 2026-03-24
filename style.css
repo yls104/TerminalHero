@@ -389,6 +389,10 @@ button,
   z-index: 4;
 }
 
+.mobile-hud-dock {
+  display: none;
+}
+
 .touch-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 72px));
@@ -526,7 +530,7 @@ button,
     min-height: 100dvh;
     padding: 6px;
     gap: 6px;
-    grid-template-columns: minmax(0, 1fr) minmax(170px, 186px);
+    grid-template-columns: minmax(0, 1fr) minmax(180px, 194px);
   }
 
   .game-area {
@@ -555,7 +559,7 @@ button,
 
   #gameCanvas {
     width: auto;
-    height: min(calc(100dvh - 78px), calc((100vw - 204px) * 0.75));
+    height: min(calc(100dvh - 78px), calc((100vw - 210px) * 0.75));
     max-width: 100%;
     max-height: 100%;
   }
@@ -589,6 +593,17 @@ button,
     display: none;
   }
 
+  .mobile-hud-dock {
+    display: grid;
+    align-self: flex-start;
+    width: 152px;
+    gap: 4px;
+  }
+
+  .mobile-hud-dock.is-hidden {
+    display: none;
+  }
+
   .status-list {
     gap: 4px;
   }
@@ -608,31 +623,40 @@ button,
     backdrop-filter: blur(6px);
   }
 
+  #actionPanel {
+    order: 1;
+    width: 100%;
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+  }
+
   #resourcePanel {
+    margin: 0;
+  }
+
+  #enemyPanel {
     order: 2;
   }
 
-  #actionPanel {
+  #logPanel {
     order: 3;
-    width: 100%;
   }
 
   #classPanel {
     order: 4;
   }
 
-  #logPanel {
-    order: 5;
-  }
-
   .action-menu {
     gap: 6px;
+    flex: 1;
+    align-content: start;
   }
 
   .action-menu button {
-    min-height: 34px;
-    padding: 6px 8px;
-    font-size: 0.72rem;
+    min-height: 44px;
+    padding: 7px 10px;
+    font-size: 0.76rem;
   }
 
   .resource-strip {
@@ -715,7 +739,7 @@ button,
 
 @media (max-width: 980px) and (orientation: landscape) and (pointer: coarse) and (max-height: 430px) {
   #gameCanvas {
-    height: min(calc(100dvh - 68px), calc((100vw - 190px) * 0.75));
+    height: min(calc(100dvh - 68px), calc((100vw - 196px) * 0.75));
   }
 
   .touch-grid {

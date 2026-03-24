@@ -144,6 +144,10 @@
     gold: document.querySelector("#goldValue"),
     skillPoints: document.querySelector("#spValue"),
     pos: document.querySelector("#posValue"),
+    sidePanel: document.querySelector(".side-panel"),
+    statusList: document.querySelector(".status-list"),
+    resourcePanel: document.querySelector("#resourcePanel"),
+    mobileHudDock: document.querySelector("#mobileHudDock"),
     hpBar: document.querySelector("#hpBar"),
     mpBar: document.querySelector("#mpBar"),
     expBar: document.querySelector("#expBar"),
@@ -289,6 +293,37 @@
     if (text) {
       ui.combatBanner.textContent = text;
     }
+  }
+
+  function isMobileLandscapeLayout() {
+    return window.matchMedia("(max-width: 980px) and (orientation: landscape) and (pointer: coarse)").matches;
+  }
+
+  function syncResponsiveHudLayout() {
+    if (!ui.statusList || !ui.resourcePanel || !ui.sidePanel || !ui.actionPanel || !ui.mobileHudDock) {
+      return;
+    }
+
+    if (isMobileLandscapeLayout()) {
+      if (ui.statusList.parentNode !== ui.mobileHudDock) {
+        ui.mobileHudDock.appendChild(ui.statusList);
+      }
+      if (ui.resourcePanel.parentNode !== ui.mobileHudDock) {
+        ui.mobileHudDock.appendChild(ui.resourcePanel);
+      }
+      ui.mobileHudDock.classList.remove("is-hidden");
+      ui.mobileHudDock.setAttribute("aria-hidden", "false");
+      return;
+    }
+
+    if (ui.statusList.parentNode !== ui.sidePanel) {
+      ui.sidePanel.insertBefore(ui.statusList, ui.actionPanel);
+    }
+    if (ui.resourcePanel.parentNode !== ui.sidePanel) {
+      ui.sidePanel.insertBefore(ui.resourcePanel, ui.actionPanel);
+    }
+    ui.mobileHudDock.classList.add("is-hidden");
+    ui.mobileHudDock.setAttribute("aria-hidden", "true");
   }
 
   function setExploreControlsVisible(visible) {
@@ -1028,6 +1063,7 @@
     canvas.height = 15 * TILE_SIZE;
     bindStaticButtons();
     bindTouchControls();
+    syncResponsiveHudLayout();
     loadStage("azure_town");
     renderSkillButtons();
     updateSkillMenuVisibility();
@@ -1038,6 +1074,8 @@
     syncStatusPanel();
     window.addEventListener("keydown", handleMoveInput);
     window.addEventListener("keyup", handleMoveKeyUp);
+    window.addEventListener("resize", syncResponsiveHudLayout);
+    window.addEventListener("orientationchange", syncResponsiveHudLayout);
     window.requestAnimationFrame(renderFrame);
     loadMapAssets().then(function onAssetsLoaded() {
       appendLog("资源已加载，城镇与战斗素材已就绪。");
