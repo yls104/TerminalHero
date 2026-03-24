@@ -536,17 +536,17 @@ button,
     max-width: none;
     height: 100dvh;
     min-height: 100dvh;
-    padding: 6px;
-    gap: 6px;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(186px, 204px);
+    padding: 4px;
+    gap: 4px;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(170px, 184px);
     grid-template-rows: minmax(0, 1fr) minmax(0, 1fr) auto;
   }
 
   .game-area {
     grid-column: 1 / span 2;
     grid-row: 1 / span 2;
-    padding: 6px;
-    gap: 6px;
+    padding: 4px;
+    gap: 4px;
     min-height: 0;
   }
 
@@ -554,17 +554,17 @@ button,
     grid-column: 1 / span 2;
     grid-row: 3;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: 6px;
-    padding: 6px;
+    grid-template-columns: minmax(104px, 0.84fr) minmax(0, 1.16fr);
+    gap: 4px;
+    padding: 4px;
     min-height: 0;
   }
 
   .side-panel {
     grid-column: 3;
     grid-row: 1 / span 3;
-    padding: 6px;
-    gap: 6px;
+    padding: 4px;
+    gap: 4px;
     overflow: hidden;
   }
 
@@ -586,7 +586,7 @@ button,
 
   #gameCanvas {
     width: auto;
-    height: min(calc(100dvh - 104px), calc((100vw - 220px) * 0.75));
+    height: min(calc(100dvh - 82px), calc((100vw - 198px) * 0.75));
     max-width: 100%;
     max-height: 100%;
   }
@@ -600,9 +600,9 @@ button,
     width: 100%;
     height: 100%;
     justify-content: flex-start;
-    padding: 6px;
-    gap: 6px;
-    border-radius: 12px;
+    padding: 4px;
+    gap: 4px;
+    border-radius: 10px;
     background: rgba(2, 6, 23, 0.84);
     backdrop-filter: blur(8px);
   }
@@ -612,15 +612,15 @@ button,
   }
 
   .touch-grid {
-    grid-template-columns: repeat(3, minmax(0, 40px));
-    grid-template-rows: repeat(2, 40px);
-    gap: 4px;
+    grid-template-columns: repeat(3, minmax(0, 36px));
+    grid-template-rows: repeat(2, 36px);
+    gap: 3px;
   }
 
   .touch-move {
-    min-height: 40px;
+    min-height: 36px;
     padding: 0;
-    font-size: 0.68rem;
+    font-size: 0.64rem;
     touch-action: none;
   }
 
@@ -631,14 +631,14 @@ button,
   .mobile-hud-dock {
     display: grid;
     width: 100%;
-    gap: 4px;
+    gap: 3px;
     align-content: start;
   }
 
   .mobile-hud-dock .status-list {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 4px;
+    gap: 3px;
   }
 
   .mobile-hud-dock .panel-title {
@@ -650,26 +650,26 @@ button,
   }
 
   .status-list {
-    gap: 4px;
+    gap: 3px;
   }
 
   .status-item {
-    padding: 4px 6px;
-    font-size: 0.68rem;
+    padding: 3px 5px;
+    font-size: 0.63rem;
     background: rgba(2, 6, 23, 0.78);
     border-color: rgba(148, 163, 184, 0.28);
     backdrop-filter: blur(6px);
   }
 
   .panel-block {
-    padding: 6px;
+    padding: 5px;
     background: rgba(2, 6, 23, 0.78);
     border-color: rgba(148, 163, 184, 0.28);
     backdrop-filter: blur(6px);
   }
 
   .mobile-hud-dock #resourcePanel {
-    padding: 6px;
+    padding: 5px;
   }
 
   #actionPanel {
@@ -697,41 +697,41 @@ button,
   }
 
   .action-menu {
-    gap: 6px;
+    gap: 5px;
     flex: 1;
     align-content: start;
   }
 
   .action-menu button {
-    min-height: 44px;
-    padding: 7px 10px;
-    font-size: 0.76rem;
+    min-height: 38px;
+    padding: 6px 8px;
+    font-size: 0.72rem;
   }
 
   .resource-strip {
-    gap: 4px;
-    margin-bottom: 6px;
+    gap: 3px;
+    margin-bottom: 5px;
   }
 
   .resource-pill {
-    padding: 5px 4px;
-    font-size: 0.65rem;
+    padding: 4px 3px;
+    font-size: 0.6rem;
   }
 
   .detail-button {
-    min-height: 32px;
-    font-size: 0.68rem;
+    min-height: 28px;
+    font-size: 0.64rem;
   }
 
   .class-meta {
     gap: 2px;
-    margin-bottom: 6px;
-    font-size: 0.62rem;
+    margin-bottom: 4px;
+    font-size: 0.58rem;
   }
 
   .class-summary {
-    font-size: 0.66rem;
-    line-height: 1.35;
+    font-size: 0.62rem;
+    line-height: 1.25;
   }
 
   .enemy-panel .status-item {
@@ -739,13 +739,13 @@ button,
   }
 
   .battle-log {
-    min-height: 40px;
-    max-height: 40px;
-    height: 40px;
-    padding: 5px 6px;
+    min-height: 34px;
+    max-height: 34px;
+    height: 34px;
+    padding: 4px 5px;
     overflow: hidden;
-    font-size: 0.66rem;
-    line-height: 1.35;
+    font-size: 0.62rem;
+    line-height: 1.25;
   }
 
   .scene-overlay {
@@ -788,17 +788,17 @@ button,
 
 @media (max-width: 980px) and (orientation: landscape) and (pointer: coarse) and (max-height: 430px) {
   #gameCanvas {
-    height: min(calc(100dvh - 94px), calc((100vw - 208px) * 0.75));
+    height: min(calc(100dvh - 72px), calc((100vw - 188px) * 0.75));
   }
 
   .touch-grid {
-    grid-template-columns: repeat(3, minmax(0, 34px));
-    grid-template-rows: repeat(2, 34px);
+    grid-template-columns: repeat(3, minmax(0, 30px));
+    grid-template-rows: repeat(2, 30px);
   }
 
   .touch-move {
-    min-height: 34px;
-    font-size: 0.6rem;
+    min-height: 30px;
+    font-size: 0.56rem;
   }
 
   .scene-overlay-card {
@@ -806,23 +806,23 @@ button,
   }
 
   .side-panel {
-    gap: 4px;
+    gap: 3px;
   }
 
   .mobile-bottom-bar {
-    gap: 4px;
-    padding: 5px;
+    gap: 3px;
+    padding: 3px;
   }
 
   .panel-block,
   .game-area,
   .side-panel {
-    padding: 5px;
+    padding: 4px;
   }
 
   .battle-log {
-    min-height: 36px;
-    max-height: 36px;
-    height: 36px;
+    min-height: 30px;
+    max-height: 30px;
+    height: 30px;
   }
 }
