@@ -62,14 +62,6 @@
             <div class="meter"><div id="mpBar" class="meter-fill mp"></div></div>
           </div>
           <div class="status-item">
-            <span>职业</span>
-            <strong id="classValue">-</strong>
-          </div>
-          <div class="status-item">
-            <span>区域</span>
-            <strong id="stageValue">城镇</strong>
-          </div>
-          <div class="status-item">
             <span>等级</span>
             <strong id="levelValue">1</strong>
           </div>
@@ -80,11 +72,22 @@
             </div>
             <div class="meter"><div id="expBar" class="meter-fill exp"></div></div>
           </div>
-          <div class="status-item">
-            <span>坐标</span>
-            <strong id="posValue">(1, 1)</strong>
-          </div>
         </div>
+
+        <section id="resourcePanel" class="panel-block">
+          <header class="panel-title small">资源</header>
+          <div class="resource-strip">
+            <div class="resource-pill">
+              <span>金币</span>
+              <strong id="goldValue">0</strong>
+            </div>
+            <div class="resource-pill">
+              <span>技能点</span>
+              <strong id="spValue">0</strong>
+            </div>
+          </div>
+          <button id="btnDetailStats" type="button" class="detail-button">详细属性</button>
+        </section>
 
         <section id="actionPanel" class="panel-block">
           <header class="panel-title small">行动菜单</header>
@@ -98,6 +101,11 @@
 
         <section id="classPanel" class="panel-block">
           <header class="panel-title small">职业信息</header>
+          <div class="class-meta">
+            <span id="classValue">职业：-</span>
+            <span id="stageValue">区域：城镇</span>
+            <span id="posValue">坐标：(1, 1)</span>
+          </div>
           <div id="classSummary" class="class-summary">尚未选择职业。</div>
         </section>
 

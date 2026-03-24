@@ -141,6 +141,8 @@
     classSummary: document.querySelector("#classSummary"),
     level: document.querySelector("#levelValue"),
     exp: document.querySelector("#expValue"),
+    gold: document.querySelector("#goldValue"),
+    skillPoints: document.querySelector("#spValue"),
     pos: document.querySelector("#posValue"),
     hpBar: document.querySelector("#hpBar"),
     mpBar: document.querySelector("#mpBar"),
@@ -164,6 +166,7 @@
     overlayTitle: document.querySelector("#overlayTitle"),
     overlayText: document.querySelector("#overlayText"),
     overlayButton: document.querySelector("#overlayButton"),
+    btnDetailStats: document.querySelector("#btnDetailStats"),
     touchControls: document.querySelector("#touchControls"),
     touchMoveButtons: Array.from(document.querySelectorAll(".touch-move")),
   };
@@ -336,12 +339,26 @@
   function syncStatusPanel() {
     ui.hp.textContent = player.hp + " / " + player.maxHp;
     ui.mp.textContent = player.mp + " / " + player.maxMp;
-    ui.classValue.textContent = player.className || "-";
-    ui.stageValue.textContent = STAGE_META[currentStageName].label;
-    ui.classSummary.textContent = (player.classDescription || "在城镇中选择职业。") + " 金币：" + player.gold + " | 技能点：" + player.skillPoints;
+    if (ui.classValue) {
+      ui.classValue.textContent = "职业：" + (player.className || "-");
+    }
+    if (ui.stageValue) {
+      ui.stageValue.textContent = "区域：" + STAGE_META[currentStageName].label;
+    }
+    if (ui.gold) {
+      ui.gold.textContent = String(player.gold);
+    }
+    if (ui.skillPoints) {
+      ui.skillPoints.textContent = String(player.skillPoints);
+    }
+    ui.classSummary.textContent = player.className
+      ? player.className + "，当前位于" + STAGE_META[currentStageName].label + "。 " + player.classDescription
+      : "在城镇中选择职业，确认你这轮的成长路线。";
     ui.level.textContent = String(player.level);
     ui.exp.textContent = player.exp + " / " + player.expToNext;
-    ui.pos.textContent = "(" + player.position.x + ", " + player.position.y + ")";
+    if (ui.pos) {
+      ui.pos.textContent = "坐标：(" + player.position.x + ", " + player.position.y + ")";
+    }
     ui.hpBar.style.width = toPercent(player.hp, player.maxHp) + "%";
     ui.mpBar.style.width = toPercent(player.mp, player.maxMp) + "%";
     ui.expBar.style.width = toPercent(player.exp, player.expToNext) + "%";
@@ -349,6 +366,42 @@
       const skill = skills[button.dataset.skillId];
       button.disabled = !skill || player.mp < skill.cost || gameState !== GAME_STATE.COMBAT;
     });
+  }
+
+  function showDetailStatsOverlay() {
+    const equippedNames = player.equipment.length > 0
+      ? player.equipment.map(function mapEquipment(id) {
+          const item = SHOP_ITEMS.find(function findItem(entry) {
+            return entry.id === id;
+          });
+          return item ? item.name : id;
+        }).join("、")
+      : "暂无";
+    const learnedSkills = getPlayerSkills().map(function mapSkill(skill) {
+      return skill.name;
+    }).join("、") || "暂无";
+    const detailHtml = [
+      "<div class=\"detail-stats\">",
+      "<p><strong>姓名：</strong>" + player.name + "</p>",
+      "<p><strong>职业：</strong>" + (player.className || "未选择") + "</p>",
+      "<p><strong>职业特性：</strong>" + (player.classDescription || "尚未选择职业") + "</p>",
+      "<p><strong>区域：</strong>" + STAGE_META[currentStageName].label + "</p>",
+      "<p><strong>等级：</strong>Lv." + player.level + "</p>",
+      "<p><strong>生命：</strong>" + player.hp + " / " + player.maxHp + "</p>",
+      "<p><strong>法力：</strong>" + player.mp + " / " + player.maxMp + "</p>",
+      "<p><strong>经验：</strong>" + player.exp + " / " + player.expToNext + "</p>",
+      "<p><strong>攻击：</strong>" + player.attack + "</p>",
+      "<p><strong>防御：</strong>" + player.defense + "</p>",
+      "<p><strong>速度：</strong>" + player.speed + "</p>",
+      "<p><strong>金币：</strong>" + player.gold + "</p>",
+      "<p><strong>技能点：</strong>" + player.skillPoints + "</p>",
+      "<p><strong>坐标：</strong>(" + player.position.x + ", " + player.position.y + ")</p>",
+      "<p><strong>已学技能：</strong>" + learnedSkills + "</p>",
+      "<p><strong>已装备：</strong>" + equippedNames + "</p>",
+      "<p><strong>终极技：</strong>" + (player.learnedUltimate ? "已解锁" : "尚未解锁") + "</p>",
+      "</div>",
+    ].join("");
+    showOverlay("详细属性", player.className || "冒险者信息", detailHtml, "关闭", hideOverlay);
   }
 
   function pulseFlash() {
@@ -789,6 +842,9 @@
         hideOverlay();
       }
     });
+    if (ui.btnDetailStats) {
+      ui.btnDetailStats.addEventListener("click", showDetailStatsOverlay);
+    }
   }
 
   function bindTouchControls() {
