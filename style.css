@@ -63,6 +63,7 @@ button,
 }
 
 .game-area {
+  position: relative;
   padding: 16px;
   display: flex;
   flex-direction: column;
@@ -332,6 +333,7 @@ button,
   gap: 12px;
   align-items: center;
   justify-content: flex-end;
+  z-index: 4;
 }
 
 .touch-grid {
@@ -469,82 +471,121 @@ button,
     max-width: none;
     height: 100dvh;
     min-height: 100dvh;
-    padding: 8px;
-    gap: 8px;
-    grid-template-columns: minmax(0, 1fr) minmax(232px, 28vw);
-  }
-
-  .game-area,
-  .side-panel {
-    padding: 8px;
+    position: relative;
+    padding: 6px;
+    gap: 0;
+    grid-template-columns: 1fr;
   }
 
   .game-area {
-    gap: 6px;
+    padding: 6px;
+    gap: 0;
+    min-height: calc(100dvh - 12px);
+  }
+
+  .canvas-wrap {
+    border-radius: 14px;
   }
 
   .side-panel {
-    gap: 8px;
-    overflow-y: auto;
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: min(190px, 28vw);
+    padding: 0;
+    gap: 6px;
+    z-index: 4;
+    border: none;
+    background: transparent;
+    box-shadow: none;
+    pointer-events: none;
+  }
+
+  .side-panel > * {
+    pointer-events: auto;
+  }
+
+  .side-panel > .panel-title,
+  #classPanel,
+  #logPanel {
+    display: none;
   }
 
   .panel-title {
-    font-size: 0.82rem;
+    font-size: 0.74rem;
   }
 
   .hint {
-    font-size: 0.74rem;
+    display: none;
   }
 
   #gameCanvas {
     width: auto;
-    height: min(100%, calc(100dvh - 122px));
+    height: min(calc(100dvh - 12px), calc((100vw - 12px) * 0.75));
     max-width: 100%;
     max-height: 100%;
   }
 
   .touch-controls {
     display: flex;
-    gap: 8px;
+    position: absolute;
+    left: 12px;
+    bottom: 12px;
+    width: auto;
+    padding: 6px;
+    gap: 6px;
+    border-radius: 12px;
+    background: rgba(2, 6, 23, 0.72);
+    backdrop-filter: blur(8px);
   }
 
   .touch-grid {
-    grid-template-columns: repeat(3, minmax(0, 52px));
-    grid-template-rows: repeat(2, 52px);
-    gap: 6px;
+    grid-template-columns: repeat(3, minmax(0, 42px));
+    grid-template-rows: repeat(2, 42px);
+    gap: 4px;
   }
 
   .touch-move {
-    min-height: 52px;
+    min-height: 42px;
     padding: 0;
-    font-size: 0.86rem;
+    font-size: 0.72rem;
     touch-action: none;
   }
 
   .touch-tip {
-    flex: 1;
-    max-width: 180px;
-    font-size: 0.7rem;
-    line-height: 1.35;
+    display: none;
   }
 
   .status-list {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 4px;
   }
 
   .status-item {
-    padding: 6px 7px;
-    font-size: 0.76rem;
+    padding: 4px 6px;
+    font-size: 0.68rem;
+    background: rgba(2, 6, 23, 0.78);
+    border-color: rgba(148, 163, 184, 0.28);
+    backdrop-filter: blur(6px);
   }
 
   .panel-block {
-    padding: 7px;
+    padding: 6px;
+    background: rgba(2, 6, 23, 0.78);
+    border-color: rgba(148, 163, 184, 0.28);
+    backdrop-filter: blur(6px);
   }
 
-  .battle-log {
-    min-height: 84px;
-    max-height: none;
-    height: 112px;
+  #actionPanel {
+    width: 100%;
+  }
+
+  .action-menu {
+    gap: 6px;
+  }
+
+  .action-menu button {
+    min-height: 34px;
+    padding: 6px 8px;
     font-size: 0.72rem;
   }
 
@@ -588,28 +629,24 @@ button,
 
 @media (max-width: 980px) and (orientation: landscape) and (pointer: coarse) and (max-height: 430px) {
   #gameCanvas {
-    height: min(100%, calc(100dvh - 104px));
+    height: min(calc(100dvh - 8px), calc((100vw - 8px) * 0.75));
   }
 
   .touch-grid {
-    grid-template-columns: repeat(3, minmax(0, 46px));
-    grid-template-rows: repeat(2, 46px);
+    grid-template-columns: repeat(3, minmax(0, 36px));
+    grid-template-rows: repeat(2, 36px);
   }
 
   .touch-move {
-    min-height: 46px;
-    font-size: 0.76rem;
-  }
-
-  .touch-tip {
-    display: none;
-  }
-
-  .battle-log {
-    height: 92px;
+    min-height: 36px;
+    font-size: 0.66rem;
   }
 
   .scene-overlay-card {
     max-height: min(88dvh, 286px);
+  }
+
+  .side-panel {
+    width: min(174px, 30vw);
   }
 }

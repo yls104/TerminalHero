@@ -145,6 +145,7 @@
     hpBar: document.querySelector("#hpBar"),
     mpBar: document.querySelector("#mpBar"),
     expBar: document.querySelector("#expBar"),
+    actionPanel: document.querySelector("#actionPanel"),
     actionMenu: document.querySelector("#actionMenu"),
     btnBasicAttack: document.querySelector("#btnBasicAttack"),
     btnSkillMenu: document.querySelector("#btnSkillMenu"),
@@ -299,6 +300,9 @@
   }
 
   function setActionMenu(visible, enabled) {
+    if (ui.actionPanel) {
+      ui.actionPanel.classList.toggle("is-hidden", !visible);
+    }
     ui.actionMenu.classList.toggle("is-hidden", !visible);
     ui.actionMenu.setAttribute("aria-hidden", visible ? "false" : "true");
     if (!visible) {
