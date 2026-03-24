@@ -147,7 +147,7 @@
     sidePanel: document.querySelector(".side-panel"),
     statusList: document.querySelector(".status-list"),
     resourcePanel: document.querySelector("#resourcePanel"),
-    mobileLeftHud: document.querySelector("#mobileLeftHud"),
+    mobileBottomBar: document.querySelector("#mobileBottomBar"),
     mobileHudDock: document.querySelector("#mobileHudDock"),
     hpBar: document.querySelector("#hpBar"),
     mpBar: document.querySelector("#mpBar"),
@@ -301,7 +301,7 @@
   }
 
   function syncResponsiveHudLayout() {
-    if (!ui.statusList || !ui.resourcePanel || !ui.sidePanel || !ui.actionPanel || !ui.mobileHudDock || !ui.mobileLeftHud) {
+    if (!ui.statusList || !ui.resourcePanel || !ui.sidePanel || !ui.actionPanel || !ui.mobileHudDock || !ui.mobileBottomBar) {
       return;
     }
 
@@ -312,8 +312,8 @@
       if (ui.resourcePanel.parentNode !== ui.mobileHudDock) {
         ui.mobileHudDock.appendChild(ui.resourcePanel);
       }
-      ui.mobileLeftHud.classList.remove("is-hidden");
-      ui.mobileLeftHud.setAttribute("aria-hidden", "false");
+      ui.mobileBottomBar.classList.remove("is-hidden");
+      ui.mobileBottomBar.setAttribute("aria-hidden", "false");
       ui.mobileHudDock.classList.remove("is-hidden");
       ui.mobileHudDock.setAttribute("aria-hidden", "false");
       return;
@@ -325,8 +325,8 @@
     if (ui.resourcePanel.parentNode !== ui.sidePanel) {
       ui.sidePanel.insertBefore(ui.resourcePanel, ui.actionPanel);
     }
-    ui.mobileLeftHud.classList.add("is-hidden");
-    ui.mobileLeftHud.setAttribute("aria-hidden", "true");
+    ui.mobileBottomBar.classList.add("is-hidden");
+    ui.mobileBottomBar.setAttribute("aria-hidden", "true");
     ui.mobileHudDock.classList.add("is-hidden");
     ui.mobileHudDock.setAttribute("aria-hidden", "true");
   }

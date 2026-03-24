@@ -30,20 +30,21 @@
               <button id="overlayButton" type="button" class="overlay-button">继续</button>
             </div>
           </div>
-          <div id="mobileLeftHud" class="mobile-left-hud is-hidden" aria-hidden="true">
-            <section id="touchControls" class="touch-controls panel-block" aria-label="触控移动">
-              <div class="touch-grid">
-                <button type="button" class="touch-move touch-up" data-move-key="ArrowUp">上</button>
-                <button type="button" class="touch-move touch-left" data-move-key="ArrowLeft">左</button>
-                <button type="button" class="touch-move touch-down" data-move-key="ArrowDown">下</button>
-                <button type="button" class="touch-move touch-right" data-move-key="ArrowRight">右</button>
-              </div>
-              <p class="touch-tip">横屏手机上可按住方向键持续滑行。战斗、选项与商店按钮支持直接点按。</p>
-            </section>
-            <div id="mobileHudDock" class="mobile-hud-dock is-hidden" aria-hidden="true"></div>
-          </div>
         </div>
         <p class="hint">桌面可用 WASD / 方向键。手机横屏可按住方向键连续移动，先清小怪，再穿过传送门挑战首领。</p>
+      </section>
+
+      <section id="mobileBottomBar" class="mobile-bottom-bar card is-hidden" aria-hidden="true">
+        <section id="touchControls" class="touch-controls panel-block" aria-label="触控移动">
+          <div class="touch-grid">
+            <button type="button" class="touch-move touch-up" data-move-key="ArrowUp">上</button>
+            <button type="button" class="touch-move touch-left" data-move-key="ArrowLeft">左</button>
+            <button type="button" class="touch-move touch-down" data-move-key="ArrowDown">下</button>
+            <button type="button" class="touch-move touch-right" data-move-key="ArrowRight">右</button>
+          </div>
+          <p class="touch-tip">横屏手机上可按住方向键持续滑行。战斗、选项与商店按钮支持直接点按。</p>
+        </section>
+        <div id="mobileHudDock" class="mobile-hud-dock is-hidden" aria-hidden="true"></div>
       </section>
 
       <aside class="side-panel card">

@@ -393,7 +393,7 @@ button,
   display: none;
 }
 
-.mobile-left-hud {
+.mobile-bottom-bar {
   display: none;
 }
 
@@ -538,16 +538,31 @@ button,
     min-height: 100dvh;
     padding: 6px;
     gap: 6px;
-    grid-template-columns: minmax(0, 1fr) minmax(180px, 194px);
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(186px, 204px);
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr) auto;
   }
 
   .game-area {
+    grid-column: 1 / span 2;
+    grid-row: 1 / span 2;
     padding: 6px;
     gap: 6px;
-    min-height: calc(100dvh - 12px);
+    min-height: 0;
+  }
+
+  .mobile-bottom-bar {
+    grid-column: 1 / span 2;
+    grid-row: 3;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 6px;
+    padding: 6px;
+    min-height: 0;
   }
 
   .side-panel {
+    grid-column: 3;
+    grid-row: 1 / span 3;
     padding: 6px;
     gap: 6px;
     overflow: hidden;
@@ -571,33 +586,29 @@ button,
 
   #gameCanvas {
     width: auto;
-    height: min(calc(100dvh - 24px), calc((100vw - 210px) * 0.75));
+    height: min(calc(100dvh - 104px), calc((100vw - 220px) * 0.75));
     max-width: 100%;
     max-height: 100%;
   }
 
-  .mobile-left-hud {
-    position: absolute;
-    left: 6px;
-    bottom: 6px;
-    z-index: 5;
-    display: grid;
-    width: 152px;
-    gap: 4px;
-  }
-
-  .mobile-left-hud.is-hidden {
+  .mobile-bottom-bar.is-hidden {
     display: none;
   }
 
   .touch-controls {
     display: flex;
     width: 100%;
-    padding: 4px;
-    gap: 4px;
+    height: 100%;
+    justify-content: flex-start;
+    padding: 6px;
+    gap: 6px;
     border-radius: 12px;
-    background: rgba(2, 6, 23, 0.72);
+    background: rgba(2, 6, 23, 0.84);
     backdrop-filter: blur(8px);
+  }
+
+  .touch-controls .panel-title {
+    display: none;
   }
 
   .touch-grid {
@@ -621,6 +632,17 @@ button,
     display: grid;
     width: 100%;
     gap: 4px;
+    align-content: start;
+  }
+
+  .mobile-hud-dock .status-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 4px;
+  }
+
+  .mobile-hud-dock .panel-title {
+    display: none;
   }
 
   .mobile-hud-dock.is-hidden {
@@ -644,6 +666,10 @@ button,
     background: rgba(2, 6, 23, 0.78);
     border-color: rgba(148, 163, 184, 0.28);
     backdrop-filter: blur(6px);
+  }
+
+  .mobile-hud-dock #resourcePanel {
+    padding: 6px;
   }
 
   #actionPanel {
@@ -762,7 +788,7 @@ button,
 
 @media (max-width: 980px) and (orientation: landscape) and (pointer: coarse) and (max-height: 430px) {
   #gameCanvas {
-    height: min(calc(100dvh - 18px), calc((100vw - 196px) * 0.75));
+    height: min(calc(100dvh - 94px), calc((100vw - 208px) * 0.75));
   }
 
   .touch-grid {
@@ -781,6 +807,11 @@ button,
 
   .side-panel {
     gap: 4px;
+  }
+
+  .mobile-bottom-bar {
+    gap: 4px;
+    padding: 5px;
   }
 
   .panel-block,
