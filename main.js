@@ -379,6 +379,31 @@
     ctx.fillRect(x, y, size, size);
   }
 
+  function drawReadableMapLabel(text, centerX, bottomY) {
+    const paddingX = 7;
+    const labelHeight = 16;
+    ctx.save();
+    ctx.font = "bold 12px Consolas, monospace";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    const labelWidth = Math.ceil(ctx.measureText(text).width) + paddingX * 2;
+    const left = Math.round(centerX - labelWidth / 2);
+    const top = Math.round(bottomY - labelHeight);
+
+    ctx.fillStyle = "rgba(2, 6, 23, 0.88)";
+    ctx.fillRect(left, top, labelWidth, labelHeight);
+    ctx.strokeStyle = "rgba(103, 232, 249, 0.42)";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(left + 0.5, top + 0.5, labelWidth - 1, labelHeight - 1);
+
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = "rgba(2, 6, 23, 0.95)";
+    ctx.strokeText(text, centerX, top + labelHeight / 2);
+    ctx.fillStyle = "#e2e8f0";
+    ctx.fillText(text, centerX, top + labelHeight / 2);
+    ctx.restore();
+  }
+
   function drawTownDecorations() {
     const meta = STAGE_META.azure_town;
     const npcImage = getMapAsset("npc");
@@ -392,9 +417,7 @@
       if (npcImage && npcImage.complete) {
         ctx.drawImage(npcImage, npc.x * TILE_SIZE, npc.y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
       }
-      ctx.fillStyle = "#0f172a";
-      ctx.font = "12px Consolas, monospace";
-      ctx.fillText(npc.label, npc.x * TILE_SIZE - 8, npc.y * TILE_SIZE - 4);
+      drawReadableMapLabel(npc.label, npc.x * TILE_SIZE + TILE_SIZE / 2, npc.y * TILE_SIZE - 6);
     });
   }
 
@@ -773,11 +796,17 @@
 
       function press(event) {
         event.preventDefault();
+        if (typeof button.setPointerCapture === "function") {
+          button.setPointerCapture(event.pointerId);
+        }
         setHeldMoveState(key, true);
       }
 
       function release(event) {
         event.preventDefault();
+        if (typeof button.releasePointerCapture === "function" && button.hasPointerCapture && button.hasPointerCapture(event.pointerId)) {
+          button.releasePointerCapture(event.pointerId);
+        }
         setHeldMoveState(key, false);
       }
 
@@ -786,6 +815,12 @@
       button.addEventListener("pointercancel", release);
       button.addEventListener("pointerleave", release);
       button.addEventListener("contextmenu", function preventMenu(event) {
+        event.preventDefault();
+      });
+      button.addEventListener("selectstart", function preventSelection(event) {
+        event.preventDefault();
+      });
+      button.addEventListener("dragstart", function preventDrag(event) {
         event.preventDefault();
       });
     });
