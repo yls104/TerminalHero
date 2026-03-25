@@ -40,6 +40,7 @@
   const createStageInstance = stageApi.createStageInstance || function fallbackStageInstance() { return { map: [], encounters: {}, events: {}, portalPos: null, contentPools: {} }; };
   const createStageProgress = stageApi.createStageProgress || function fallbackProgress() { return { availableStages: [], clearedBosses: {} }; };
   const positionKey = stageApi.positionKey || function fallbackPositionKey(x, y) { return x + "," + y; };
+  const findRelicByName = stageApi.findRelicByName || function fallbackRelic() { return null; };
 
   const createHudViewModel = viewModelApi.createHudViewModel || function fallbackHudViewModel() { return {}; };
   const createEnemyViewModel = viewModelApi.createEnemyViewModel || function fallbackEnemyViewModel() { return { visible: false, name: "", hpText: "0 / 0", hpPercent: 0 }; };
@@ -47,6 +48,8 @@
   const renderDetailStatsHtml = viewModelApi.renderDetailStatsHtml || function fallbackDetailHtml() { return ""; };
   const createRunSummaryViewModel = viewModelApi.createRunSummaryViewModel || function fallbackRunSummaryViewModel() { return { overlayEyebrow: "", overlayTitle: "", rows: [] }; };
   const renderRunSummaryHtml = viewModelApi.renderRunSummaryHtml || function fallbackRunSummaryHtml() { return ""; };
+  const createBuildCodexViewModel = viewModelApi.createBuildCodexViewModel || function fallbackBuildCodexViewModel() { return { overlayEyebrow: "", overlayTitle: "", summaryRows: [], sections: [] }; };
+  const renderBuildCodexHtml = viewModelApi.renderBuildCodexHtml || function fallbackBuildCodexHtml() { return ""; };
   const normalizeCombatLogEntry = combatIoApi.normalizeCombatLogEntry || function fallbackLogEntry(input) {
     return typeof input === "string" ? { text: input, type: "info", emphasis: false } : { text: String((input && input.text) || ""), type: "info", emphasis: false };
   };
@@ -71,6 +74,10 @@
     exp: document.querySelector("#expValue"),
     gold: document.querySelector("#goldValue"),
     skillPoints: document.querySelector("#spValue"),
+    classResourceItem: document.querySelector("#classResourceItem"),
+    classResourceLabel: document.querySelector("#classResourceLabel"),
+    classResourceValue: document.querySelector("#classResourceValue"),
+    classResourceBar: document.querySelector("#classResourceBar"),
     pos: document.querySelector("#posValue"),
     sidePanel: document.querySelector(".side-panel"),
     statusList: document.querySelector(".status-list"),
@@ -229,6 +236,10 @@
       return false;
     }
     player.relics.push(relicName);
+    const relic = findRelicByName(relicName);
+    if (relic && relic.bonus) {
+      applyBonusPackage(relic.bonus);
+    }
     runSummary.relicsFound += 1;
     runSummary.gainedRelics.push(relicName);
     return true;
@@ -264,6 +275,81 @@
       }
     }
     return entries[entries.length - 1];
+  }
+
+  function statBonusLines(bonus) {
+    const lines = [];
+    if (!bonus) {
+      return lines;
+    }
+    if (bonus.attack) {
+      lines.push("攻击 " + (bonus.attack > 0 ? "+" : "") + bonus.attack);
+    }
+    if (bonus.defense) {
+      lines.push("防御 " + (bonus.defense > 0 ? "+" : "") + bonus.defense);
+    }
+    if (bonus.maxHp) {
+      lines.push("生命上限 " + (bonus.maxHp > 0 ? "+" : "") + bonus.maxHp);
+    }
+    if (bonus.maxMp) {
+      lines.push("法力上限 " + (bonus.maxMp > 0 ? "+" : "") + bonus.maxMp);
+    }
+    if (bonus.speed) {
+      lines.push("速度 " + (bonus.speed > 0 ? "+" : "") + bonus.speed);
+    }
+    return lines;
+  }
+
+  function createSkillInspectLines(skill) {
+    const lines = [];
+    if (typeof skill.cost === "number") {
+      lines.push("法力消耗：" + skill.cost);
+    }
+    if (typeof skill.power === "number") {
+      if (skill.effect === "heal" || skill.effect === "guard_heal") {
+        lines.push("治疗倍率：" + Math.round(Math.abs(skill.power) * 100) + "% 攻击");
+      } else {
+        lines.push("伤害倍率：" + Math.round(skill.power * 100) + "% 攻击");
+      }
+    }
+    if (skill.resourceGain) {
+      lines.push("生成职业资源：" + skill.resourceGain);
+    }
+    if (skill.resourceCost) {
+      lines.push("消耗职业资源：" + skill.resourceCost);
+    }
+    if (skill.guard) {
+      lines.push("减伤效果：" + Math.round(skill.guard * 100) + "%");
+    }
+    if (skill.buff) {
+      lines.push("攻击提升：" + Math.round(skill.buff * 100) + "%，持续 " + (skill.turns || 0) + " 回合");
+    }
+    if (skill.restoreMp) {
+      lines.push("恢复法力：" + skill.restoreMp);
+    }
+    if (skill.poisonDamage) {
+      lines.push("中毒伤害：" + skill.poisonDamage + "，持续 " + (skill.poisonTurns || 0) + " 回合");
+    }
+    if (skill.regenValue) {
+      lines.push("持续恢复：" + skill.regenValue + "，持续 " + (skill.regenTurns || 0) + " 回合");
+    }
+    if (skill.inspectTags && skill.inspectTags.length) {
+      lines.push("构筑标签：" + skill.inspectTags.join(" / "));
+    }
+    return lines;
+  }
+
+  function applyBonusPackage(bonus) {
+    if (!bonus) {
+      return;
+    }
+    player.maxHp += bonus.maxHp || 0;
+    player.hp = clamp(player.hp + (bonus.maxHp || 0), 1, player.maxHp);
+    player.maxMp += bonus.maxMp || 0;
+    player.mp = clamp(player.mp + (bonus.maxMp || 0), 0, player.maxMp);
+    player.attack += bonus.attack || 0;
+    player.defense += bonus.defense || 0;
+    player.speed += bonus.speed || 0;
   }
 
   function getGameState() {
@@ -452,36 +538,79 @@
     ui.hpBar.style.width = hudView.hpPercent + "%";
     ui.mpBar.style.width = hudView.mpPercent + "%";
     ui.expBar.style.width = hudView.expPercent + "%";
+    if (ui.classResourceItem) {
+      ui.classResourceItem.classList.toggle("is-hidden", !hudView.classResourceVisible);
+      ui.classResourceItem.setAttribute("aria-hidden", hudView.classResourceVisible ? "false" : "true");
+      ui.classResourceLabel.textContent = hudView.classResourceLabel;
+      ui.classResourceValue.textContent = hudView.classResourceText;
+      ui.classResourceBar.style.width = hudView.classResourcePercent + "%";
+      ui.classResourceBar.className = "meter-fill " + (hudView.classResourceColorClass || "resource-neutral");
+    }
 
     Array.from(ui.skillButtons.querySelectorAll("button")).forEach(function updateButton(button) {
       const skill = skills[button.dataset.skillId];
-      button.disabled = !skill || player.mp < skill.cost || getGameState() !== GAME_STATE.COMBAT;
+      const lacksClassResource = skill && skill.resourceCost && (!player.classResource || player.classResource.current < skill.resourceCost);
+      button.disabled = !skill || player.mp < skill.cost || lacksClassResource || getGameState() !== GAME_STATE.COMBAT;
     });
   }
 
   function showDetailStatsOverlay() {
-    const equippedItems = player.equipment.map(function mapEquipment(id) {
+    const equippedEntries = player.equipment.map(function mapEquipment(id) {
       const item = SHOP_ITEMS.find(function findItem(entry) {
         return entry.id === id;
       });
-      return item ? item.name : id;
+      if (!item) {
+        return { name: id, meta: "", summary: "未找到装备配置。", details: [] };
+      }
+      return {
+        name: item.name,
+        meta: (item.slot || "装备") + " / " + (item.rarity || "普通"),
+        summary: item.description,
+        details: statBonusLines(item.bonus).concat(item.inspect || []),
+      };
     });
-    const learnedSkills = getPlayerSkills().map(function mapSkill(skill) {
-      return skill.name;
+
+    const relicEntries = (player.relics || []).map(function mapRelic(relicName) {
+      const relic = findRelicByName(relicName);
+      if (!relic) {
+        return { name: relicName, meta: "", summary: "未找到遗物配置。", details: [] };
+      }
+      return {
+        name: relic.name,
+        meta: "遗物 / " + (relic.rarity || "普通"),
+        summary: relic.summary || "暂无说明。",
+        details: statBonusLines(relic.bonus).concat(relic.inspect || []),
+      };
     });
-    const materialRows = Object.keys(player.materials || {}).map(function mapMaterial(name) {
-      return name + " x" + player.materials[name];
+
+    const skillEntries = getPlayerSkills().map(function mapSkill(skill) {
+      return {
+        name: skill.name,
+        meta: (skill.type === "magic" ? "法术" : skill.type === "utility" ? "战术" : "攻击") + " / " + (skill.cost || 0) + " 法力",
+        summary: skill.description,
+        details: createSkillInspectLines(skill),
+      };
     });
-    const detailView = createDetailStatsViewModel({
+
+    const materialEntries = Object.keys(player.materials || {}).map(function mapMaterial(name) {
+      return {
+        name: name,
+        meta: "材料",
+        summary: "当前持有数量：" + player.materials[name],
+        details: ["用于后续装备、遗物与成长系统。"],
+      };
+    });
+
+    const buildView = createBuildCodexViewModel({
       player: player,
-      stageLabel: getCurrentStageLabel(),
-      equippedItems: equippedItems,
-      learnedSkills: learnedSkills,
-      relics: (player.relics || []).slice(),
-      blessings: (player.runBlessings || []).slice(),
-      materials: materialRows,
+      sections: [
+        { title: "技能详情", entries: skillEntries.length ? skillEntries : [{ name: "暂无技能", meta: "", summary: "先选择职业后再查看。", details: [] }] },
+        { title: "装备详情", entries: equippedEntries.length ? equippedEntries : [{ name: "暂无装备", meta: "", summary: "当前没有已装备物品。", details: [] }] },
+        { title: "遗物详情", entries: relicEntries.length ? relicEntries : [{ name: "暂无遗物", meta: "", summary: "还没有获取遗物。", details: [] }] },
+        { title: "材料与资源", entries: materialEntries.length ? materialEntries : [{ name: "暂无材料", meta: "", summary: "后续构筑素材会显示在这里。", details: [] }] },
+      ],
     });
-    showOverlay(detailView.overlayEyebrow, detailView.overlayTitle, renderDetailStatsHtml(detailView), "关闭", hideOverlay);
+    showOverlay(buildView.overlayEyebrow, buildView.overlayTitle, renderBuildCodexHtml(buildView), "关闭", hideOverlay);
   }
 
   function pulseFlash() {
@@ -884,7 +1013,13 @@
       const button = document.createElement("button");
       button.type = "button";
       button.dataset.skillId = skill.id;
-      button.textContent = skill.name + "（消耗 " + skill.cost + " 法力）";
+      const parts = ["消耗 " + skill.cost + " 法力"];
+      if (skill.resourceCost && player.classResource && player.classResource.label) {
+        parts.push("消耗 " + skill.resourceCost + " " + player.classResource.shortLabel);
+      } else if (skill.resourceGain && player.classResource && player.classResource.label) {
+        parts.push("生成 " + skill.resourceGain + " " + player.classResource.shortLabel);
+      }
+      button.textContent = skill.name + "（" + parts.join(" / ") + "）";
       button.title = skill.description;
       button.addEventListener("click", function onSkillClick() {
         onActionButton(skill.id);

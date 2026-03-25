@@ -94,6 +94,37 @@ function createCombatController(options) {
     return Math.max(1, Math.round(base * swing));
   }
 
+  function hasClassResource() {
+    return Boolean(player.classResource && player.classResource.id);
+  }
+
+  function getClassResourceLabel() {
+    if (!hasClassResource()) {
+      return "职业资源";
+    }
+    return player.classResource.shortLabel || player.classResource.label || "职业资源";
+  }
+
+  function gainPlayerClassResource(amount) {
+    if (!hasClassResource() || !amount) {
+      return 0;
+    }
+    const previous = player.classResource.current;
+    player.classResource.current = clamp(player.classResource.current + amount, 0, player.classResource.max);
+    return player.classResource.current - previous;
+  }
+
+  function spendPlayerClassResource(amount) {
+    if (!hasClassResource() || !amount) {
+      return true;
+    }
+    if (player.classResource.current < amount) {
+      return false;
+    }
+    player.classResource.current -= amount;
+    return true;
+  }
+
   function cloneEnemyTemplate(template) {
     return {
       id: template.id,
@@ -288,7 +319,14 @@ function createCombatController(options) {
     if (!skill || state !== "combat" || !playerTurn || locked) {
       return false;
     }
+    if (skill.resourceCost && !spendPlayerClassResource(skill.resourceCost)) {
+      log(getClassResourceLabel() + "不足，无法施放 " + skill.name + "。", { type: "resource_fail", source: "player" });
+      return false;
+    }
     if (player.mp < skill.cost) {
+      if (skill.resourceCost) {
+        gainPlayerClassResource(skill.resourceCost);
+      }
       log("MP 不足，无法施放 " + skill.name + "。", { type: "resource_fail", source: "player" });
       return false;
     }
@@ -346,6 +384,13 @@ function createCombatController(options) {
       playerStatus.guard = Math.max(playerStatus.guard, skill.guard || 0.3);
       log("你施放了 " + skill.name + "，恢复了 " + healValue + " 点生命并获得减伤。", { type: "player_action", source: "player", turn: "player" });
       emitEffect("playerHeal", { amount: healValue });
+    }
+
+    if (skill.resourceGain) {
+      const gained = gainPlayerClassResource(skill.resourceGain);
+      if (gained > 0) {
+        log("你积累了 " + gained + " 点" + getClassResourceLabel() + "。", { type: "resource_gain", source: "player", turn: "player" });
+      }
     }
 
     emitStatus();

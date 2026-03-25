@@ -284,6 +284,38 @@ button,
   background: linear-gradient(90deg, #fb7185, #ef4444);
 }
 
+.meter-fill.resource-neutral {
+  background: linear-gradient(90deg, #64748b, #94a3b8);
+}
+
+.meter-fill.resource-warrior {
+  background: linear-gradient(90deg, #f97316, #ef4444);
+}
+
+.meter-fill.resource-mage {
+  background: linear-gradient(90deg, #38bdf8, #6366f1);
+}
+
+.meter-fill.resource-ranger {
+  background: linear-gradient(90deg, #22c55e, #84cc16);
+}
+
+.meter-fill.resource-cleric {
+  background: linear-gradient(90deg, #facc15, #f59e0b);
+}
+
+.meter-fill.resource-rogue {
+  background: linear-gradient(90deg, #a855f7, #ec4899);
+}
+
+.meter-fill.resource-paladin {
+  background: linear-gradient(90deg, #f59e0b, #fde68a);
+}
+
+.meter-fill.resource-druid {
+  background: linear-gradient(90deg, #10b981, #22d3ee);
+}
+
 .panel-block {
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -334,6 +366,55 @@ button,
   margin: 0;
   color: #dbeafe;
   line-height: 1.45;
+}
+
+.build-codex {
+  display: grid;
+  gap: 14px;
+  text-align: left;
+}
+
+.build-codex-section {
+  border: 1px solid rgba(51, 65, 85, 0.8);
+  border-radius: 10px;
+  padding: 10px;
+  background: rgba(2, 6, 23, 0.52);
+}
+
+.build-codex-section h3 {
+  margin: 0 0 8px;
+  color: #67e8f9;
+  font-size: 0.9rem;
+}
+
+.build-codex-entry {
+  display: grid;
+  gap: 4px;
+  padding: 8px 0;
+  border-top: 1px solid rgba(51, 65, 85, 0.5);
+}
+
+.build-codex-entry:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.build-codex-entry-title {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  color: #f8fafc;
+}
+
+.build-codex-entry-sub {
+  color: #93c5fd;
+  font-size: 0.8rem;
+}
+
+.build-codex-entry ul {
+  margin: 0;
+  padding-left: 18px;
+  color: #cbd5e1;
 }
 
 .action-menu {

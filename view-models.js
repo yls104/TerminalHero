@@ -16,8 +16,9 @@
     const stageLabel = data.stageLabel || "-";
     const stageDescription = data.stageDescription || "";
     const className = player.className || "-";
+    const buildNote = player.classBuildNote || "";
     const classSummary = player.className
-      ? player.className + "，当前位于 " + stageLabel + "。" + stageDescription
+      ? player.className + "，当前位于 " + stageLabel + "。" + stageDescription + (buildNote ? " 构筑提示：" + buildNote : "")
       : "在城镇中选择职业，确认你这轮的成长路线。";
 
     return {
@@ -34,6 +35,11 @@
       hpPercent: toPercent(player.hp || 0, player.maxHp || 0),
       mpPercent: toPercent(player.mp || 0, player.maxMp || 0),
       expPercent: toPercent(player.exp || 0, player.expToNext || 0),
+      classResourceVisible: Boolean(player.classResource && player.classResource.id),
+      classResourceLabel: player.classResource ? player.classResource.label || "职业资源" : "职业资源",
+      classResourceText: player.classResource ? (player.classResource.current || 0) + " / " + (player.classResource.max || 0) : "0 / 0",
+      classResourcePercent: toPercent(player.classResource ? player.classResource.current || 0 : 0, player.classResource ? player.classResource.max || 0 : 0),
+      classResourceColorClass: player.classResource ? player.classResource.colorClass || "resource-neutral" : "resource-neutral",
     };
   }
 
@@ -129,6 +135,37 @@
     return "<div class=\"detail-stats run-summary\">" + rows + "</div>";
   }
 
+  function createBuildCodexViewModel(input) {
+    const data = input || {};
+    const player = data.player || {};
+    return {
+      overlayEyebrow: "构筑详情",
+      overlayTitle: (player.className || "冒险者") + " 构筑手册",
+      summaryRows: [
+        { label: "职业", value: player.className || "未选择" },
+        { label: "构筑方向", value: player.classBuildNote || player.classDescription || "尚未选择职业" },
+        { label: "核心资源", value: player.classResource && player.classResource.id ? player.classResource.label + "（" + player.classResource.current + " / " + player.classResource.max + "）" : "当前职业暂无专属资源" },
+      ],
+      sections: data.sections || [],
+    };
+  }
+
+  function renderBuildCodexHtml(viewModel) {
+    const summaryHtml = (viewModel.summaryRows || []).map(function mapRow(row) {
+      return "<p><strong>" + row.label + "：</strong>" + row.value + "</p>";
+    }).join("");
+    const sectionsHtml = (viewModel.sections || []).map(function mapSection(section) {
+      const entriesHtml = (section.entries || []).map(function mapEntry(entry) {
+        const detailsHtml = (entry.details || []).map(function mapDetail(detail) {
+          return "<li>" + detail + "</li>";
+        }).join("");
+        return "<div class=\"build-codex-entry\"><div class=\"build-codex-entry-title\"><strong>" + entry.name + "</strong><span>" + (entry.meta || "") + "</span></div><div class=\"build-codex-entry-sub\">" + (entry.summary || "") + "</div><ul>" + detailsHtml + "</ul></div>";
+      }).join("");
+      return "<section class=\"build-codex-section\"><h3>" + section.title + "</h3>" + entriesHtml + "</section>";
+    }).join("");
+    return "<div class=\"build-codex\"><div class=\"detail-stats\">" + summaryHtml + "</div>" + sectionsHtml + "</div>";
+  }
+
   window.GameViewModels = {
     createHudViewModel: createHudViewModel,
     createEnemyViewModel: createEnemyViewModel,
@@ -136,5 +173,7 @@
     renderDetailStatsHtml: renderDetailStatsHtml,
     createRunSummaryViewModel: createRunSummaryViewModel,
     renderRunSummaryHtml: renderRunSummaryHtml,
+    createBuildCodexViewModel: createBuildCodexViewModel,
+    renderBuildCodexHtml: renderBuildCodexHtml,
   };
 })();

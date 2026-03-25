@@ -89,23 +89,50 @@
   const STAGE_SEQUENCE = ["verdant_grove", "sunken_archive", "ember_hollow"];
 
   const SHOP_ITEMS = [
-    { id: "iron_blade", name: "铁刃护手", cost: 42, bonus: { attack: 3 }, description: "提高稳定输出。" },
-    { id: "guard_mail", name: "守备胸甲", cost: 48, bonus: { defense: 2, maxHp: 12 }, description: "提升生存能力。" },
-    { id: "aether_band", name: "以太指环", cost: 44, bonus: { maxMp: 12, speed: 1 }, description: "提升法力循环。" },
+    {
+      id: "iron_blade",
+      name: "铁刃护手",
+      slot: "武器",
+      rarity: "普通",
+      cost: 42,
+      bonus: { attack: 3 },
+      description: "提高稳定输出。",
+      inspect: ["攻击 +3", "适合依赖稳定普攻与技能补刀的构筑。"],
+    },
+    {
+      id: "guard_mail",
+      name: "守备胸甲",
+      slot: "护甲",
+      rarity: "普通",
+      cost: 48,
+      bonus: { defense: 2, maxHp: 12 },
+      description: "提升生存能力。",
+      inspect: ["防御 +2", "生命上限 +12", "适合需要站场换输出窗口的构筑。"],
+    },
+    {
+      id: "aether_band",
+      name: "以太指环",
+      slot: "饰品",
+      rarity: "普通",
+      cost: 44,
+      bonus: { maxMp: 12, speed: 1 },
+      description: "提升法力循环。",
+      inspect: ["法力上限 +12", "速度 +1", "适合法术循环与高频技能构筑。"],
+    },
   ];
 
   const RELIC_POOLS = {
     verdant_relics: [
-      { id: "fang_totem", name: "狼牙图腾", tags: ["bleed", "burst"], rarity: "common" },
-      { id: "trail_boots", name: "巡林靴", tags: ["speed", "tempo"], rarity: "common" },
+      { id: "fang_totem", name: "狼牙图腾", tags: ["bleed", "burst"], rarity: "common", bonus: { attack: 1 }, summary: "攻击 +1，强化终结倾向。", inspect: ["攻击 +1", "适合偏爆发和斩杀的 build。"] },
+      { id: "trail_boots", name: "巡林靴", tags: ["speed", "tempo"], rarity: "common", bonus: { speed: 1, maxMp: 4 }, summary: "速度 +1，法力上限 +4。", inspect: ["速度 +1", "法力上限 +4", "适合拉扯与频繁出手构筑。"] },
     ],
     archive_relics: [
-      { id: "echo_quill", name: "回响羽笔", tags: ["spell", "combo"], rarity: "common" },
-      { id: "seal_fragment", name: "封印碎片", tags: ["shield", "control"], rarity: "rare" },
+      { id: "echo_quill", name: "回响羽笔", tags: ["spell", "combo"], rarity: "common", bonus: { attack: 1, maxMp: 6 }, summary: "攻击 +1，法力上限 +6。", inspect: ["攻击 +1", "法力上限 +6", "适合法术爆发与技能连段构筑。"] },
+      { id: "seal_fragment", name: "封印碎片", tags: ["shield", "control"], rarity: "rare", bonus: { defense: 1, maxHp: 8 }, summary: "防御 +1，生命上限 +8。", inspect: ["防御 +1", "生命上限 +8", "适合需要稳住节奏的防守型构筑。"] },
     ],
     ember_relics: [
-      { id: "slag_core", name: "炉渣核心", tags: ["burn", "power"], rarity: "common" },
-      { id: "tyrant_horn", name: "暴君之角", tags: ["berserk", "risk"], rarity: "rare" },
+      { id: "slag_core", name: "炉渣核心", tags: ["burn", "power"], rarity: "common", bonus: { attack: 2, maxHp: 6 }, summary: "攻击 +2，生命上限 +6。", inspect: ["攻击 +2", "生命上限 +6", "适合高压输出构筑。"] },
+      { id: "tyrant_horn", name: "暴君之角", tags: ["berserk", "risk"], rarity: "rare", bonus: { attack: 3, defense: -1 }, summary: "攻击 +3，防御 -1。", inspect: ["攻击 +3", "防御 -1", "高风险高回报的极端爆发遗物。"] },
     ],
   };
 
@@ -416,6 +443,22 @@
     return encounter;
   }
 
+  function getRelicCatalog() {
+    const catalog = {};
+    Object.keys(RELIC_POOLS).forEach(function eachPool(poolId) {
+      (RELIC_POOLS[poolId] || []).forEach(function eachRelic(relic) {
+        catalog[relic.id] = relic;
+        catalog[relic.name] = relic;
+      });
+    });
+    return catalog;
+  }
+
+  function findRelicByName(relicKey) {
+    const catalog = getRelicCatalog();
+    return catalog[relicKey] || null;
+  }
+
   function createEventRuntime(template, stageMeta) {
     return {
       id: template.id,
@@ -711,5 +754,7 @@
     createStageInstance: createStageInstance,
     createEncounterRuntime: createEncounterRuntime,
     createEventRuntime: createEventRuntime,
+    getRelicCatalog: getRelicCatalog,
+    findRelicByName: findRelicByName,
   };
 })();
