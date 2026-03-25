@@ -459,6 +459,10 @@ button,
   margin: 0;
 }
 
+.battle-log p.is-emphasis {
+  color: #f8fafc;
+}
+
 .rotate-notice {
   display: none;
   position: fixed;

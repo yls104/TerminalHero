@@ -19,6 +19,9 @@ const PLAYER_TEMPLATE = {
   unlockedSkills: [],
   learnedUltimate: false,
   equipment: [],
+  relics: [],
+  materials: {},
+  runBlessings: [],
 };
 
 const skills = {

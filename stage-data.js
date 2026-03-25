@@ -1,6 +1,6 @@
 (function exposeStageData() {
   const mapApi = window.GameMap || {};
-  const TILE = mapApi.TILE || { FLOOR: 0, WALL: 1, PLAYER_START: 2, ENEMY: 3, HEAL_POINT: 4, BOSS: 5, PORTAL: 6 };
+  const TILE = mapApi.TILE || { FLOOR: 0, WALL: 1, PLAYER_START: 2, ENEMY: 3, HEAL_POINT: 4, BOSS: 5, PORTAL: 6, ELITE: 7, EVENT: 8 };
   const MAP_COLS = mapApi.MAP_COLS || 20;
   const MAP_ROWS = mapApi.MAP_ROWS || 15;
 
@@ -111,23 +111,160 @@
 
   const EVENT_POOLS = {
     verdant_events: [
-      { id: "hunter_trap", name: "猎人陷阱", type: "risk_reward", weight: 3, tags: ["damage", "loot"] },
-      { id: "spirit_spring", name: "林泉祝福", type: "recovery", weight: 2, tags: ["heal", "mana"] },
+      {
+        id: "hunter_trap",
+        name: "猎人陷阱",
+        type: "risk_reward",
+        weight: 3,
+        tags: ["damage", "loot"],
+        prompt: "一处被藤蔓遮掩的猎人陷阱卡在古树之间。你可以冒险拆开它，也可以稳妥绕路。",
+        choices: [
+          {
+            label: "拆开陷阱（失去 14 生命，获得金币与材料）",
+            effects: [
+              { type: "damage", value: 14 },
+              { type: "gold", min: 28, max: 40 },
+              { type: "material", itemId: "fang_material", label: "狼牙素材", amount: 1 },
+            ],
+          },
+          {
+            label: "谨慎绕开（恢复 10 法力）",
+            effects: [
+              { type: "mp", value: 10 },
+            ],
+          },
+        ],
+      },
+      {
+        id: "spirit_spring",
+        name: "林泉祝福",
+        type: "recovery",
+        weight: 2,
+        tags: ["heal", "mana"],
+        prompt: "月色落在泉眼上，灵泉泛起淡青色的光。你可以直接饮下，也可以收集泉滴作储备。",
+        choices: [
+          {
+            label: "饮下泉水（恢复生命与法力）",
+            effects: [
+              { type: "heal", value: 28 },
+              { type: "mp", value: 12 },
+            ],
+          },
+          {
+            label: "收集泉滴（获得技能点）",
+            effects: [
+              { type: "skill_point", value: 1 },
+            ],
+          },
+        ],
+      },
     ],
     archive_events: [
-      { id: "sealed_shelf", name: "封印书架", type: "skill_test", weight: 3, tags: ["knowledge", "choice"] },
-      { id: "memory_echo", name: "残响回廊", type: "story", weight: 2, tags: ["lore", "buff"] },
+      {
+        id: "sealed_shelf",
+        name: "封印书架",
+        type: "skill_test",
+        weight: 3,
+        tags: ["knowledge", "choice"],
+        prompt: "书库深处的封印书架仍在嗡鸣。你可以破解封印学习心得，也可以只取走周围散落的补给。",
+        choices: [
+          {
+            label: "破解封印（获得技能点与法力）",
+            effects: [
+              { type: "skill_point", value: 1 },
+              { type: "mp", value: 8 },
+            ],
+          },
+          {
+            label: "收集残页（获得金币与墨卷）",
+            effects: [
+              { type: "gold", min: 24, max: 36 },
+              { type: "material", itemId: "ink_scroll", label: "墨卷残页", amount: 1 },
+            ],
+          },
+        ],
+      },
+      {
+        id: "memory_echo",
+        name: "残响回廊",
+        type: "story",
+        weight: 2,
+        tags: ["lore", "buff"],
+        prompt: "回廊里残留着古代施法者的低语。你可以静听它们的节奏，让自己进入更专注的状态。",
+        choices: [
+          {
+            label: "聆听残响（获得经验与法力）",
+            effects: [
+              { type: "exp", value: 16 },
+              { type: "mp", value: 10 },
+            ],
+          },
+          {
+            label: "记录咒痕（法力上限 +4）",
+            effects: [
+              { type: "stat", stat: "maxMp", amount: 4, label: "咒痕储能" },
+            ],
+          },
+        ],
+      },
     ],
     ember_events: [
-      { id: "molten_shrine", name: "熔火祭坛", type: "sacrifice", weight: 3, tags: ["hp_cost", "power"] },
-      { id: "war_drum", name: "战鼓余响", type: "ambush", weight: 2, tags: ["elite", "burst"] },
+      {
+        id: "molten_shrine",
+        name: "熔火祭坛",
+        type: "sacrifice",
+        weight: 3,
+        tags: ["hp_cost", "power"],
+        prompt: "裂谷深处的祭坛仍在喷涌余火。只要献上鲜血，就能换来更强的斩杀力量。",
+        choices: [
+          {
+            label: "献上血祭（失去 18 生命，攻击 +2）",
+            effects: [
+              { type: "damage", value: 18 },
+              { type: "stat", stat: "attack", amount: 2, label: "余火狂热" },
+            ],
+          },
+          {
+            label: "稳妥取火（获得金币与余烬碎片）",
+            effects: [
+              { type: "gold", min: 30, max: 44 },
+              { type: "material", itemId: "ember_shard", label: "余烬碎片", amount: 1 },
+            ],
+          },
+        ],
+      },
+      {
+        id: "war_drum",
+        name: "战鼓余响",
+        type: "ambush",
+        weight: 2,
+        tags: ["elite", "burst"],
+        prompt: "旧战鼓仍在岩壁间回响。你可以顺着鼓点逼迫自己进入战斗姿态，也可以趁机收集战场遗物。",
+        choices: [
+          {
+            label: "回应战鼓（失去 10 生命，速度 +1，获得技能点）",
+            effects: [
+              { type: "damage", value: 10 },
+              { type: "stat", stat: "speed", amount: 1, label: "战鼓疾行" },
+              { type: "skill_point", value: 1 },
+            ],
+          },
+          {
+            label: "搜刮遗物（获得金币与材料）",
+            effects: [
+              { type: "gold", min: 26, max: 38 },
+              { type: "material", itemId: "ember_shard", label: "余烬碎片", amount: 1 },
+            ],
+          },
+        ],
+      },
     ],
   };
 
   const DROP_TABLES = {
     verdant_common: [
       { id: "gold_small", type: "gold", min: 10, max: 18, weight: 5 },
-      { id: "fang_material", type: "material", amount: 1, weight: 3 },
+      { id: "fang_material", type: "material", label: "狼牙素材", amount: 1, weight: 3 },
     ],
     verdant_boss: [
       { id: "gold_large", type: "gold", min: 48, max: 72, weight: 5 },
@@ -135,7 +272,7 @@
     ],
     archive_common: [
       { id: "gold_small", type: "gold", min: 12, max: 20, weight: 5 },
-      { id: "ink_scroll", type: "material", amount: 1, weight: 3 },
+      { id: "ink_scroll", type: "material", label: "墨卷残页", amount: 1, weight: 3 },
     ],
     archive_boss: [
       { id: "gold_large", type: "gold", min: 58, max: 84, weight: 5 },
@@ -143,7 +280,7 @@
     ],
     ember_common: [
       { id: "gold_small", type: "gold", min: 14, max: 24, weight: 5 },
-      { id: "ember_shard", type: "material", amount: 1, weight: 3 },
+      { id: "ember_shard", type: "material", label: "余烬碎片", amount: 1, weight: 3 },
     ],
     ember_boss: [
       { id: "gold_large", type: "gold", min: 72, max: 104, weight: 5 },
@@ -212,6 +349,26 @@
     return list[randInt(0, list.length - 1)];
   }
 
+  function pickWeighted(list) {
+    if (!Array.isArray(list) || list.length === 0) {
+      return null;
+    }
+    const totalWeight = list.reduce(function sum(total, item) {
+      return total + (item.weight || 1);
+    }, 0);
+    if (totalWeight <= 0) {
+      return list[0];
+    }
+    let cursor = Math.random() * totalWeight;
+    for (let i = 0; i < list.length; i += 1) {
+      cursor -= list[i].weight || 1;
+      if (cursor <= 0) {
+        return list[i];
+      }
+    }
+    return list[list.length - 1];
+  }
+
   function shuffle(list) {
     const clone = list.slice();
     for (let i = clone.length - 1; i > 0; i -= 1) {
@@ -257,6 +414,27 @@
     encounter.eventPoolId = stageMeta.eventPoolId || "";
     encounter.rewardProfile = encounter.rewardProfile || (encounter.encounterType === "elite" ? "elite_reward" : "standard_reward");
     return encounter;
+  }
+
+  function createEventRuntime(template, stageMeta) {
+    return {
+      id: template.id,
+      name: template.name,
+      type: template.type || "event",
+      tags: template.tags ? template.tags.slice() : [],
+      prompt: template.prompt || "",
+      choices: (template.choices || []).map(function mapChoice(choice) {
+        return {
+          label: choice.label,
+          effects: (choice.effects || []).map(function copyEffect(effect) {
+            return Object.assign({}, effect);
+          }),
+        };
+      }),
+      eventPoolId: stageMeta.eventPoolId || "",
+      relicPoolId: stageMeta.relicPoolId || "",
+      dropTableId: stageMeta.dropTableId || "",
+    };
   }
 
   function getStageMeta(stageName) {
@@ -339,6 +517,27 @@
     return picks;
   }
 
+  function chooseNodeSpawns(cells, start, count, blocked, minDistance) {
+    const blockedKeys = blocked || {};
+    const threshold = minDistance || 4;
+    const pool = shuffle(cells.filter(function filterCell(cell) {
+      return manhattanDistance(cell, start) >= threshold && !blockedKeys[positionKey(cell.x, cell.y)];
+    }));
+    const picks = [];
+    for (let i = 0; i < pool.length && picks.length < count; i += 1) {
+      const cell = pool[i];
+      const tooClose = picks.some(function compare(other) {
+        return manhattanDistance(other, cell) <= 2;
+      });
+      if (tooClose) {
+        continue;
+      }
+      picks.push(cell);
+      blockedKeys[positionKey(cell.x, cell.y)] = true;
+    }
+    return picks;
+  }
+
   function generateFieldStage(stageName) {
     const meta = getStageMeta(stageName);
     const mapData = createSolidMap();
@@ -378,6 +577,7 @@
     }
 
     const encounterPool = {};
+    const eventNodes = {};
     const spawnCount = Math.min(randInt(meta.enemyCount[0], meta.enemyCount[1]), floors.length - 3);
     const enemySpawns = chooseEnemySpawns(floors, start, spawnCount, blocked);
     enemySpawns.forEach(function spawnEnemy(cell) {
@@ -387,12 +587,34 @@
       });
     });
 
+    const elitePool = ELITE_TEMPLATES[meta.elitePoolId] || [];
+    const eliteSpawns = chooseNodeSpawns(floors, start, elitePool.length ? 1 : 0, blocked, 6);
+    eliteSpawns.forEach(function spawnElite(cell) {
+      mapData[cell.y][cell.x] = TILE.ELITE;
+      encounterPool[positionKey(cell.x, cell.y)] = createEncounterRuntime(pickRandom(elitePool), meta, {
+        encounterType: "elite",
+      });
+    });
+
+    const eventPool = EVENT_POOLS[meta.eventPoolId] || [];
+    const eventTarget = Math.min(eventPool.length, randInt(1, Math.min(2, Math.max(1, eventPool.length))));
+    const eventSpawns = chooseNodeSpawns(floors, start, eventTarget, blocked, 3);
+    eventSpawns.forEach(function spawnEvent(cell) {
+      const eventTemplate = pickWeighted(eventPool);
+      if (!eventTemplate) {
+        return;
+      }
+      mapData[cell.y][cell.x] = TILE.EVENT;
+      eventNodes[positionKey(cell.x, cell.y)] = createEventRuntime(eventTemplate, meta);
+    });
+
     mapData[start.y][start.x] = TILE.PLAYER_START;
     return {
       map: mapData,
       start: start,
       portalPos: portalPos,
       encounters: encounterPool,
+      events: eventNodes,
       contentPools: {
         eventPoolId: meta.eventPoolId || "",
         relicPoolId: meta.relicPoolId || "",
@@ -437,6 +659,7 @@
       start: start,
       portalPos: null,
       encounters: encounterPool,
+      events: {},
       contentPools: {
         eventPoolId: meta.eventPoolId || "",
         relicPoolId: meta.relicPoolId || "",
@@ -459,6 +682,7 @@
       return {
         map: cloneMap(STAGE_MAPS.azure_town),
         encounters: {},
+        events: {},
         portalPos: null,
         contentPools: {
           eventPoolId: "",
@@ -486,5 +710,6 @@
     createStageProgress: createStageProgress,
     createStageInstance: createStageInstance,
     createEncounterRuntime: createEncounterRuntime,
+    createEventRuntime: createEventRuntime,
   };
 })();

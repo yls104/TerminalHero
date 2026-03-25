@@ -6,6 +6,8 @@ const TILE = {
   HEAL_POINT: 4,
   BOSS: 5,
   PORTAL: 6,
+  ELITE: 7,
+  EVENT: 8,
 };
 
 const TILE_SIZE = 32;
@@ -135,8 +137,14 @@ function getTileAssetKey(tile, stageTheme) {
   if (tile === TILE.ENEMY) {
     return themeAssets.enemy;
   }
+  if (tile === TILE.ELITE) {
+    return "elite";
+  }
   if (tile === TILE.HEAL_POINT) {
     return "heal";
+  }
+  if (tile === TILE.EVENT) {
+    return "event";
   }
   if (tile === TILE.BOSS) {
     return themeAssets.boss;
@@ -169,8 +177,12 @@ function drawTileSprite(ctx, assetKey, x, y, tile) {
 
   if (tile === TILE.ENEMY) {
     drawTileMarker(ctx, x, y, "#ef4444", "E");
+  } else if (tile === TILE.ELITE) {
+    drawTileMarker(ctx, x, y, "#f59e0b", "!");
   } else if (tile === TILE.HEAL_POINT) {
     drawTileMarker(ctx, x, y, "#22c55e", "H");
+  } else if (tile === TILE.EVENT) {
+    drawTileMarker(ctx, x, y, "#38bdf8", "?");
   } else if (tile === TILE.BOSS) {
     drawTileMarker(ctx, x, y, "#a855f7", "B");
   } else if (tile === TILE.PORTAL) {
@@ -197,8 +209,10 @@ function loadMapAssets() {
     wall: "./assets/tiles/wall.svg",
     player: "./assets/tiles/player.svg",
     enemy: "./assets/tiles/enemy.svg",
+    elite: "./assets/tiles/elite.svg",
     heal: "./assets/tiles/heal.svg",
     boss: "./assets/tiles/boss.svg",
+    event: "./assets/tiles/event.svg",
     portal: "./assets/tiles/portal.svg",
     town_floor: "./assets/tiles/town_floor.svg",
     town_wall: "./assets/tiles/town_wall.svg",

@@ -1,6 +1,6 @@
 (function bootstrap() {
   const PLAYER_MOVE_DURATION = 112;
-  const TILE = (window.GameMap && window.GameMap.TILE) || { FLOOR: 0, WALL: 1, PLAYER_START: 2, ENEMY: 3, HEAL_POINT: 4, BOSS: 5, PORTAL: 6 };
+  const TILE = (window.GameMap && window.GameMap.TILE) || { FLOOR: 0, WALL: 1, PLAYER_START: 2, ENEMY: 3, HEAL_POINT: 4, BOSS: 5, PORTAL: 6, ELITE: 7, EVENT: 8 };
   const entitiesApi = window.GameEntities || {};
   const mapApi = window.GameMap || {};
   const combatApi = window.CombatSystem || {};
@@ -34,8 +34,10 @@
   const STAGE_META = stageApi.STAGE_META || {};
   const STAGE_SEQUENCE = stageApi.STAGE_SEQUENCE || [];
   const SHOP_ITEMS = stageApi.SHOP_ITEMS || [];
+  const RELIC_POOLS = stageApi.RELIC_POOLS || {};
+  const DROP_TABLES = stageApi.DROP_TABLES || {};
   const getStageMeta = stageApi.getStageMeta || function fallbackStageMeta(stageName) { return STAGE_META[stageName] || {}; };
-  const createStageInstance = stageApi.createStageInstance || function fallbackStageInstance() { return { map: [], encounters: {}, portalPos: null }; };
+  const createStageInstance = stageApi.createStageInstance || function fallbackStageInstance() { return { map: [], encounters: {}, events: {}, portalPos: null, contentPools: {} }; };
   const createStageProgress = stageApi.createStageProgress || function fallbackProgress() { return { availableStages: [], clearedBosses: {} }; };
   const positionKey = stageApi.positionKey || function fallbackPositionKey(x, y) { return x + "," + y; };
 
@@ -131,6 +133,8 @@
   let currentMap = [];
   let currentPortalPos = null;
   let currentEncounterPool = {};
+  let currentEventPool = {};
+  let currentStageContent = { eventPoolId: "", relicPoolId: "", dropTableId: "", elitePoolId: "" };
   let renderPosition = { x: 1, y: 1 };
   let overlayAction = null;
   let combatSnapshot = null;
@@ -140,6 +144,15 @@
   let preferredMoveKey = "";
   let skillMenuOpen = false;
   const heldKeys = {};
+  const runSummary = {
+    combatsWon: 0,
+    elitesDefeated: 0,
+    eventsResolved: 0,
+    rewardsClaimed: 0,
+    goldEarned: 0,
+    relicsFound: 0,
+    materialsFound: 0,
+  };
   const movementState = {
     active: false,
     elapsed: 0,
@@ -152,6 +165,70 @@
 
   function clamp(value, min, max) {
     return Math.max(min, Math.min(max, value));
+  }
+
+  function randInt(min, max) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+  }
+
+  function ensureRunCollections() {
+    if (!Array.isArray(player.relics)) {
+      player.relics = [];
+    }
+    if (!player.materials || typeof player.materials !== "object") {
+      player.materials = {};
+    }
+    if (!Array.isArray(player.runBlessings)) {
+      player.runBlessings = [];
+    }
+  }
+
+  function addMaterial(materialLabel, amount) {
+    const count = amount || 1;
+    const key = materialLabel || "未知材料";
+    player.materials[key] = (player.materials[key] || 0) + count;
+    runSummary.materialsFound += count;
+  }
+
+  function addRelic(relicName) {
+    if (!relicName) {
+      return false;
+    }
+    if (player.relics.includes(relicName)) {
+      return false;
+    }
+    player.relics.push(relicName);
+    runSummary.relicsFound += 1;
+    return true;
+  }
+
+  function addBlessing(label) {
+    if (!label) {
+      return;
+    }
+    if (!player.runBlessings.includes(label)) {
+      player.runBlessings.push(label);
+    }
+  }
+
+  function rollWeightedEntry(entries) {
+    if (!Array.isArray(entries) || entries.length === 0) {
+      return null;
+    }
+    const totalWeight = entries.reduce(function sum(total, entry) {
+      return total + (entry.weight || 1);
+    }, 0);
+    if (totalWeight <= 0) {
+      return entries[0];
+    }
+    let cursor = Math.random() * totalWeight;
+    for (let i = 0; i < entries.length; i += 1) {
+      cursor -= entries[i].weight || 1;
+      if (cursor <= 0) {
+        return entries[i];
+      }
+    }
+    return entries[entries.length - 1];
   }
 
   function getGameState() {
@@ -357,11 +434,17 @@
     const learnedSkills = getPlayerSkills().map(function mapSkill(skill) {
       return skill.name;
     });
+    const materialRows = Object.keys(player.materials || {}).map(function mapMaterial(name) {
+      return name + " x" + player.materials[name];
+    });
     const detailView = createDetailStatsViewModel({
       player: player,
       stageLabel: getCurrentStageLabel(),
       equippedItems: equippedItems,
       learnedSkills: learnedSkills,
+      relics: (player.relics || []).slice(),
+      blessings: (player.runBlessings || []).slice(),
+      materials: materialRows,
     });
     showOverlay(detailView.overlayEyebrow, detailView.overlayTitle, renderDetailStatsHtml(detailView), "关闭", hideOverlay);
   }
@@ -454,7 +537,7 @@
     drawPortrait(enemy ? (enemy.assetKey || (enemy.isBoss ? "boss" : "enemy")) : "enemy", canvas.width - 236, 94, 124, "#ef4444");
     ctx.fillStyle = "#f8fafc";
     ctx.font = "bold 22px Consolas, monospace";
-    ctx.fillText(enemy && enemy.isBoss ? "首领战" : "战斗中", 24, 34);
+    ctx.fillText(enemy && enemy.isBoss ? "首领战" : enemy && enemy.encounterType === "elite" ? "精英战" : "战斗中", 24, 34);
     ctx.font = "15px Consolas, monospace";
     ctx.fillText((enemy ? enemy.name : "敌人") + "  " + (enemy ? enemy.hp + "/" + enemy.maxHp : ""), 28, 66);
     ctx.fillText(player.name + "  " + player.hp + "/" + player.maxHp, canvas.width - 250, canvas.height - 30);
@@ -469,6 +552,8 @@
     currentMap = generatedStage.map;
     currentPortalPos = generatedStage.portalPos || null;
     currentEncounterPool = generatedStage.encounters || {};
+    currentEventPool = generatedStage.events || {};
+    currentStageContent = generatedStage.contentPools || { eventPoolId: "", relicPoolId: "", dropTableId: "", elitePoolId: "" };
 
     for (let y = 0; y < currentMap.length; y += 1) {
       for (let x = 0; x < currentMap[y].length; x += 1) {
@@ -499,6 +584,10 @@
     return total;
   }
 
+  function countRemainingHostiles() {
+    return countTiles(TILE.ENEMY) + countTiles(TILE.ELITE);
+  }
+
   function showChoiceButtons(choices) {
     const buttonsHtml = choices.map(function mapChoice(choice, index) {
       return "<button type=\"button\" class=\"overlay-button overlay-choice\" data-choice-index=\"" + index + "\">" + choice.label + "</button>";
@@ -515,6 +604,229 @@
         }
       });
     });
+  }
+
+  function applyRewardEffect(effect, sourceLabel) {
+    if (!effect) {
+      return;
+    }
+    ensureRunCollections();
+
+    if (effect.type === "heal") {
+      const amount = effect.value || 0;
+      player.hp = clamp(player.hp + amount, 0, player.maxHp);
+      appendLog((sourceLabel || "奖励") + "：恢复了 " + amount + " 点生命。");
+      return;
+    }
+    if (effect.type === "mp") {
+      const amount = effect.value || 0;
+      player.mp = clamp(player.mp + amount, 0, player.maxMp);
+      appendLog((sourceLabel || "奖励") + "：恢复了 " + amount + " 点法力。");
+      return;
+    }
+    if (effect.type === "damage") {
+      const amount = effect.value || 0;
+      player.hp = Math.max(1, clamp(player.hp - amount, 0, player.maxHp));
+      appendLog((sourceLabel || "事件") + "：你失去了 " + amount + " 点生命。");
+      return;
+    }
+    if (effect.type === "gold") {
+      const amount = typeof effect.value === "number" ? effect.value : randInt(effect.min || 0, effect.max || effect.min || 0);
+      player.gold += amount;
+      runSummary.goldEarned += amount;
+      appendLog((sourceLabel || "奖励") + "：获得金币 " + amount + "。");
+      return;
+    }
+    if (effect.type === "skill_point") {
+      const amount = effect.value || 1;
+      player.skillPoints += amount;
+      appendLog((sourceLabel || "奖励") + "：获得技能点 " + amount + "。");
+      return;
+    }
+    if (effect.type === "exp") {
+      const amount = effect.value || 0;
+      player.exp += amount;
+      appendLog((sourceLabel || "奖励") + "：额外获得经验 " + amount + "。");
+      while (player.exp >= player.expToNext) {
+        player.exp -= player.expToNext;
+        player.level += 1;
+        player.maxHp += 18;
+        player.maxMp += 8;
+        player.attack += 4;
+        player.defense += 2;
+        player.speed += 1;
+        player.hp = player.maxHp;
+        player.mp = player.maxMp;
+        player.expToNext = Math.floor(player.expToNext * 1.35);
+        onLevelUp();
+      }
+      return;
+    }
+    if (effect.type === "stat") {
+      const statKey = effect.stat;
+      const amount = effect.amount || 0;
+      if (!statKey || typeof player[statKey] !== "number") {
+        return;
+      }
+      player[statKey] += amount;
+      if (statKey === "maxHp") {
+        player.hp = clamp(player.hp + amount, 1, player.maxHp);
+      } else if (statKey === "maxMp") {
+        player.mp = clamp(player.mp + amount, 0, player.maxMp);
+      }
+      addBlessing(effect.label || (statKey + "+" + amount));
+      appendLog((sourceLabel || "祝福") + "： " + (effect.label || statKey + " +" + amount) + "。");
+      return;
+    }
+    if (effect.type === "material") {
+      const label = effect.label || effect.itemId || "素材";
+      const amount = effect.amount || 1;
+      addMaterial(label, amount);
+      appendLog((sourceLabel || "奖励") + "：获得" + label + " x" + amount + "。");
+      return;
+    }
+    if (effect.type === "relic") {
+      const relicList = RELIC_POOLS[effect.poolId] || [];
+      const available = relicList.filter(function filterRelic(relic) {
+        return !player.relics.includes(relic.name);
+      });
+      const relic = available[Math.floor(Math.random() * available.length)] || relicList[0];
+      if (!relic) {
+        return;
+      }
+      if (addRelic(relic.name)) {
+        appendLog((sourceLabel || "奖励") + "：获得遗物「" + relic.name + "」。");
+      } else {
+        player.gold += 18;
+        runSummary.goldEarned += 18;
+        appendLog((sourceLabel || "奖励") + "：遗物已拥有，改为获得金币 18。");
+      }
+    }
+  }
+
+  function applyEffectBundle(effects, sourceLabel) {
+    (effects || []).forEach(function eachEffect(effect) {
+      applyRewardEffect(effect, sourceLabel);
+    });
+    syncStatusPanel();
+  }
+
+  function resolveDropReward(dropTableId) {
+    const table = DROP_TABLES[dropTableId] || [];
+    const rolled = rollWeightedEntry(table);
+    if (!rolled) {
+      return {
+        label: "战场补给（恢复 20 生命 / 8 法力）",
+        effects: [{ type: "heal", value: 20 }, { type: "mp", value: 8 }],
+      };
+    }
+    if (rolled.type === "gold") {
+      const amount = randInt(rolled.min || 0, rolled.max || rolled.min || 0);
+      return {
+        label: "金币赏金（+" + amount + " 金币）",
+        effects: [{ type: "gold", value: amount }],
+      };
+    }
+    if (rolled.type === "material") {
+      return {
+        label: "战利材料（" + (rolled.label || "素材") + "）",
+        effects: [{ type: "material", itemId: rolled.id, label: rolled.label || rolled.id, amount: rolled.amount || 1 }],
+      };
+    }
+    if (rolled.type === "relic") {
+      const relicList = RELIC_POOLS[rolled.poolId] || [];
+      const preview = relicList.find(function findRelic(relic) {
+        return !player.relics.includes(relic.name);
+      }) || relicList[0];
+      return {
+        label: "遗物抉择（" + (preview ? preview.name : "随机遗物") + "）",
+        effects: [{ type: "relic", poolId: rolled.poolId }],
+      };
+    }
+    return {
+      label: "战场补给（恢复 20 生命 / 8 法力）",
+      effects: [{ type: "heal", value: 20 }, { type: "mp", value: 8 }],
+    };
+  }
+
+  function buildVictoryChoices(enemy) {
+    const encounterType = enemy && enemy.encounterType ? enemy.encounterType : "normal";
+    const choices = [
+      {
+        label: encounterType === "boss" ? "凯旋补给（回满生命与法力）" : "补给包（恢复 24 生命 / 10 法力）",
+        effects: encounterType === "boss"
+          ? [{ type: "heal", value: player.maxHp }, { type: "mp", value: player.maxMp }]
+          : [{ type: "heal", value: 24 }, { type: "mp", value: 10 }],
+      },
+      encounterType === "elite" || encounterType === "boss"
+        ? { label: "战术心得（+1 技能点）", effects: [{ type: "skill_point", value: 1 }] }
+        : { label: "赏金加码（+22 金币）", effects: [{ type: "gold", value: 22 }] },
+      resolveDropReward((enemy && enemy.dropTableId) || currentStageContent.dropTableId),
+    ];
+
+    if (encounterType === "normal" && choices[2].effects[0] && choices[2].effects[0].type === "gold") {
+      choices[2] = {
+        label: "战斗心得（攻击 +1）",
+        effects: [{ type: "stat", stat: "attack", amount: 1, label: "战斗心得" }],
+      };
+    }
+
+    if (encounterType === "boss") {
+      choices[1] = { label: "成长契机（+1 技能点，生命上限 +6）", effects: [{ type: "skill_point", value: 1 }, { type: "stat", stat: "maxHp", amount: 6, label: "胜利余辉" }] };
+    }
+    return choices;
+  }
+
+  function showVictoryRewardOverlay(enemy, onComplete) {
+    const choices = buildVictoryChoices(enemy).map(function mapChoice(choice) {
+      return {
+        label: choice.label,
+        onClick: function takeReward() {
+          runSummary.rewardsClaimed += 1;
+          hideOverlay();
+          applyEffectBundle(choice.effects, "战后奖励");
+          if (onComplete) {
+            onComplete();
+          }
+        },
+      };
+    });
+
+    showOverlay("战后奖励", "挑选一项战利品", "这一战已经结束，从下列奖励中选择一项带走。" + showChoiceButtons(choices), "放弃奖励", function skipReward() {
+      hideOverlay();
+      appendLog("你放弃了本次额外奖励。");
+      if (onComplete) {
+        onComplete();
+      }
+    });
+    bindOverlayChoices(choices);
+  }
+
+  function resolveEventChoice(eventNode, choice, x, y) {
+    currentMap[y][x] = TILE.FLOOR;
+    delete currentEventPool[positionKey(x, y)];
+    runSummary.eventsResolved += 1;
+    hideOverlay();
+    appendLog("你处理了事件：" + eventNode.name + "。");
+    applyEffectBundle(choice.effects, eventNode.name);
+  }
+
+  function showStageEvent(x, y) {
+    const eventNode = currentEventPool[positionKey(x, y)];
+    if (!eventNode) {
+      return;
+    }
+    const choices = (eventNode.choices || []).map(function mapChoice(choice) {
+      return {
+        label: choice.label,
+        onClick: function chooseEventOption() {
+          resolveEventChoice(eventNode, choice, x, y);
+        },
+      };
+    });
+
+    showOverlay("事件节点", eventNode.name, eventNode.prompt + showChoiceButtons(choices), "稍后再来", hideOverlay);
+    bindOverlayChoices(choices);
   }
 
   function renderSkillButtons() {
@@ -616,7 +928,7 @@
       };
     });
 
-    showOverlay("守门人", "选择试炼路线", "每次进入关卡都会重新生成地图与怪物，清光小怪后才会开启 Boss 传送门。" + showChoiceButtons(choices), "留下", hideOverlay);
+    showOverlay("守门人", "选择试炼路线", "每次进入关卡都会重新生成地图、精英和事件节点。清光小怪与精英后，Boss 传送门才会开启。" + showChoiceButtons(choices), "留下", hideOverlay);
     bindOverlayChoices(choices);
   }
 
@@ -632,7 +944,7 @@
     if (currentStageMode !== "field" || !currentPortalPos) {
       return;
     }
-    if (countTiles(TILE.ENEMY) > 0 || currentMap[currentPortalPos.y][currentPortalPos.x] === TILE.PORTAL) {
+    if (countRemainingHostiles() > 0 || currentMap[currentPortalPos.y][currentPortalPos.x] === TILE.PORTAL) {
       return;
     }
     currentMap[currentPortalPos.y][currentPortalPos.x] = TILE.PORTAL;
@@ -697,11 +1009,15 @@
       }
       return;
     }
-    if (tile === TILE.ENEMY) {
+    if (tile === TILE.EVENT) {
+      showStageEvent(x, y);
+      return;
+    }
+    if (tile === TILE.ENEMY || tile === TILE.ELITE) {
       encounterPos = { x: x, y: y };
       if (combatController) {
         combatController.startCombat({
-          tile: TILE.ENEMY,
+          tile: tile,
           stageName: currentStageName,
           enemyTemplate: currentEncounterPool[positionKey(x, y)],
         });
@@ -968,6 +1284,7 @@
         onCombatEnd: function onCombatEnd(payload) {
           const result = payload.result;
           const bossWin = Boolean(payload.enemy && payload.enemy.isBoss);
+          const enemy = payload.enemy || null;
 
           if (result === "victory") {
             if (encounterPos) {
@@ -975,27 +1292,32 @@
               delete currentEncounterPool[positionKey(encounterPos.x, encounterPos.y)];
             }
             player.gold += payload.enemy.gold || 0;
+            runSummary.goldEarned += payload.enemy.gold || 0;
+            runSummary.combatsWon += 1;
+            if (enemy && enemy.encounterType === "elite") {
+              runSummary.elitesDefeated += 1;
+            }
             appendLog("获得金币 " + (payload.enemy.gold || 0) + "。");
             unlockPortalIfNeeded();
 
-            if (bossWin) {
-              progress.clearedBosses[currentStageName] = true;
-              const currentStageIndex = STAGE_SEQUENCE.indexOf(currentStageName);
-              const nextStage = STAGE_SEQUENCE[currentStageIndex + 1];
-              if (nextStage) {
-                unlockStage(nextStage, "你解锁了新区域：" + getStageMeta(nextStage).label + "。");
+            showVictoryRewardOverlay(enemy, function afterReward() {
+              if (bossWin) {
+                progress.clearedBosses[currentStageName] = true;
+                const currentStageIndex = STAGE_SEQUENCE.indexOf(currentStageName);
+                const nextStage = STAGE_SEQUENCE[currentStageIndex + 1];
+                if (nextStage) {
+                  unlockStage(nextStage, "你解锁了新区域：" + getStageMeta(nextStage).label + "。");
+                }
+                showOverlay("首领击破", "凯旋而归", "首领已被击败。你带着本轮战利品回到城镇，准备下一次更深的挑战。", "返回城镇", function returnTown() {
+                  hideOverlay();
+                  loadStage("azure_town");
+                  setGameState(GAME_STATE.EXPLORE);
+                });
+              } else {
+                appendLog(enemy && enemy.encounterType === "elite" ? "你击溃了精英敌人，战场节奏开始向你倾斜。" : "你带着战利品继续推进。");
+                setGameState(GAME_STATE.EXPLORE);
               }
-              showOverlay("首领击破", "凯旋而归", "首领已被击败。现在你会返回城镇进行补给、成长和下一轮挑战。", "返回城镇", function returnTown() {
-                hideOverlay();
-                loadStage("azure_town");
-                setGameState(GAME_STATE.EXPLORE);
-              });
-            } else {
-              showOverlay("战斗胜利", "继续推进", "这一战让你的职业构筑更扎实了。继续推进，或者回城补给。", "继续", function resume() {
-                hideOverlay();
-                setGameState(GAME_STATE.EXPLORE);
-              });
-            }
+            });
           } else if (result === "flee") {
             appendLog("你撤离了当前战斗。");
             setGameState(GAME_STATE.EXPLORE);
@@ -1040,6 +1362,7 @@
   }
 
   function init() {
+    ensureRunCollections();
     canvas.width = 20 * TILE_SIZE;
     canvas.height = 15 * TILE_SIZE;
     bindStaticButtons();

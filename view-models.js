@@ -49,7 +49,7 @@
 
     return {
       visible: true,
-      name: enemy.name,
+      name: enemy.isBoss ? "【首领】" + enemy.name : enemy.encounterType === "elite" ? "【精英】" + enemy.name : enemy.name,
       hpText: enemy.hp + " / " + enemy.maxHp,
       hpPercent: toPercent(enemy.hp, enemy.maxHp),
     };
@@ -60,6 +60,9 @@
     const player = data.player || {};
     const equippedItems = data.equippedItems || [];
     const learnedSkills = data.learnedSkills || [];
+    const relics = data.relics || [];
+    const blessings = data.blessings || [];
+    const materials = data.materials || [];
 
     return {
       overlayEyebrow: "详细属性",
@@ -81,6 +84,9 @@
         { label: "坐标", value: "(" + (player.position ? player.position.x : 0) + ", " + (player.position ? player.position.y : 0) + ")" },
         { label: "已学技能", value: learnedSkills.join("、") || "暂无" },
         { label: "已装备", value: equippedItems.join("、") || "暂无" },
+        { label: "遗物", value: relics.join("、") || "暂无" },
+        { label: "材料", value: materials.join("、") || "暂无" },
+        { label: "本轮祝福", value: blessings.join("、") || "暂无" },
         { label: "终极技", value: player.learnedUltimate ? "已解锁" : "尚未解锁" },
       ],
     };
