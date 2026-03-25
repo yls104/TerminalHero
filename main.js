@@ -45,6 +45,8 @@
   const createEnemyViewModel = viewModelApi.createEnemyViewModel || function fallbackEnemyViewModel() { return { visible: false, name: "", hpText: "0 / 0", hpPercent: 0 }; };
   const createDetailStatsViewModel = viewModelApi.createDetailStatsViewModel || function fallbackDetailStatsViewModel() { return { overlayEyebrow: "", overlayTitle: "", rows: [] }; };
   const renderDetailStatsHtml = viewModelApi.renderDetailStatsHtml || function fallbackDetailHtml() { return ""; };
+  const createRunSummaryViewModel = viewModelApi.createRunSummaryViewModel || function fallbackRunSummaryViewModel() { return { overlayEyebrow: "", overlayTitle: "", rows: [] }; };
+  const renderRunSummaryHtml = viewModelApi.renderRunSummaryHtml || function fallbackRunSummaryHtml() { return ""; };
   const normalizeCombatLogEntry = combatIoApi.normalizeCombatLogEntry || function fallbackLogEntry(input) {
     return typeof input === "string" ? { text: input, type: "info", emphasis: false } : { text: String((input && input.text) || ""), type: "info", emphasis: false };
   };
@@ -144,15 +146,7 @@
   let preferredMoveKey = "";
   let skillMenuOpen = false;
   const heldKeys = {};
-  const runSummary = {
-    combatsWon: 0,
-    elitesDefeated: 0,
-    eventsResolved: 0,
-    rewardsClaimed: 0,
-    goldEarned: 0,
-    relicsFound: 0,
-    materialsFound: 0,
-  };
+  let runSummary = createEmptyRunSummary();
   const movementState = {
     active: false,
     elapsed: 0,
@@ -169,6 +163,39 @@
 
   function randInt(min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
+  }
+
+  function createEmptyRunSummary() {
+    return {
+      stageId: "",
+      stageLabel: "",
+      combatsWon: 0,
+      elitesDefeated: 0,
+      eventsResolved: 0,
+      rewardsClaimed: 0,
+      goldEarned: 0,
+      expGained: 0,
+      skillPointsEarned: 0,
+      relicsFound: 0,
+      materialsFound: 0,
+      gainedRelics: [],
+      gainedMaterials: [],
+      gainedBlessings: [],
+      bossCleared: false,
+      outcomeText: "",
+      unlockedStageLabel: "",
+    };
+  }
+
+  function startRun(stageId) {
+    const meta = getStageMeta(stageId);
+    runSummary = createEmptyRunSummary();
+    runSummary.stageId = stageId;
+    runSummary.stageLabel = meta.label || stageId;
+  }
+
+  function buildRunSummarySnapshot(overrides) {
+    return Object.assign({}, runSummary, overrides || {});
   }
 
   function ensureRunCollections() {
@@ -188,6 +215,10 @@
     const key = materialLabel || "未知材料";
     player.materials[key] = (player.materials[key] || 0) + count;
     runSummary.materialsFound += count;
+    const summaryLabel = key + " x" + count;
+    if (!runSummary.gainedMaterials.includes(summaryLabel)) {
+      runSummary.gainedMaterials.push(summaryLabel);
+    }
   }
 
   function addRelic(relicName) {
@@ -199,6 +230,7 @@
     }
     player.relics.push(relicName);
     runSummary.relicsFound += 1;
+    runSummary.gainedRelics.push(relicName);
     return true;
   }
 
@@ -208,6 +240,9 @@
     }
     if (!player.runBlessings.includes(label)) {
       player.runBlessings.push(label);
+    }
+    if (!runSummary.gainedBlessings.includes(label)) {
+      runSummary.gainedBlessings.push(label);
     }
   }
 
@@ -640,12 +675,14 @@
     if (effect.type === "skill_point") {
       const amount = effect.value || 1;
       player.skillPoints += amount;
+      runSummary.skillPointsEarned += amount;
       appendLog((sourceLabel || "奖励") + "：获得技能点 " + amount + "。");
       return;
     }
     if (effect.type === "exp") {
       const amount = effect.value || 0;
       player.exp += amount;
+      runSummary.expGained += amount;
       appendLog((sourceLabel || "奖励") + "：额外获得经验 " + amount + "。");
       while (player.exp >= player.expToNext) {
         player.exp -= player.expToNext;
@@ -802,6 +839,16 @@
     bindOverlayChoices(choices);
   }
 
+  function showRunSummaryOverlay(summary, onClose) {
+    const summaryView = createRunSummaryViewModel(summary);
+    showOverlay(summaryView.overlayEyebrow, summaryView.overlayTitle, renderRunSummaryHtml(summaryView), "返回城镇", function closeSummary() {
+      hideOverlay();
+      if (onClose) {
+        onClose();
+      }
+    });
+  }
+
   function resolveEventChoice(eventNode, choice, x, y) {
     currentMap[y][x] = TILE.FLOOR;
     delete currentEventPool[positionKey(x, y)];
@@ -922,6 +969,7 @@
         label: meta.label + (cleared ? "（已通关）" : ""),
         onClick: function travel() {
           hideOverlay();
+          startRun(stageId);
           loadStage(stageId);
           appendLog("你前往了 " + meta.label + "。");
         },
@@ -1117,6 +1165,7 @@
 
   function onLevelUp() {
     player.skillPoints += 1;
+    runSummary.skillPointsEarned += 1;
     const unlocked = unlockClassSkillIfNeeded();
     if (unlocked && skills[unlocked]) {
       appendLog("你掌握了新技能：" + skills[unlocked].name + "。");
@@ -1293,6 +1342,7 @@
             }
             player.gold += payload.enemy.gold || 0;
             runSummary.goldEarned += payload.enemy.gold || 0;
+            runSummary.expGained += payload.rewards && payload.rewards.exp ? payload.rewards.exp : 0;
             runSummary.combatsWon += 1;
             if (enemy && enemy.encounterType === "elite") {
               runSummary.elitesDefeated += 1;
@@ -1303,15 +1353,19 @@
             showVictoryRewardOverlay(enemy, function afterReward() {
               if (bossWin) {
                 progress.clearedBosses[currentStageName] = true;
+                runSummary.bossCleared = true;
                 const currentStageIndex = STAGE_SEQUENCE.indexOf(currentStageName);
                 const nextStage = STAGE_SEQUENCE[currentStageIndex + 1];
                 if (nextStage) {
                   unlockStage(nextStage, "你解锁了新区域：" + getStageMeta(nextStage).label + "。");
+                  runSummary.unlockedStageLabel = getStageMeta(nextStage).label;
                 }
-                showOverlay("首领击破", "凯旋而归", "首领已被击败。你带着本轮战利品回到城镇，准备下一次更深的挑战。", "返回城镇", function returnTown() {
-                  hideOverlay();
+                showRunSummaryOverlay(buildRunSummarySnapshot({
+                  outcomeText: "首领击破，成功完成本轮试炼。",
+                }), function returnTown() {
                   loadStage("azure_town");
                   setGameState(GAME_STATE.EXPLORE);
+                  runSummary = createEmptyRunSummary();
                 });
               } else {
                 appendLog(enemy && enemy.encounterType === "elite" ? "你击溃了精英敌人，战场节奏开始向你倾斜。" : "你带着战利品继续推进。");

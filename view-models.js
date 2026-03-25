@@ -99,10 +99,42 @@
     return "<div class=\"detail-stats\">" + rows + "</div>";
   }
 
+  function createRunSummaryViewModel(input) {
+    const data = input || {};
+    return {
+      overlayEyebrow: "冒险结算",
+      overlayTitle: (data.stageLabel || "本轮冒险") + (data.bossCleared ? " 已完成" : " 暂告一段落"),
+      rows: [
+        { label: "结果", value: data.outcomeText || "返回城镇" },
+        { label: "区域", value: data.stageLabel || "-" },
+        { label: "战斗胜利", value: String(data.combatsWon || 0) + " 场" },
+        { label: "击败精英", value: String(data.elitesDefeated || 0) + " 个" },
+        { label: "解决事件", value: String(data.eventsResolved || 0) + " 次" },
+        { label: "领取奖励", value: String(data.rewardsClaimed || 0) + " 次" },
+        { label: "获得经验", value: String(data.expGained || 0) },
+        { label: "获得金币", value: String(data.goldEarned || 0) },
+        { label: "获得技能点", value: String(data.skillPointsEarned || 0) },
+        { label: "新遗物", value: (data.gainedRelics || []).join("、") || "暂无" },
+        { label: "新材料", value: (data.gainedMaterials || []).join("、") || "暂无" },
+        { label: "本轮祝福", value: (data.gainedBlessings || []).join("、") || "暂无" },
+        { label: "新解锁区域", value: data.unlockedStageLabel || "无" },
+      ],
+    };
+  }
+
+  function renderRunSummaryHtml(viewModel) {
+    const rows = (viewModel.rows || []).map(function mapRow(row) {
+      return "<p><strong>" + row.label + "：</strong>" + row.value + "</p>";
+    }).join("");
+    return "<div class=\"detail-stats run-summary\">" + rows + "</div>";
+  }
+
   window.GameViewModels = {
     createHudViewModel: createHudViewModel,
     createEnemyViewModel: createEnemyViewModel,
     createDetailStatsViewModel: createDetailStatsViewModel,
     renderDetailStatsHtml: renderDetailStatsHtml,
+    createRunSummaryViewModel: createRunSummaryViewModel,
+    renderRunSummaryHtml: renderRunSummaryHtml,
   };
 })();
