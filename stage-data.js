@@ -94,6 +94,106 @@
     { id: "aether_band", name: "以太指环", cost: 44, bonus: { maxMp: 12, speed: 1 }, description: "提升法力循环。" },
   ];
 
+  const RELIC_POOLS = {
+    verdant_relics: [
+      { id: "fang_totem", name: "狼牙图腾", tags: ["bleed", "burst"], rarity: "common" },
+      { id: "trail_boots", name: "巡林靴", tags: ["speed", "tempo"], rarity: "common" },
+    ],
+    archive_relics: [
+      { id: "echo_quill", name: "回响羽笔", tags: ["spell", "combo"], rarity: "common" },
+      { id: "seal_fragment", name: "封印碎片", tags: ["shield", "control"], rarity: "rare" },
+    ],
+    ember_relics: [
+      { id: "slag_core", name: "炉渣核心", tags: ["burn", "power"], rarity: "common" },
+      { id: "tyrant_horn", name: "暴君之角", tags: ["berserk", "risk"], rarity: "rare" },
+    ],
+  };
+
+  const EVENT_POOLS = {
+    verdant_events: [
+      { id: "hunter_trap", name: "猎人陷阱", type: "risk_reward", weight: 3, tags: ["damage", "loot"] },
+      { id: "spirit_spring", name: "林泉祝福", type: "recovery", weight: 2, tags: ["heal", "mana"] },
+    ],
+    archive_events: [
+      { id: "sealed_shelf", name: "封印书架", type: "skill_test", weight: 3, tags: ["knowledge", "choice"] },
+      { id: "memory_echo", name: "残响回廊", type: "story", weight: 2, tags: ["lore", "buff"] },
+    ],
+    ember_events: [
+      { id: "molten_shrine", name: "熔火祭坛", type: "sacrifice", weight: 3, tags: ["hp_cost", "power"] },
+      { id: "war_drum", name: "战鼓余响", type: "ambush", weight: 2, tags: ["elite", "burst"] },
+    ],
+  };
+
+  const DROP_TABLES = {
+    verdant_common: [
+      { id: "gold_small", type: "gold", min: 10, max: 18, weight: 5 },
+      { id: "fang_material", type: "material", amount: 1, weight: 3 },
+    ],
+    verdant_boss: [
+      { id: "gold_large", type: "gold", min: 48, max: 72, weight: 5 },
+      { id: "relic_pick", type: "relic", poolId: "verdant_relics", weight: 3 },
+    ],
+    archive_common: [
+      { id: "gold_small", type: "gold", min: 12, max: 20, weight: 5 },
+      { id: "ink_scroll", type: "material", amount: 1, weight: 3 },
+    ],
+    archive_boss: [
+      { id: "gold_large", type: "gold", min: 58, max: 84, weight: 5 },
+      { id: "relic_pick", type: "relic", poolId: "archive_relics", weight: 3 },
+    ],
+    ember_common: [
+      { id: "gold_small", type: "gold", min: 14, max: 24, weight: 5 },
+      { id: "ember_shard", type: "material", amount: 1, weight: 3 },
+    ],
+    ember_boss: [
+      { id: "gold_large", type: "gold", min: 72, max: 104, weight: 5 },
+      { id: "relic_pick", type: "relic", poolId: "ember_relics", weight: 3 },
+    ],
+  };
+
+  const ELITE_TEMPLATES = {
+    verdant_grove: [
+      { id: "alpha_stalker", name: "林冠追猎者", hp: 68, attack: 13, defense: 4, speed: 11, exp: 42, gold: 28, role: "swift", encounterType: "elite", assetKey: "grove_enemy", dropTableId: "verdant_common" },
+    ],
+    sunken_archive: [
+      { id: "silent_curator", name: "缄默馆长", hp: 76, attack: 14, defense: 5, speed: 8, exp: 48, gold: 34, role: "caster", encounterType: "elite", assetKey: "archive_enemy", dropTableId: "archive_common" },
+    ],
+    ember_hollow: [
+      { id: "magma_reaver", name: "熔岩收割者", hp: 84, attack: 16, defense: 5, speed: 9, exp: 54, gold: 38, role: "berserker", encounterType: "elite", assetKey: "ember_enemy", dropTableId: "ember_common" },
+    ],
+  };
+
+  STAGE_META.azure_town.eventPoolId = "";
+  STAGE_META.azure_town.relicPoolId = "";
+  STAGE_META.azure_town.dropTableId = "";
+  STAGE_META.azure_town.elitePoolId = "";
+  STAGE_META.azure_town.tempoBias = "safe_hub";
+  STAGE_META.azure_town.classPressureTags = [];
+
+  STAGE_META.verdant_grove.eventPoolId = "verdant_events";
+  STAGE_META.verdant_grove.relicPoolId = "verdant_relics";
+  STAGE_META.verdant_grove.dropTableId = "verdant_common";
+  STAGE_META.verdant_grove.bossDropTableId = "verdant_boss";
+  STAGE_META.verdant_grove.elitePoolId = "verdant_grove";
+  STAGE_META.verdant_grove.tempoBias = "tempo_pressure";
+  STAGE_META.verdant_grove.classPressureTags = ["持续输出", "移动压制", "中毒应对"];
+
+  STAGE_META.sunken_archive.eventPoolId = "archive_events";
+  STAGE_META.sunken_archive.relicPoolId = "archive_relics";
+  STAGE_META.sunken_archive.dropTableId = "archive_common";
+  STAGE_META.sunken_archive.bossDropTableId = "archive_boss";
+  STAGE_META.sunken_archive.elitePoolId = "sunken_archive";
+  STAGE_META.sunken_archive.tempoBias = "control_drag";
+  STAGE_META.sunken_archive.classPressureTags = ["爆发窗口", "法力循环", "减速处理"];
+
+  STAGE_META.ember_hollow.eventPoolId = "ember_events";
+  STAGE_META.ember_hollow.relicPoolId = "ember_relics";
+  STAGE_META.ember_hollow.dropTableId = "ember_common";
+  STAGE_META.ember_hollow.bossDropTableId = "ember_boss";
+  STAGE_META.ember_hollow.elitePoolId = "ember_hollow";
+  STAGE_META.ember_hollow.tempoBias = "high_risk_burst";
+  STAGE_META.ember_hollow.classPressureTags = ["高压生存", "斩杀窗口", "持续灼烧"];
+
   function cloneMap(mapData) {
     return mapData.map(function copyRow(row) {
       return row.slice();
@@ -141,7 +241,22 @@
       role: template.role || "basic",
       skills: template.skills ? template.skills.slice() : [],
       assetKey: template.assetKey || (template.isBoss ? "boss" : "enemy"),
+      encounterType: template.encounterType || (template.isBoss ? "boss" : "normal"),
+      dropTableId: template.dropTableId || "",
+      rewardProfile: template.rewardProfile || "",
+      eventHooks: template.eventHooks ? template.eventHooks.slice() : [],
     };
+  }
+
+  function createEncounterRuntime(template, stageMeta, options) {
+    const encounter = cloneEnemyTemplate(template);
+    const settings = options || {};
+    encounter.encounterType = settings.encounterType || encounter.encounterType;
+    encounter.dropTableId = encounter.dropTableId || (encounter.isBoss ? stageMeta.bossDropTableId : stageMeta.dropTableId) || "";
+    encounter.relicPoolId = stageMeta.relicPoolId || "";
+    encounter.eventPoolId = stageMeta.eventPoolId || "";
+    encounter.rewardProfile = encounter.rewardProfile || (encounter.encounterType === "elite" ? "elite_reward" : "standard_reward");
+    return encounter;
   }
 
   function getStageMeta(stageName) {
@@ -267,7 +382,9 @@
     const enemySpawns = chooseEnemySpawns(floors, start, spawnCount, blocked);
     enemySpawns.forEach(function spawnEnemy(cell) {
       mapData[cell.y][cell.x] = TILE.ENEMY;
-      encounterPool[positionKey(cell.x, cell.y)] = cloneEnemyTemplate(pickRandom(meta.enemyRoster));
+      encounterPool[positionKey(cell.x, cell.y)] = createEncounterRuntime(pickRandom(meta.enemyRoster), meta, {
+        encounterType: "normal",
+      });
     });
 
     mapData[start.y][start.x] = TILE.PLAYER_START;
@@ -276,6 +393,12 @@
       start: start,
       portalPos: portalPos,
       encounters: encounterPool,
+      contentPools: {
+        eventPoolId: meta.eventPoolId || "",
+        relicPoolId: meta.relicPoolId || "",
+        dropTableId: meta.dropTableId || "",
+        elitePoolId: meta.elitePoolId || "",
+      },
     };
   }
 
@@ -305,13 +428,21 @@
     mapData[bossPos.y][bossPos.x] = TILE.BOSS;
 
     const encounterPool = {};
-    encounterPool[positionKey(bossPos.x, bossPos.y)] = cloneEnemyTemplate(meta.boss);
+    encounterPool[positionKey(bossPos.x, bossPos.y)] = createEncounterRuntime(meta.boss, meta, {
+      encounterType: "boss",
+    });
 
     return {
       map: mapData,
       start: start,
       portalPos: null,
       encounters: encounterPool,
+      contentPools: {
+        eventPoolId: meta.eventPoolId || "",
+        relicPoolId: meta.relicPoolId || "",
+        dropTableId: meta.bossDropTableId || meta.dropTableId || "",
+        elitePoolId: meta.elitePoolId || "",
+      },
     };
   }
 
@@ -329,12 +460,22 @@
         map: cloneMap(STAGE_MAPS.azure_town),
         encounters: {},
         portalPos: null,
+        contentPools: {
+          eventPoolId: "",
+          relicPoolId: "",
+          dropTableId: "",
+          elitePoolId: "",
+        },
       };
     }
     return settings.mode === "boss" ? generateBossStage(stageName) : generateFieldStage(stageName);
   }
 
   window.GameStageData = {
+    RELIC_POOLS: RELIC_POOLS,
+    EVENT_POOLS: EVENT_POOLS,
+    DROP_TABLES: DROP_TABLES,
+    ELITE_TEMPLATES: ELITE_TEMPLATES,
     STAGE_MAPS: STAGE_MAPS,
     STAGE_META: STAGE_META,
     STAGE_SEQUENCE: STAGE_SEQUENCE,
@@ -344,5 +485,6 @@
     getStageMeta: getStageMeta,
     createStageProgress: createStageProgress,
     createStageInstance: createStageInstance,
+    createEncounterRuntime: createEncounterRuntime,
   };
 })();

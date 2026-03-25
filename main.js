@@ -4,6 +4,7 @@
   const entitiesApi = window.GameEntities || {};
   const mapApi = window.GameMap || {};
   const combatApi = window.CombatSystem || {};
+  const combatIoApi = window.CombatIO || {};
   const stateApi = window.GameStateStore || {};
   const stageApi = window.GameStageData || {};
   const viewModelApi = window.GameViewModels || {};
@@ -42,6 +43,9 @@
   const createEnemyViewModel = viewModelApi.createEnemyViewModel || function fallbackEnemyViewModel() { return { visible: false, name: "", hpText: "0 / 0", hpPercent: 0 }; };
   const createDetailStatsViewModel = viewModelApi.createDetailStatsViewModel || function fallbackDetailStatsViewModel() { return { overlayEyebrow: "", overlayTitle: "", rows: [] }; };
   const renderDetailStatsHtml = viewModelApi.renderDetailStatsHtml || function fallbackDetailHtml() { return ""; };
+  const normalizeCombatLogEntry = combatIoApi.normalizeCombatLogEntry || function fallbackLogEntry(input) {
+    return typeof input === "string" ? { text: input, type: "info", emphasis: false } : { text: String((input && input.text) || ""), type: "info", emphasis: false };
+  };
 
   const canvas = document.querySelector("#gameCanvas");
   if (!canvas || !player || typeof drawMap !== "function") {
@@ -114,8 +118,12 @@
         currentState: GAME_STATE.EXPLORE,
         getState: function getState() { return this.currentState; },
         setState: function setState(nextState) { this.currentState = nextState; return this.currentState; },
+        canTransition: function canTransition() { return true; },
+        getAllowedTransitions: function getAllowedTransitions() { return []; },
+        getHistory: function getHistory() { return []; },
         matches: function matches(targetState) { return this.currentState === targetState; },
         subscribe: function subscribe() { return function noopUnsubscribe() {}; },
+        subscribeInvalid: function subscribeInvalid() { return function noopUnsubscribe() {}; },
       };
 
   let currentStageName = "azure_town";
@@ -174,8 +182,13 @@
     if (!ui.battleLog) {
       return;
     }
+    const entry = normalizeCombatLogEntry(message);
     const line = document.createElement("p");
-    line.textContent = message;
+    line.textContent = entry.text;
+    line.dataset.logType = entry.type || "info";
+    if (entry.emphasis) {
+      line.classList.add("is-emphasis");
+    }
     ui.battleLog.appendChild(line);
     ui.battleLog.scrollTop = ui.battleLog.scrollHeight;
   }
@@ -908,6 +921,12 @@
       setExploreControlsVisible(false);
     }
   });
+
+  if (typeof gameStateStore.subscribeInvalid === "function") {
+    gameStateStore.subscribeInvalid(function onInvalidStateTransition(event) {
+      console.warn("[GameState] " + event.reason, event);
+    });
+  }
 
   const combatController = combatApi.createCombatController
     ? combatApi.createCombatController({
