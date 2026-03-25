@@ -1,107 +1,20 @@
-﻿(function bootstrap() {
-  const GAME_STATE = {
+(function bootstrap() {
+  const PLAYER_MOVE_DURATION = 112;
+  const TILE = (window.GameMap && window.GameMap.TILE) || { FLOOR: 0, WALL: 1, PLAYER_START: 2, ENEMY: 3, HEAL_POINT: 4, BOSS: 5, PORTAL: 6 };
+  const entitiesApi = window.GameEntities || {};
+  const mapApi = window.GameMap || {};
+  const combatApi = window.CombatSystem || {};
+  const stateApi = window.GameStateStore || {};
+  const stageApi = window.GameStageData || {};
+  const viewModelApi = window.GameViewModels || {};
+
+  const GAME_STATE = stateApi.GAME_STATE || {
     EXPLORE: "EXPLORE_STATE",
     COMBAT: "COMBAT_STATE",
     BOSS_INTRO: "BOSS_INTRO_STATE",
     PORTAL_TRANSIT: "PORTAL_TRANSIT_STATE",
     GAME_OVER: "GAME_OVER_STATE",
   };
-
-  const STAGE_MAPS = {
-    azure_town: [
-      [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-      [1, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 0, 1],
-      [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-      [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-      [1, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-      [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-      [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-      [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-      [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-      [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-      [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-      [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-      [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-      [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-      [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-    ],
-  };
-
-  const STAGE_META = {
-    azure_town: {
-      label: "蔚蓝城镇",
-      description: "职业选择、成长分配与补给休整的安全区域。",
-      npcs: [
-        { id: "mentor", x: 4, y: 3, label: "职业导师" },
-        { id: "merchant", x: 13, y: 3, label: "商人" },
-        { id: "gatekeeper", x: 17, y: 2, label: "守门人" },
-      ],
-      houses: [
-        { x: 2, y: 2 },
-        { x: 11, y: 2 },
-        { x: 6, y: 7 },
-      ],
-    },
-    verdant_grove: {
-      label: "青藤密林",
-      bossLabel: "狼王巢穴",
-      description: "地形会在林地中随机生长，敌人偏向突袭与中毒。",
-      bossDescription: "只有扫清林地里的小怪，狼王巢穴才会开放。",
-      assetTheme: "verdant_grove",
-      floorTarget: [84, 108],
-      enemyCount: [5, 7],
-      enemyRoster: [
-        { id: "mossfang", name: "苔牙狼", hp: 34, attack: 7, defense: 2, speed: 9, exp: 18, gold: 14, role: "swift", assetKey: "grove_enemy" },
-        { id: "thorn_viper", name: "棘藤蛇", hp: 30, attack: 6, defense: 1, speed: 8, exp: 19, gold: 15, role: "poisoner", assetKey: "grove_enemy" },
-        { id: "root_guard", name: "树根卫士", hp: 42, attack: 8, defense: 4, speed: 5, exp: 23, gold: 17, role: "guardian", assetKey: "grove_enemy" },
-      ],
-      boss: { id: "thorn_alpha", name: "棘冠狼王", hp: 132, attack: 15, defense: 5, speed: 11, exp: 92, gold: 72, isBoss: true, role: "pack_alpha", assetKey: "grove_boss" },
-    },
-    sunken_archive: {
-      label: "沉没书库",
-      bossLabel: "封印藏室",
-      description: "断墙和走廊会随机重组，敌人偏向法术骚扰与拖节奏。",
-      bossDescription: "清掉书库守卫后，通往封印藏室的法阵才会出现。",
-      assetTheme: "sunken_archive",
-      floorTarget: [78, 102],
-      enemyCount: [6, 8],
-      enemyRoster: [
-        { id: "ink_wisp", name: "墨雾灯灵", hp: 32, attack: 8, defense: 2, speed: 8, exp: 24, gold: 18, role: "caster", assetKey: "archive_enemy" },
-        { id: "archive_guard", name: "石库守卫", hp: 44, attack: 9, defense: 5, speed: 4, exp: 26, gold: 20, role: "guardian", assetKey: "archive_enemy" },
-        { id: "quill_hunter", name: "羽笔猎手", hp: 36, attack: 10, defense: 2, speed: 7, exp: 25, gold: 19, role: "swift", assetKey: "archive_enemy" },
-      ],
-      boss: { id: "seal_warden", name: "封印典狱官", hp: 148, attack: 16, defense: 6, speed: 8, exp: 108, gold: 86, isBoss: true, role: "arcane_warden", assetKey: "archive_boss" },
-    },
-    ember_hollow: {
-      label: "余烬裂谷",
-      bossLabel: "熔核祭坛",
-      description: "炽热地脉会在每次进入时改变路线，怪物伤害更高更凶。",
-      bossDescription: "只有扫平裂谷里的余烬军团，熔核祭坛的大门才会开启。",
-      assetTheme: "ember_hollow",
-      floorTarget: [74, 96],
-      enemyCount: [7, 9],
-      enemyRoster: [
-        { id: "ash_raider", name: "炽袭者", hp: 40, attack: 11, defense: 2, speed: 8, exp: 29, gold: 22, role: "berserker", assetKey: "ember_enemy" },
-        { id: "cinder_mage", name: "余火术士", hp: 34, attack: 12, defense: 2, speed: 7, exp: 31, gold: 24, role: "caster", assetKey: "ember_enemy" },
-        { id: "slag_guard", name: "炉渣守卫", hp: 52, attack: 10, defense: 6, speed: 4, exp: 33, gold: 26, role: "guardian", assetKey: "ember_enemy" },
-      ],
-      boss: { id: "ember_tyrant", name: "熔焰暴君", hp: 172, attack: 18, defense: 7, speed: 9, exp: 126, gold: 104, isBoss: true, role: "inferno_tyrant", assetKey: "ember_boss" },
-    },
-  };
-
-  const STAGE_SEQUENCE = ["verdant_grove", "sunken_archive", "ember_hollow"];
-
-  const SHOP_ITEMS = [
-    { id: "iron_blade", name: "铁刃护手", cost: 42, bonus: { attack: 3 }, description: "提高稳定输出。" },
-    { id: "guard_mail", name: "守备胸甲", cost: 48, bonus: { defense: 2, maxHp: 12 }, description: "提升生存能力。" },
-    { id: "aether_band", name: "以太指环", cost: 44, bonus: { maxMp: 12, speed: 1 }, description: "提升法力循环。" },
-  ];
-
-  const PLAYER_MOVE_DURATION = 112;
-  const TILE = (window.GameMap && window.GameMap.TILE) || { FLOOR: 0, WALL: 1, PLAYER_START: 2, ENEMY: 3, HEAL_POINT: 4, BOSS: 5, PORTAL: 6 };
-  const entitiesApi = window.GameEntities || {};
-  const mapApi = window.GameMap || {};
-  const combatApi = window.CombatSystem || {};
 
   const player = entitiesApi.player;
   const classes = entitiesApi.classes || {};
@@ -112,19 +25,33 @@
   const spendSkillPoint = entitiesApi.spendSkillPoint || function noSpend() { return false; };
   const buyEquipment = entitiesApi.buyEquipment || function noBuy() { return false; };
 
-  const canvas = document.querySelector("#gameCanvas");
-  if (!canvas) {
-    return;
-  }
-  const ctx = canvas.getContext("2d");
-  if (!ctx) {
-    return;
-  }
-
   const TILE_SIZE = mapApi.TILE_SIZE || 32;
   const drawMap = mapApi.drawMap;
   const loadMapAssets = mapApi.loadMapAssets || function noopAssets() { return Promise.resolve([]); };
   const getMapAsset = mapApi.getMapAsset || function missingAsset() { return null; };
+
+  const STAGE_META = stageApi.STAGE_META || {};
+  const STAGE_SEQUENCE = stageApi.STAGE_SEQUENCE || [];
+  const SHOP_ITEMS = stageApi.SHOP_ITEMS || [];
+  const getStageMeta = stageApi.getStageMeta || function fallbackStageMeta(stageName) { return STAGE_META[stageName] || {}; };
+  const createStageInstance = stageApi.createStageInstance || function fallbackStageInstance() { return { map: [], encounters: {}, portalPos: null }; };
+  const createStageProgress = stageApi.createStageProgress || function fallbackProgress() { return { availableStages: [], clearedBosses: {} }; };
+  const positionKey = stageApi.positionKey || function fallbackPositionKey(x, y) { return x + "," + y; };
+
+  const createHudViewModel = viewModelApi.createHudViewModel || function fallbackHudViewModel() { return {}; };
+  const createEnemyViewModel = viewModelApi.createEnemyViewModel || function fallbackEnemyViewModel() { return { visible: false, name: "", hpText: "0 / 0", hpPercent: 0 }; };
+  const createDetailStatsViewModel = viewModelApi.createDetailStatsViewModel || function fallbackDetailStatsViewModel() { return { overlayEyebrow: "", overlayTitle: "", rows: [] }; };
+  const renderDetailStatsHtml = viewModelApi.renderDetailStatsHtml || function fallbackDetailHtml() { return ""; };
+
+  const canvas = document.querySelector("#gameCanvas");
+  if (!canvas || !player || typeof drawMap !== "function") {
+    return;
+  }
+
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    return;
+  }
 
   const ui = {
     hp: document.querySelector("#hpValue"),
@@ -180,12 +107,17 @@
     d: { dx: 1, dy: 0 },
   };
 
-  const progress = {
-    availableStages: [STAGE_SEQUENCE[0]],
-    clearedBosses: {},
-  };
+  const progress = createStageProgress();
+  const gameStateStore = stateApi.createGameStateStore
+    ? stateApi.createGameStateStore(GAME_STATE.EXPLORE)
+    : {
+        currentState: GAME_STATE.EXPLORE,
+        getState: function getState() { return this.currentState; },
+        setState: function setState(nextState) { this.currentState = nextState; return this.currentState; },
+        matches: function matches(targetState) { return this.currentState === targetState; },
+        subscribe: function subscribe() { return function noopUnsubscribe() {}; },
+      };
 
-  let gameState = GAME_STATE.EXPLORE;
   let currentStageName = "azure_town";
   let currentStageMode = "town";
   let currentMap = [];
@@ -200,67 +132,26 @@
   let preferredMoveKey = "";
   let skillMenuOpen = false;
   const heldKeys = {};
-  const movementState = { active: false, elapsed: 0, duration: PLAYER_MOVE_DURATION, fromX: 1, fromY: 1, toX: 1, toY: 1 };
-
-  function cloneMap(mapData) {
-    return mapData.map(function copyRow(row) {
-      return row.slice();
-    });
-  }
+  const movementState = {
+    active: false,
+    elapsed: 0,
+    duration: PLAYER_MOVE_DURATION,
+    fromX: 1,
+    fromY: 1,
+    toX: 1,
+    toY: 1,
+  };
 
   function clamp(value, min, max) {
     return Math.max(min, Math.min(max, value));
   }
 
-  function toPercent(current, max) {
-    if (!max || max <= 0) {
-      return 0;
-    }
-    return clamp((current / max) * 100, 0, 100);
+  function getGameState() {
+    return gameStateStore.getState();
   }
 
-  function randInt(min, max) {
-    return Math.floor(Math.random() * (max - min + 1)) + min;
-  }
-
-  function pickRandom(list) {
-    return list[randInt(0, list.length - 1)];
-  }
-
-  function shuffle(list) {
-    const clone = list.slice();
-    for (let i = clone.length - 1; i > 0; i -= 1) {
-      const swapIndex = randInt(0, i);
-      const temp = clone[i];
-      clone[i] = clone[swapIndex];
-      clone[swapIndex] = temp;
-    }
-    return clone;
-  }
-
-  function positionKey(x, y) {
-    return x + "," + y;
-  }
-
-  function cloneEnemyTemplate(template) {
-    return {
-      id: template.id,
-      name: template.name,
-      hp: template.hp,
-      attack: template.attack,
-      defense: template.defense,
-      speed: template.speed,
-      exp: template.exp,
-      gold: template.gold,
-      isBoss: Boolean(template.isBoss),
-      role: template.role || "basic",
-      skills: template.skills ? template.skills.slice() : [],
-      assetKey: template.assetKey || (template.isBoss ? "boss" : "enemy"),
-    };
-  }
-
-  function getStageMeta(stageName) {
-    return STAGE_META[stageName] || STAGE_META.azure_town;
+  function setGameState(nextState, payload) {
+    return gameStateStore.setState(nextState, payload);
   }
 
   function getCurrentStageLabel() {
@@ -277,173 +168,6 @@
       return meta.description;
     }
     return currentStageMode === "boss" ? (meta.bossDescription || meta.description) : meta.description;
-  }
-
-  function createSolidMap() {
-    const map = [];
-    for (let y = 0; y < mapApi.MAP_ROWS; y += 1) {
-      const row = [];
-      for (let x = 0; x < mapApi.MAP_COLS; x += 1) {
-        row.push(TILE.WALL);
-      }
-      map.push(row);
-    }
-    return map;
-  }
-
-  function carveBrush(mapData, centerX, centerY, radius) {
-    let carved = 0;
-    for (let y = Math.max(1, centerY - radius); y <= Math.min(mapData.length - 2, centerY + radius); y += 1) {
-      for (let x = Math.max(1, centerX - radius); x <= Math.min(mapData[0].length - 2, centerX + radius); x += 1) {
-        if (Math.abs(x - centerX) + Math.abs(y - centerY) > radius + 1) {
-          continue;
-        }
-        if (mapData[y][x] === TILE.WALL) {
-          mapData[y][x] = TILE.FLOOR;
-          carved += 1;
-        }
-      }
-    }
-    return carved;
-  }
-
-  function collectFloorCells(mapData) {
-    const cells = [];
-    for (let y = 1; y < mapData.length - 1; y += 1) {
-      for (let x = 1; x < mapData[y].length - 1; x += 1) {
-        if (mapData[y][x] === TILE.FLOOR) {
-          cells.push({ x: x, y: y });
-        }
-      }
-    }
-    return cells;
-  }
-
-  function manhattanDistance(a, b) {
-    return Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
-  }
-
-  function chooseDistantFloor(cells, start, blocked) {
-    const blockedKeys = blocked || {};
-    const candidates = cells
-      .filter(function filterCell(cell) {
-        return !blockedKeys[positionKey(cell.x, cell.y)];
-      })
-      .sort(function sortByDistance(a, b) {
-        return manhattanDistance(b, start) - manhattanDistance(a, start);
-      });
-    return candidates[0] || null;
-  }
-
-  function chooseEnemySpawns(cells, start, count, blocked) {
-    const blockedKeys = blocked || {};
-    const pool = shuffle(cells.filter(function filterCell(cell) {
-      return manhattanDistance(cell, start) >= 4 && !blockedKeys[positionKey(cell.x, cell.y)];
-    }));
-    const picks = [];
-    for (let i = 0; i < pool.length && picks.length < count; i += 1) {
-      const cell = pool[i];
-      const tooClose = picks.some(function compare(other) {
-        return manhattanDistance(other, cell) <= 2;
-      });
-      if (tooClose) {
-        continue;
-      }
-      picks.push(cell);
-      blockedKeys[positionKey(cell.x, cell.y)] = true;
-    }
-    return picks;
-  }
-
-  function generateFieldStage(stageName) {
-    const meta = getStageMeta(stageName);
-    const mapData = createSolidMap();
-    const start = { x: 1, y: 1 };
-    let walker = { x: 1, y: 1 };
-    let carved = carveBrush(mapData, walker.x, walker.y, 1);
-    const carveTarget = randInt(meta.floorTarget[0], meta.floorTarget[1]);
-    let steps = 0;
-
-    while (carved < carveTarget && steps < 4200) {
-      const directions = shuffle([
-        { dx: 1, dy: 0 },
-        { dx: -1, dy: 0 },
-        { dx: 0, dy: 1 },
-        { dx: 0, dy: -1 },
-      ]);
-      const direction = directions[0];
-      walker.x = clamp(walker.x + direction.dx, 1, mapApi.MAP_COLS - 2);
-      walker.y = clamp(walker.y + direction.dy, 1, mapApi.MAP_ROWS - 2);
-      carved += carveBrush(mapData, walker.x, walker.y, Math.random() < 0.22 ? 1 : 0);
-      steps += 1;
-    }
-
-    const floors = collectFloorCells(mapData);
-    const blocked = {};
-    blocked[positionKey(start.x, start.y)] = true;
-
-    const healPos = chooseDistantFloor(floors, start, blocked);
-    if (healPos) {
-      mapData[healPos.y][healPos.x] = TILE.HEAL_POINT;
-      blocked[positionKey(healPos.x, healPos.y)] = true;
-    }
-
-    const portalPos = chooseDistantFloor(floors, start, blocked);
-    if (portalPos) {
-      blocked[positionKey(portalPos.x, portalPos.y)] = true;
-    }
-
-    const encounterPool = {};
-    const spawnCount = Math.min(randInt(meta.enemyCount[0], meta.enemyCount[1]), floors.length - 3);
-    const enemySpawns = chooseEnemySpawns(floors, start, spawnCount, blocked);
-    enemySpawns.forEach(function spawnEnemy(cell) {
-      mapData[cell.y][cell.x] = TILE.ENEMY;
-      encounterPool[positionKey(cell.x, cell.y)] = cloneEnemyTemplate(pickRandom(meta.enemyRoster));
-    });
-
-    mapData[start.y][start.x] = TILE.PLAYER_START;
-    return {
-      map: mapData,
-      start: start,
-      portalPos: portalPos,
-      encounters: encounterPool,
-    };
-  }
-
-  function generateBossStage(stageName) {
-    const meta = getStageMeta(stageName);
-    const mapData = createSolidMap();
-    for (let y = 1; y < mapApi.MAP_ROWS - 1; y += 1) {
-      for (let x = 1; x < mapApi.MAP_COLS - 1; x += 1) {
-        mapData[y][x] = TILE.FLOOR;
-      }
-    }
-
-    const pillarSets = {
-      verdant_grove: [{ x: 8, y: 4 }, { x: 8, y: 10 }, { x: 12, y: 4 }, { x: 12, y: 10 }],
-      sunken_archive: [{ x: 6, y: 4 }, { x: 6, y: 10 }, { x: 13, y: 4 }, { x: 13, y: 10 }],
-      ember_hollow: [{ x: 7, y: 5 }, { x: 7, y: 9 }, { x: 12, y: 5 }, { x: 12, y: 9 }],
-    };
-    (pillarSets[stageName] || []).forEach(function placePillar(pillar) {
-      mapData[pillar.y][pillar.x] = TILE.WALL;
-    });
-
-    const start = { x: 2, y: Math.floor(mapApi.MAP_ROWS / 2) };
-    const healPos = { x: 4, y: Math.floor(mapApi.MAP_ROWS / 2) };
-    const bossPos = { x: mapApi.MAP_COLS - 4, y: Math.floor(mapApi.MAP_ROWS / 2) };
-    mapData[start.y][start.x] = TILE.PLAYER_START;
-    mapData[healPos.y][healPos.x] = TILE.HEAL_POINT;
-    mapData[bossPos.y][bossPos.x] = TILE.BOSS;
-
-    const encounterPool = {};
-    encounterPool[positionKey(bossPos.x, bossPos.y)] = cloneEnemyTemplate(meta.boss);
-
-    return {
-      map: mapData,
-      start: start,
-      portalPos: null,
-      encounters: encounterPool,
-    };
   }
 
   function appendLog(message) {
@@ -471,20 +195,8 @@
     syncTouchMoveButtons();
   }
 
-  function setHeldMoveState(key, pressed) {
-    if (!movementByKey[key]) {
-      return;
-    }
-    heldKeys[key] = pressed;
-    if (pressed) {
-      preferredMoveKey = key;
-    } else if (preferredMoveKey === key) {
-      preferredMoveKey = "";
-    }
-    syncTouchMoveButtons();
-    if (pressed && !movementState.active && gameState === GAME_STATE.EXPLORE && !isOverlayVisible()) {
-      beginMove(movementByKey[key]);
-    }
+  function isOverlayVisible() {
+    return !ui.sceneOverlay.classList.contains("is-hidden");
   }
 
   function showOverlay(eyebrow, title, text, buttonLabel, action) {
@@ -498,17 +210,13 @@
   }
 
   function showNotice(eyebrow, title, text, buttonLabel, action) {
-    showOverlay(eyebrow, title, text, buttonLabel || "鎴戠煡閬撲簡", action || hideOverlay);
+    showOverlay(eyebrow, title, text, buttonLabel || "我知道了", action || hideOverlay);
   }
 
   function hideOverlay() {
     ui.sceneOverlay.classList.add("is-hidden");
     overlayAction = null;
     clearHeldMoveKeys();
-  }
-
-  function isOverlayVisible() {
-    return !ui.sceneOverlay.classList.contains("is-hidden");
   }
 
   function setCombatBanner(visible, text) {
@@ -564,6 +272,11 @@
     }
   }
 
+  function updateSkillMenuVisibility() {
+    ui.skillButtons.classList.toggle("is-hidden", !skillMenuOpen);
+    ui.btnSkillMenu.textContent = skillMenuOpen ? "收起技能" : "技能";
+  }
+
   function setActionMenu(visible, enabled) {
     if (ui.actionPanel) {
       ui.actionPanel.classList.toggle("is-hidden", !visible);
@@ -582,88 +295,62 @@
     updateSkillMenuVisibility();
   }
 
-  function updateSkillMenuVisibility() {
-    ui.skillButtons.classList.toggle("is-hidden", !skillMenuOpen);
-    ui.btnSkillMenu.textContent = skillMenuOpen ? "收起技能" : "技能";
-  }
-
   function syncEnemyPanel(enemy) {
-    if (!enemy) {
+    const enemyView = createEnemyViewModel(enemy);
+    if (!enemyView.visible) {
       ui.enemyPanel.classList.add("is-hidden");
       return;
     }
     ui.enemyPanel.classList.remove("is-hidden");
-    ui.enemyName.textContent = enemy.name;
-    ui.enemyHpText.textContent = enemy.hp + " / " + enemy.maxHp;
-    ui.enemyHpBar.style.width = toPercent(enemy.hp, enemy.maxHp) + "%";
+    ui.enemyName.textContent = enemyView.name;
+    ui.enemyHpText.textContent = enemyView.hpText;
+    ui.enemyHpBar.style.width = enemyView.hpPercent + "%";
   }
 
   function syncStatusPanel() {
-    ui.hp.textContent = player.hp + " / " + player.maxHp;
-    ui.mp.textContent = player.mp + " / " + player.maxMp;
-    if (ui.classValue) {
-      ui.classValue.textContent = "职业：" + (player.className || "-");
-    }
-    if (ui.stageValue) {
-      ui.stageValue.textContent = "区域：" + getCurrentStageLabel();
-    }
-    if (ui.gold) {
-      ui.gold.textContent = String(player.gold);
-    }
-    if (ui.skillPoints) {
-      ui.skillPoints.textContent = String(player.skillPoints);
-    }
-    ui.classSummary.textContent = player.className
-      ? player.className + "，当前位于 " + getCurrentStageLabel() + "。" + getCurrentStageDescription()
-      : "在城镇中选择职业，确认你这轮的成长路线。";
-    ui.level.textContent = String(player.level);
-    ui.exp.textContent = player.exp + " / " + player.expToNext;
-    if (ui.pos) {
-      ui.pos.textContent = "坐标：(" + player.position.x + ", " + player.position.y + ")";
-    }
-    ui.hpBar.style.width = toPercent(player.hp, player.maxHp) + "%";
-    ui.mpBar.style.width = toPercent(player.mp, player.maxMp) + "%";
-    ui.expBar.style.width = toPercent(player.exp, player.expToNext) + "%";
+    const hudView = createHudViewModel({
+      player: player,
+      stageLabel: getCurrentStageLabel(),
+      stageDescription: getCurrentStageDescription(),
+    });
+
+    ui.hp.textContent = hudView.hpText;
+    ui.mp.textContent = hudView.mpText;
+    ui.level.textContent = hudView.levelText;
+    ui.exp.textContent = hudView.expText;
+    ui.gold.textContent = hudView.goldText;
+    ui.skillPoints.textContent = hudView.skillPointText;
+    ui.classValue.textContent = hudView.classText;
+    ui.stageValue.textContent = hudView.stageText;
+    ui.pos.textContent = hudView.positionText;
+    ui.classSummary.textContent = hudView.classSummary;
+    ui.hpBar.style.width = hudView.hpPercent + "%";
+    ui.mpBar.style.width = hudView.mpPercent + "%";
+    ui.expBar.style.width = hudView.expPercent + "%";
+
     Array.from(ui.skillButtons.querySelectorAll("button")).forEach(function updateButton(button) {
       const skill = skills[button.dataset.skillId];
-      button.disabled = !skill || player.mp < skill.cost || gameState !== GAME_STATE.COMBAT;
+      button.disabled = !skill || player.mp < skill.cost || getGameState() !== GAME_STATE.COMBAT;
     });
   }
 
   function showDetailStatsOverlay() {
-    const equippedNames = player.equipment.length > 0
-      ? player.equipment.map(function mapEquipment(id) {
-          const item = SHOP_ITEMS.find(function findItem(entry) {
-            return entry.id === id;
-          });
-          return item ? item.name : id;
-        }).join("、")
-      : "暂无";
+    const equippedItems = player.equipment.map(function mapEquipment(id) {
+      const item = SHOP_ITEMS.find(function findItem(entry) {
+        return entry.id === id;
+      });
+      return item ? item.name : id;
+    });
     const learnedSkills = getPlayerSkills().map(function mapSkill(skill) {
       return skill.name;
-    }).join("、") || "暂无";
-    const detailHtml = [
-      "<div class=\"detail-stats\">",
-      "<p><strong>姓名：</strong>" + player.name + "</p>",
-      "<p><strong>职业：</strong>" + (player.className || "未选择") + "</p>",
-      "<p><strong>职业特性：</strong>" + (player.classDescription || "尚未选择职业") + "</p>",
-      "<p><strong>区域：</strong>" + getCurrentStageLabel() + "</p>",
-      "<p><strong>等级：</strong>Lv." + player.level + "</p>",
-      "<p><strong>生命：</strong>" + player.hp + " / " + player.maxHp + "</p>",
-      "<p><strong>法力：</strong>" + player.mp + " / " + player.maxMp + "</p>",
-      "<p><strong>经验：</strong>" + player.exp + " / " + player.expToNext + "</p>",
-      "<p><strong>攻击：</strong>" + player.attack + "</p>",
-      "<p><strong>防御：</strong>" + player.defense + "</p>",
-      "<p><strong>速度：</strong>" + player.speed + "</p>",
-      "<p><strong>金币：</strong>" + player.gold + "</p>",
-      "<p><strong>技能点：</strong>" + player.skillPoints + "</p>",
-      "<p><strong>坐标：</strong>(" + player.position.x + ", " + player.position.y + ")</p>",
-      "<p><strong>已学技能：</strong>" + learnedSkills + "</p>",
-      "<p><strong>已装备：</strong>" + equippedNames + "</p>",
-      "<p><strong>终极技：</strong>" + (player.learnedUltimate ? "已解锁" : "尚未解锁") + "</p>",
-      "</div>",
-    ].join("");
-    showOverlay("详细属性", player.className || "冒险者信息", detailHtml, "关闭", hideOverlay);
+    });
+    const detailView = createDetailStatsViewModel({
+      player: player,
+      stageLabel: getCurrentStageLabel(),
+      equippedItems: equippedItems,
+      learnedSkills: learnedSkills,
+    });
+    showOverlay(detailView.overlayEyebrow, detailView.overlayTitle, renderDetailStatsHtml(detailView), "关闭", hideOverlay);
   }
 
   function pulseFlash() {
@@ -724,15 +411,17 @@
   }
 
   function drawTownDecorations() {
-    const meta = STAGE_META.azure_town;
+    const meta = getStageMeta("azure_town");
     const npcImage = getMapAsset("npc");
     const houseImage = getMapAsset("house");
-    meta.houses.forEach(function drawHouse(house) {
+
+    (meta.houses || []).forEach(function drawHouse(house) {
       if (houseImage && houseImage.complete) {
         ctx.drawImage(houseImage, house.x * TILE_SIZE - 8, house.y * TILE_SIZE - 8, 64, 64);
       }
     });
-    meta.npcs.forEach(function drawNpc(npc) {
+
+    (meta.npcs || []).forEach(function drawNpc(npc) {
       if (npcImage && npcImage.complete) {
         ctx.drawImage(npcImage, npc.x * TILE_SIZE, npc.y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
       }
@@ -754,19 +443,13 @@
     ctx.font = "bold 22px Consolas, monospace";
     ctx.fillText(enemy && enemy.isBoss ? "首领战" : "战斗中", 24, 34);
     ctx.font = "15px Consolas, monospace";
-    ctx.fillText((enemy ? enemy.name : "鏁屼汉") + "  " + (enemy ? enemy.hp + "/" + enemy.maxHp : ""), 28, 66);
+    ctx.fillText((enemy ? enemy.name : "敌人") + "  " + (enemy ? enemy.hp + "/" + enemy.maxHp : ""), 28, 66);
     ctx.fillText(player.name + "  " + player.hp + "/" + player.maxHp, canvas.width - 250, canvas.height - 30);
-  }
-
-  function easeOutCubic(value) {
-    return 1 - Math.pow(1 - value, 3);
   }
 
   function loadStage(stageName, options) {
     const settings = options || {};
-    const generatedStage = stageName === "azure_town"
-      ? { map: cloneMap(STAGE_MAPS.azure_town), encounters: {}, portalPos: null }
-      : (settings.mode === "boss" ? generateBossStage(stageName) : generateFieldStage(stageName));
+    const generatedStage = createStageInstance(stageName, settings);
 
     currentStageName = stageName;
     currentStageMode = stageName === "azure_town" ? "town" : (settings.mode === "boss" ? "boss" : "field");
@@ -785,6 +468,7 @@
         }
       }
     }
+
     movementState.active = false;
     clearHeldMoveKeys();
     syncStatusPanel();
@@ -851,6 +535,7 @@
         },
       };
     });
+
     showOverlay("蔚蓝城镇", "选择职业", "不同职业拥有完全不同的技能构筑与战斗节奏。" + showChoiceButtons(choices), "关闭", hideOverlay);
     bindOverlayChoices(choices);
   }
@@ -868,11 +553,12 @@
 
     const choices = [
       { label: "重新选择职业", onClick: showClassSelectionOverlay },
-      { label: "强化攻击（消耗 1 技能点）", onClick: function spendAtk() { handleSpendSkillPoint("attack", "攻击提升。") ; } },
-      { label: "强化防御（消耗 1 技能点）", onClick: function spendDef() { handleSpendSkillPoint("defense", "防御提升。") ; } },
-      { label: "强化生命（消耗 1 技能点）", onClick: function spendHp() { handleSpendSkillPoint("maxHp", "生命上限提升。") ; } },
-      { label: "强化法力（消耗 1 技能点）", onClick: function spendMp() { handleSpendSkillPoint("maxMp", "法力上限提升。") ; } },
+      { label: "强化攻击（消耗 1 技能点）", onClick: function spendAtk() { handleSpendSkillPoint("attack", "攻击提升。"); } },
+      { label: "强化防御（消耗 1 技能点）", onClick: function spendDef() { handleSpendSkillPoint("defense", "防御提升。"); } },
+      { label: "强化生命（消耗 1 技能点）", onClick: function spendHp() { handleSpendSkillPoint("maxHp", "生命上限提升。"); } },
+      { label: "强化法力（消耗 1 技能点）", onClick: function spendMp() { handleSpendSkillPoint("maxMp", "法力上限提升。"); } },
     ];
+
     showOverlay("职业导师", "分配成长", "导师会帮你重选职业，或者把技能点投入到属性成长上。" + showChoiceButtons(choices), "离开", hideOverlay);
     bindOverlayChoices(choices);
   }
@@ -888,10 +574,17 @@
             appendLog("购买装备：" + item.name + "。");
             return;
           }
-          showNotice("交易失败", "无法购买", player.equipment.includes(item.id) ? "这件装备你已经拥有了，不需要重复购买。" : "你的金币不足，先去刷怪赚些金币再来。", "继续查看", showMerchantOverlay);
+          showNotice(
+            "交易失败",
+            "无法购买",
+            player.equipment.includes(item.id) ? "这件装备你已经拥有了，不需要重复购买。" : "你的金币不足，先去刷怪赚些金币再来。",
+            "继续查看",
+            showMerchantOverlay
+          );
         },
       };
     });
+
     showOverlay("补给商人", "购买装备", "购买更好的装备，让这套职业构筑真正成型。" + showChoiceButtons(choices), "离开", hideOverlay);
     bindOverlayChoices(choices);
   }
@@ -909,6 +602,7 @@
         },
       };
     });
+
     showOverlay("守门人", "选择试炼路线", "每次进入关卡都会重新生成地图与怪物，清光小怪后才会开启 Boss 传送门。" + showChoiceButtons(choices), "留下", hideOverlay);
     bindOverlayChoices(choices);
   }
@@ -935,7 +629,7 @@
   function beginBossIntro(x, y) {
     const meta = getStageMeta(currentStageName);
     encounterPos = { x: x, y: y };
-    gameState = GAME_STATE.BOSS_INTRO;
+    setGameState(GAME_STATE.BOSS_INTRO);
     setCombatBanner(true, "首领来袭");
     pulseFlash();
     shakeCanvas();
@@ -954,7 +648,7 @@
   }
 
   function handleTownNpc(x, y) {
-    const npcs = STAGE_META.azure_town.npcs;
+    const npcs = (getStageMeta("azure_town").npcs || []);
     const npc = npcs.find(function findNpc(item) {
       return item.x === x && item.y === y;
     });
@@ -975,6 +669,7 @@
     if (currentStageName === "azure_town" && handleTownNpc(x, y)) {
       return;
     }
+
     const tile = currentMap[y][x];
     if (tile === TILE.HEAL_POINT) {
       recoverHpMp(36, 18, currentStageName === "azure_town" ? "你在喷泉边休整，状态恢复。" : "你使用了营地恢复点。");
@@ -1023,6 +718,7 @@
     if (currentMap[nextY][nextX] === TILE.WALL) {
       return false;
     }
+
     movementState.active = true;
     movementState.elapsed = 0;
     movementState.fromX = player.position.x;
@@ -1049,21 +745,39 @@
     return null;
   }
 
+  function setHeldMoveState(key, pressed) {
+    if (!movementByKey[key]) {
+      return;
+    }
+    heldKeys[key] = pressed;
+    if (pressed) {
+      preferredMoveKey = key;
+    } else if (preferredMoveKey === key) {
+      preferredMoveKey = "";
+    }
+    syncTouchMoveButtons();
+    if (pressed && !movementState.active && getGameState() === GAME_STATE.EXPLORE && !isOverlayVisible()) {
+      beginMove(movementByKey[key]);
+    }
+  }
+
   function updateMovement(delta) {
     if (!movementState.active) {
       return;
     }
+
     movementState.elapsed += delta;
     const progressValue = clamp(movementState.elapsed / movementState.duration, 0, 1);
     const eased = 1 - Math.pow(1 - progressValue, 3);
     renderPosition.x = movementState.fromX + (movementState.toX - movementState.fromX) * eased;
     renderPosition.y = movementState.fromY + (movementState.toY - movementState.fromY) * eased;
+
     if (progressValue >= 1) {
       movementState.active = false;
       renderPosition.x = movementState.toX;
       renderPosition.y = movementState.toY;
       handleLandingTile(movementState.toX, movementState.toY);
-      if (gameState === GAME_STATE.EXPLORE && !isOverlayVisible()) {
+      if (getGameState() === GAME_STATE.EXPLORE && !isOverlayVisible()) {
         const heldVector = getHeldMoveVector();
         if (heldVector) {
           beginMove(heldVector);
@@ -1083,7 +797,7 @@
   }
 
   function onActionButton(actionName) {
-    if (!combatController || gameState !== GAME_STATE.COMBAT) {
+    if (!combatController || getGameState() !== GAME_STATE.COMBAT) {
       return;
     }
     if (combatController.playerAction(actionName)) {
@@ -1098,7 +812,7 @@
       onActionButton("attack");
     });
     ui.btnSkillMenu.addEventListener("click", function onSkillMenu() {
-      if (gameState !== GAME_STATE.COMBAT) {
+      if (getGameState() !== GAME_STATE.COMBAT) {
         return;
       }
       skillMenuOpen = !skillMenuOpen;
@@ -1166,16 +880,12 @@
   }
 
   function handleMoveInput(event) {
-    if (isOverlayVisible()) {
-      return;
-    }
-    if (gameState !== GAME_STATE.EXPLORE) {
+    if (isOverlayVisible() || getGameState() !== GAME_STATE.EXPLORE) {
       return;
     }
     const rawKey = event.key || "";
     const key = rawKey.length === 1 ? rawKey.toLowerCase() : rawKey;
-    const vector = movementByKey[key];
-    if (!vector) {
+    if (!movementByKey[key]) {
       return;
     }
     event.preventDefault();
@@ -1190,6 +900,14 @@
     }
     setHeldMoveState(key, false);
   }
+
+  gameStateStore.subscribe(function onStateChanged(nextState) {
+    if (nextState === GAME_STATE.EXPLORE) {
+      setExploreControlsVisible(true);
+    } else {
+      setExploreControlsVisible(false);
+    }
+  });
 
   const combatController = combatApi.createCombatController
     ? combatApi.createCombatController({
@@ -1215,8 +933,7 @@
           combatSnapshot = snapshot;
           if (snapshot.inCombat) {
             clearHeldMoveKeys();
-            gameState = GAME_STATE.COMBAT;
-            setExploreControlsVisible(false);
+            setGameState(GAME_STATE.COMBAT);
             syncEnemyPanel(snapshot.enemy);
             setActionMenu(true, Boolean(snapshot.playerTurn));
             setCombatBanner(true, snapshot.playerTurn ? "你的回合" : "敌方回合");
@@ -1224,17 +941,15 @@
             syncEnemyPanel(null);
             setActionMenu(false, false);
             setCombatBanner(false, "");
-            if (gameState !== GAME_STATE.GAME_OVER) {
-              gameState = GAME_STATE.EXPLORE;
-              setExploreControlsVisible(true);
-            } else {
-              setExploreControlsVisible(false);
+            if (getGameState() !== GAME_STATE.GAME_OVER) {
+              setGameState(GAME_STATE.EXPLORE);
             }
           }
         },
         onCombatEnd: function onCombatEnd(payload) {
           const result = payload.result;
           const bossWin = Boolean(payload.enemy && payload.enemy.isBoss);
+
           if (result === "victory") {
             if (encounterPos) {
               currentMap[encounterPos.y][encounterPos.x] = TILE.FLOOR;
@@ -1243,6 +958,7 @@
             player.gold += payload.enemy.gold || 0;
             appendLog("获得金币 " + (payload.enemy.gold || 0) + "。");
             unlockPortalIfNeeded();
+
             if (bossWin) {
               progress.clearedBosses[currentStageName] = true;
               const currentStageIndex = STAGE_SEQUENCE.indexOf(currentStageName);
@@ -1253,20 +969,19 @@
               showOverlay("首领击破", "凯旋而归", "首领已被击败。现在你会返回城镇进行补给、成长和下一轮挑战。", "返回城镇", function returnTown() {
                 hideOverlay();
                 loadStage("azure_town");
-                gameState = GAME_STATE.EXPLORE;
+                setGameState(GAME_STATE.EXPLORE);
               });
             } else {
               showOverlay("战斗胜利", "继续推进", "这一战让你的职业构筑更扎实了。继续推进，或者回城补给。", "继续", function resume() {
                 hideOverlay();
-                gameState = GAME_STATE.EXPLORE;
+                setGameState(GAME_STATE.EXPLORE);
               });
             }
           } else if (result === "flee") {
             appendLog("你撤离了当前战斗。");
-            gameState = GAME_STATE.EXPLORE;
+            setGameState(GAME_STATE.EXPLORE);
           } else if (result === "defeat") {
-            gameState = GAME_STATE.GAME_OVER;
-            setExploreControlsVisible(false);
+            setGameState(GAME_STATE.GAME_OVER);
             setActionMenu(false, false);
             setCombatBanner(true, "战斗失败");
             showOverlay("挑战失败", "暂时倒下", "你倒下了，但城镇会永远欢迎下一次重开。", "重开", function reset() {
@@ -1274,12 +989,14 @@
               window.location.reload();
             });
           }
+
           encounterPos = null;
           syncStatusPanel();
         },
         onLevelUp: onLevelUp,
       })
     : null;
+
   function renderFrame(timestamp) {
     if (!lastFrameTime) {
       lastFrameTime = timestamp;
@@ -1288,9 +1005,9 @@
     lastFrameTime = timestamp;
     updateMovement(delta);
 
-    if (gameState === GAME_STATE.COMBAT || gameState === GAME_STATE.GAME_OVER) {
+    if (getGameState() === GAME_STATE.COMBAT || getGameState() === GAME_STATE.GAME_OVER) {
       drawCombatView();
-    } else if (typeof drawMap === "function") {
+    } else {
       drawMap(ctx, currentMap, renderPosition, {
         stageName: currentStageName,
         stageTheme: getStageMeta(currentStageName).assetTheme || currentStageName,
@@ -1299,6 +1016,7 @@
         drawTownDecorations();
       }
     }
+
     window.requestAnimationFrame(renderFrame);
   }
 
