@@ -83,7 +83,7 @@ function createCombatController(options) {
     };
   }
 
-  function getEnemyTemplate(tile, playerLevel, stageName) {
+  function getEnemyTemplate(tile, playerLevel) {
     const levelScale = Math.max(0, playerLevel - 1);
     if (tile === 5) {
       return {
@@ -97,18 +97,16 @@ function createCombatController(options) {
         gold: 80 + levelScale * 10,
         isBoss: true,
         skills: ["shadow_blast", "devour"],
+        role: "boss",
+        assetKey: "boss",
       };
     }
-    const variants = stageName === "boss_gate"
-      ? [
-          { name: "暗影侍从", hp: 62, attack: 11, defense: 4, speed: 9, exp: 30, gold: 26 },
-          { name: "裂甲兽", hp: 72, attack: 12, defense: 5, speed: 7, exp: 34, gold: 30 },
-        ]
-      : [
-          { name: "史莱姆", hp: 30, attack: 6, defense: 1, speed: 5, exp: 16, gold: 12 },
-          { name: "哥布林", hp: 38, attack: 8, defense: 2, speed: 7, exp: 20, gold: 16 },
-          { name: "骷髅兵", hp: 46, attack: 9, defense: 3, speed: 6, exp: 24, gold: 18 },
-        ];
+
+    const variants = [
+      { name: "史莱姆", hp: 30, attack: 6, defense: 1, speed: 5, exp: 16, gold: 12 },
+      { name: "哥布林", hp: 38, attack: 8, defense: 2, speed: 7, exp: 20, gold: 16 },
+      { name: "骷髅兵", hp: 46, attack: 9, defense: 3, speed: 6, exp: 24, gold: 18 },
+    ];
     const pick = variants[Math.floor(Math.random() * variants.length)];
     return {
       id: "enemy",
@@ -118,8 +116,11 @@ function createCombatController(options) {
       defense: pick.defense + Math.floor(levelScale * 0.7),
       speed: pick.speed + Math.floor(levelScale * 0.4),
       exp: pick.exp + levelScale * 5,
+      gold: pick.gold + levelScale * 4,
       isBoss: false,
       skills: [],
+      role: "basic",
+      assetKey: "enemy",
     };
   }
 
@@ -130,7 +131,7 @@ function createCombatController(options) {
     const encounter = typeof input === "object" && input !== null ? input : { tile: input };
     sourceTile = encounter.tile;
 
-    const template = getEnemyTemplate(encounter.tile, player.level, encounter.stageName || "");
+    const template = encounter.enemyTemplate || getEnemyTemplate(encounter.tile, player.level);
     currentEnemy = {
       id: template.id,
       name: template.name,
@@ -142,8 +143,11 @@ function createCombatController(options) {
       exp: template.exp,
       gold: template.gold,
       isBoss: template.isBoss,
-      skills: template.skills,
+      skills: template.skills || [],
+      role: template.role || "basic",
+      assetKey: template.assetKey || (template.isBoss ? "boss" : "enemy"),
     };
+
     playerStatus = createStatusBag();
     enemyStatus = createStatusBag();
     state = "combat";
@@ -151,12 +155,12 @@ function createCombatController(options) {
     playerTurn = effectiveSpeed(player, playerStatus) >= effectiveSpeed(currentEnemy, enemyStatus);
     emitState(snapshotState());
     log("遭遇 " + currentEnemy.name + "。");
-    log(playerTurn ? "你抢到先手。" : currentEnemy.name + " 先发制人。");
+    log(playerTurn ? "你抢到了先手。" : currentEnemy.name + " 率先发起攻击。");
     emitEffect("combatStart", { enemy: currentEnemy });
 
     if (!playerTurn) {
       locked = true;
-      setTimeout(function delayedEnemy() {
+      setTimeout(function delayedEnemyTurn() {
         runEnemyTurn();
       }, 420);
     }
@@ -192,7 +196,7 @@ function createCombatController(options) {
     if (statusBag.regenTurns > 0) {
       unit.hp = clamp(unit.hp + statusBag.regenValue, 0, unit.maxHp);
       statusBag.regenTurns -= 1;
-      log(label + " 受到持续恢复，回复 " + statusBag.regenValue + " 点生命。");
+      log(label + " 受到持续恢复，回了 " + statusBag.regenValue + " 点生命。");
     }
     if (statusBag.attackBuffTurns > 0) {
       statusBag.attackBuffTurns -= 1;
@@ -225,7 +229,7 @@ function createCombatController(options) {
       player.hp = player.maxHp;
       player.mp = player.maxMp;
       player.expToNext = Math.floor(player.expToNext * 1.35);
-      log("升级了！当前 Lv." + player.level + "，状态已回满。");
+      log("升级了，当前 Lv." + player.level + "，状态已回满。");
       if (config.onLevelUp) {
         config.onLevelUp(player.level);
       }
@@ -260,40 +264,40 @@ function createCombatController(options) {
       }
       const rawDamage = damageByFormula(attackValue, power, currentEnemy.defense);
       const dealt = applyDamage(currentEnemy, enemyStatus, rawDamage, currentEnemy.name);
-      log("你使用 " + skill.name + "。");
+      log("你使用了 " + skill.name + "。");
       emitEffect("enemyHit", { damage: dealt, enemy: currentEnemy });
     } else if (skill.effect === "heal") {
       const healValue = Math.max(1, Math.round((attackValue * Math.abs(skill.power) + player.level * 4) * rand(0.96, 1.08)));
       player.hp = clamp(player.hp + healValue, 0, player.maxHp);
-      log("你施放 " + skill.name + "，恢复 " + healValue + " 点生命。");
+      log("你施放了 " + skill.name + "，恢复了 " + healValue + " 点生命。");
       emitEffect("playerHeal", { amount: healValue });
     } else if (skill.effect === "guard") {
       playerStatus.guard = Math.max(playerStatus.guard, skill.guard || 0.3);
-      log("你施放 " + skill.name + "，准备承受下一波攻击。");
+      log("你施放了 " + skill.name + "，准备承受下一波攻击。");
     } else if (skill.effect === "buff_attack") {
       playerStatus.attackBuffValue = skill.buff || 0.2;
       playerStatus.attackBuffTurns = skill.turns || 2;
-      log("你施放 " + skill.name + "，攻击力提升。");
+      log("你施放了 " + skill.name + "，攻击力提升。");
     } else if (skill.effect === "restore_mp") {
       player.mp = clamp(player.mp + (skill.restoreMp || 6), 0, player.maxMp);
       playerStatus.guard = Math.max(playerStatus.guard, skill.guard || 0);
-      log("你施放 " + skill.name + "，恢复法力。");
+      log("你施放了 " + skill.name + "，恢复了法力。");
     } else if (skill.effect === "poison") {
       const rawDamage = damageByFormula(attackValue, skill.power || 1, currentEnemy.defense);
       const dealt = applyDamage(currentEnemy, enemyStatus, rawDamage, currentEnemy.name);
       enemyStatus.poisonTurns = skill.poisonTurns || 2;
       enemyStatus.poisonDamage = skill.poisonDamage || 5;
-      log("你使用 " + skill.name + "，附加中毒。");
+      log("你使用了 " + skill.name + "，附加中毒效果。");
       emitEffect("enemyHit", { damage: dealt, enemy: currentEnemy });
     } else if (skill.effect === "regen") {
       playerStatus.regenTurns = skill.regenTurns || 2;
       playerStatus.regenValue = skill.regenValue || 8;
-      log("你施放 " + skill.name + "，持续恢复开始生效。");
+      log("你施放了 " + skill.name + "，持续恢复开始生效。");
     } else if (skill.effect === "guard_heal") {
       const healValue = Math.max(1, Math.round((attackValue * Math.abs(skill.power) + player.level * 2) * rand(0.95, 1.06)));
       player.hp = clamp(player.hp + healValue, 0, player.maxHp);
       playerStatus.guard = Math.max(playerStatus.guard, skill.guard || 0.3);
-      log("你施放 " + skill.name + "，恢复 " + healValue + " 点生命并获得减伤。");
+      log("你施放了 " + skill.name + "，恢复了 " + healValue + " 点生命并获得减伤。");
       emitEffect("playerHeal", { amount: healValue });
     }
 
@@ -316,16 +320,69 @@ function createCombatController(options) {
   }
 
   function enemySkillAction() {
-    const useSpecial = currentEnemy.isBoss ? Math.random() < 0.55 : Math.random() < 0.18;
-    if (useSpecial && currentEnemy.isBoss) {
+    const role = currentEnemy.role || "basic";
+
+    if (currentEnemy.isBoss && role === "pack_alpha" && Math.random() < 0.55) {
+      const rawDamage = damageByFormula(currentEnemy.attack, 1.35, player.defense);
+      const dealt = applyDamage(player, playerStatus, rawDamage, player.name);
+      enemyStatus.attackBuffValue = 0.18;
+      enemyStatus.attackBuffTurns = 2;
+      log(currentEnemy.name + " 号召狼群，进入狂怒状态。");
+      emitEffect("playerHit", { damage: dealt, enemy: currentEnemy });
+      return;
+    }
+    if (currentEnemy.isBoss && role === "arcane_warden" && Math.random() < 0.52) {
       const rawDamage = damageByFormula(currentEnemy.attack, 1.45, player.defense);
       const dealt = applyDamage(player, playerStatus, rawDamage, player.name);
       playerStatus.speedDownTurns = 1;
       playerStatus.speedDownValue = 2;
-      log(currentEnemy.name + " 施放 暗蚀震波。");
+      log(currentEnemy.name + " 释放禁术震波。");
       emitEffect("playerHit", { damage: dealt, enemy: currentEnemy });
       return;
     }
+    if (currentEnemy.isBoss && role === "inferno_tyrant" && Math.random() < 0.58) {
+      const rawDamage = damageByFormula(currentEnemy.attack, 1.28, player.defense);
+      const dealt = applyDamage(player, playerStatus, rawDamage, player.name);
+      playerStatus.poisonTurns = 2;
+      playerStatus.poisonDamage = 7;
+      log(currentEnemy.name + " 喷吐烈焰，附带持续灼烧。");
+      emitEffect("playerHit", { damage: dealt, enemy: currentEnemy });
+      return;
+    }
+    if (role === "poisoner" && Math.random() < 0.34) {
+      const rawDamage = damageByFormula(currentEnemy.attack, 0.9, player.defense);
+      const dealt = applyDamage(player, playerStatus, rawDamage, player.name);
+      playerStatus.poisonTurns = 2;
+      playerStatus.poisonDamage = 4;
+      log(currentEnemy.name + " 的毒咬让你进入中毒状态。");
+      emitEffect("playerHit", { damage: dealt, enemy: currentEnemy });
+      return;
+    }
+    if (role === "caster" && Math.random() < 0.3) {
+      const rawDamage = damageByFormula(currentEnemy.attack, 1.22, player.defense);
+      const dealt = applyDamage(player, playerStatus, rawDamage, player.name);
+      playerStatus.speedDownTurns = 1;
+      playerStatus.speedDownValue = 1;
+      log(currentEnemy.name + " 释放奥术脉冲。");
+      emitEffect("playerHit", { damage: dealt, enemy: currentEnemy });
+      return;
+    }
+    if (role === "guardian" && Math.random() < 0.28) {
+      enemyStatus.guard = Math.max(enemyStatus.guard, 0.35);
+      log(currentEnemy.name + " 举盾固守，准备承伤。");
+      emitEffect("enemyHit", { damage: 0, enemy: currentEnemy });
+      return;
+    }
+    if (role === "berserker" && Math.random() < 0.32) {
+      const rawDamage = damageByFormula(currentEnemy.attack, 1.22, player.defense);
+      const dealt = applyDamage(player, playerStatus, rawDamage, player.name);
+      enemyStatus.attackBuffValue = 0.14;
+      enemyStatus.attackBuffTurns = 1;
+      log(currentEnemy.name + " 狂化突进，下一击会更重。");
+      emitEffect("playerHit", { damage: dealt, enemy: currentEnemy });
+      return;
+    }
+
     const rawDamage = damageByFormula(effectiveAttack(currentEnemy, enemyStatus), 1, player.defense);
     const dealt = applyDamage(player, playerStatus, rawDamage, player.name);
     log(currentEnemy.name + " 使用普通攻击。");
@@ -336,13 +393,15 @@ function createCombatController(options) {
     if (state !== "combat" || !currentEnemy) {
       return;
     }
+
     tickStatus(enemyStatus, currentEnemy, currentEnemy.name);
     if (currentEnemy.hp <= 0) {
-      log(currentEnemy.name + " 被持续效果击败。");
+      log(currentEnemy.name + " 被持续效果击败了。");
       gainExpAndMaybeLevelUp(currentEnemy.exp);
       finishCombat("victory");
       return;
     }
+
     enemySkillAction();
     emitStatus();
     if (player.hp <= 0) {
@@ -350,6 +409,7 @@ function createCombatController(options) {
       finishCombat("defeat");
       return;
     }
+
     tickStatus(playerStatus, player, player.name);
     emitStatus();
     if (player.hp <= 0) {
@@ -357,6 +417,7 @@ function createCombatController(options) {
       finishCombat("defeat");
       return;
     }
+
     playerTurn = true;
     locked = false;
     emitState(snapshotState());
@@ -396,12 +457,12 @@ function createCombatController(options) {
   }
 
   return {
-    startCombat,
-    playerAction,
-    getState,
+    startCombat: startCombat,
+    playerAction: playerAction,
+    getState: getState,
   };
 }
 
 window.CombatSystem = {
-  createCombatController,
+  createCombatController: createCombatController,
 };

@@ -12,6 +12,38 @@ const TILE_SIZE = 32;
 const MAP_COLS = 20;
 const MAP_ROWS = 15;
 const assetCache = {};
+const STAGE_ASSET_THEMES = {
+  default: {
+    floor: "floor",
+    wall: "wall",
+    enemy: "enemy",
+    boss: "boss",
+  },
+  azure_town: {
+    floor: "town_floor",
+    wall: "town_wall",
+    enemy: "enemy",
+    boss: "boss",
+  },
+  verdant_grove: {
+    floor: "grove_floor",
+    wall: "grove_wall",
+    enemy: "grove_enemy",
+    boss: "grove_boss",
+  },
+  sunken_archive: {
+    floor: "archive_floor",
+    wall: "archive_wall",
+    enemy: "archive_enemy",
+    boss: "archive_boss",
+  },
+  ember_hollow: {
+    floor: "ember_floor",
+    wall: "ember_wall",
+    enemy: "ember_enemy",
+    boss: "ember_boss",
+  },
+};
 
 const DEFAULT_MAP = [
   [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
@@ -73,7 +105,7 @@ function setTile(mapData, x, y, value) {
 
 function drawMap(ctx, mapData, playerPosition, options) {
   const settings = options || {};
-  const stageName = settings.stageName || "";
+  const stageTheme = settings.stageTheme || settings.stageName || "";
   ctx.clearRect(0, 0, MAP_COLS * TILE_SIZE, MAP_ROWS * TILE_SIZE);
 
   for (let y = 0; y < MAP_ROWS; y += 1) {
@@ -82,7 +114,7 @@ function drawMap(ctx, mapData, playerPosition, options) {
       const px = x * TILE_SIZE;
       const py = y * TILE_SIZE;
 
-      drawTileSprite(ctx, getTileAssetKey(tile, stageName), px, py, tile);
+      drawTileSprite(ctx, getTileAssetKey(tile, stageTheme), px, py, tile);
     }
   }
 
@@ -95,31 +127,24 @@ function drawPlayer(ctx, playerPosition) {
   drawTileSprite(ctx, "player", px, py, TILE.PLAYER_START);
 }
 
-function getTileAssetKey(tile, stageName) {
-  if (stageName === "azure_town") {
-    if (tile === TILE.WALL) {
-      return "town_wall";
-    }
-    if (tile === TILE.FLOOR) {
-      return "town_floor";
-    }
-  }
+function getTileAssetKey(tile, stageTheme) {
+  const themeAssets = STAGE_ASSET_THEMES[stageTheme] || STAGE_ASSET_THEMES.default;
   if (tile === TILE.WALL) {
-    return "wall";
+    return themeAssets.wall;
   }
   if (tile === TILE.ENEMY) {
-    return "enemy";
+    return themeAssets.enemy;
   }
   if (tile === TILE.HEAL_POINT) {
     return "heal";
   }
   if (tile === TILE.BOSS) {
-    return "boss";
+    return themeAssets.boss;
   }
   if (tile === TILE.PORTAL) {
     return "portal";
   }
-  return "floor";
+  return themeAssets.floor;
 }
 
 function drawTileSprite(ctx, assetKey, x, y, tile) {
@@ -179,6 +204,18 @@ function loadMapAssets() {
     town_wall: "./assets/tiles/town_wall.svg",
     npc: "./assets/tiles/npc.svg",
     house: "./assets/tiles/house.svg",
+    grove_floor: "./assets/tiles/grove_floor.svg",
+    grove_wall: "./assets/tiles/grove_wall.svg",
+    grove_enemy: "./assets/tiles/grove_enemy.svg",
+    grove_boss: "./assets/tiles/grove_boss.svg",
+    archive_floor: "./assets/tiles/archive_floor.svg",
+    archive_wall: "./assets/tiles/archive_wall.svg",
+    archive_enemy: "./assets/tiles/archive_enemy.svg",
+    archive_boss: "./assets/tiles/archive_boss.svg",
+    ember_floor: "./assets/tiles/ember_floor.svg",
+    ember_wall: "./assets/tiles/ember_wall.svg",
+    ember_enemy: "./assets/tiles/ember_enemy.svg",
+    ember_boss: "./assets/tiles/ember_boss.svg",
   };
 
   const loaders = Object.keys(manifest).map(function loadOne(key) {
