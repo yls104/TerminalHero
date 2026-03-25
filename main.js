@@ -23,6 +23,11 @@
   const applyClassToPlayer = entitiesApi.applyClassToPlayer || function noop() { return false; };
   const unlockClassSkillIfNeeded = entitiesApi.unlockClassSkillIfNeeded || function noSkill() { return null; };
   const getPlayerSkills = entitiesApi.getPlayerSkills || function emptySkills() { return []; };
+  const getResolvedSkill = entitiesApi.getResolvedSkill || function fallbackResolvedSkill(skillId) { return skills[skillId] || null; };
+  const getResolvedPlayerSkills = entitiesApi.getResolvedPlayerSkills || function fallbackResolvedSkills() { return getPlayerSkills(); };
+  const getSpecializationTracks = entitiesApi.getSpecializationTracks || function noTracks() { return []; };
+  const getUnlockedSpecializationNodes = entitiesApi.getUnlockedSpecializationNodes || function noUnlockedNodes() { return []; };
+  const unlockSpecializationNode = entitiesApi.unlockSpecializationNode || function noUnlock() { return { ok: false, reason: "当前版本未接入职业专精。" }; };
   const spendSkillPoint = entitiesApi.spendSkillPoint || function noSpend() { return false; };
   const buyEquipment = entitiesApi.buyEquipment || function noBuy() { return false; };
 
@@ -336,6 +341,11 @@
     if (skill.inspectTags && skill.inspectTags.length) {
       lines.push("构筑标签：" + skill.inspectTags.join(" / "));
     }
+    if (skill.inspectNotes && skill.inspectNotes.length) {
+      skill.inspectNotes.forEach(function eachNote(note) {
+        lines.push(note);
+      });
+    }
     return lines;
   }
 
@@ -548,7 +558,7 @@
     }
 
     Array.from(ui.skillButtons.querySelectorAll("button")).forEach(function updateButton(button) {
-      const skill = skills[button.dataset.skillId];
+      const skill = getResolvedSkill(button.dataset.skillId);
       const lacksClassResource = skill && skill.resourceCost && (!player.classResource || player.classResource.current < skill.resourceCost);
       button.disabled = !skill || player.mp < skill.cost || lacksClassResource || getGameState() !== GAME_STATE.COMBAT;
     });
@@ -583,12 +593,32 @@
       };
     });
 
-    const skillEntries = getPlayerSkills().map(function mapSkill(skill) {
+    const skillEntries = getResolvedPlayerSkills().map(function mapSkill(skill) {
       return {
         name: skill.name,
         meta: (skill.type === "magic" ? "法术" : skill.type === "utility" ? "战术" : "攻击") + " / " + (skill.cost || 0) + " 法力",
         summary: skill.description,
         details: createSkillInspectLines(skill),
+      };
+    });
+
+    const specializationEntries = getSpecializationTracks().map(function mapTrack(track) {
+      const unlockedNodes = track.nodes.filter(function filterNode(node) {
+        return node.unlocked;
+      });
+      const availableNodes = track.nodes.filter(function filterNode(node) {
+        return !node.unlocked;
+      });
+      const details = unlockedNodes.map(function mapNode(node) {
+        return "已解锁：" + node.name + " - " + node.summary;
+      }).concat(availableNodes.map(function mapNode(node) {
+        return (node.available ? "可解锁" : "待前置") + "：" + node.name + "（消耗 " + node.cost + " 技能点）";
+      }));
+      return {
+        name: track.name,
+        meta: "职业专精 / 已投入 " + unlockedNodes.length + " 节点",
+        summary: track.summary,
+        details: details.length ? details : ["当前尚未投入该路线。"],
       };
     });
 
@@ -605,6 +635,7 @@
       player: player,
       sections: [
         { title: "技能详情", entries: skillEntries.length ? skillEntries : [{ name: "暂无技能", meta: "", summary: "先选择职业后再查看。", details: [] }] },
+        { title: "职业专精", entries: specializationEntries.length ? specializationEntries : [{ name: "暂无专精", meta: "", summary: "先选择职业后再查看。", details: [] }] },
         { title: "装备详情", entries: equippedEntries.length ? equippedEntries : [{ name: "暂无装备", meta: "", summary: "当前没有已装备物品。", details: [] }] },
         { title: "遗物详情", entries: relicEntries.length ? relicEntries : [{ name: "暂无遗物", meta: "", summary: "还没有获取遗物。", details: [] }] },
         { title: "材料与资源", entries: materialEntries.length ? materialEntries : [{ name: "暂无材料", meta: "", summary: "后续构筑素材会显示在这里。", details: [] }] },
@@ -768,6 +799,91 @@
         }
       });
     });
+  }
+
+  function renderSpecializationTrackHtml(track) {
+    const nodesHtml = track.nodes.map(function mapNode(node) {
+      const stateText = node.unlocked ? "已解锁" : node.available ? ("消耗 " + node.cost + " 技能点") : "需要前置节点";
+      return "<p><strong>" + node.name + "：</strong>" + node.summary + " <span class=\"overlay-inline-note\">" + stateText + "</span></p>";
+    }).join("");
+    return "<div class=\"detail-stats\">" + nodesHtml + "</div>";
+  }
+
+  function showSpecializationTrackOverlay(trackId) {
+    const track = getSpecializationTracks().find(function findTrack(entry) {
+      return entry.id === trackId;
+    });
+    if (!track) {
+      showNotice("职业导师", "暂无该路线", "当前职业没有找到对应的专精路线。", "返回导师", showMentorOverlay);
+      return;
+    }
+
+    const choices = track.nodes.map(function mapNode(node) {
+      return {
+        label: node.name + "（" + (node.unlocked ? "已解锁" : node.available ? ("消耗 " + node.cost + " 技能点") : "需要前置") + "）",
+        onClick: function unlockNode() {
+          if (node.unlocked) {
+            showNotice("职业专精", node.name, "这个专精节点已经解锁，不需要重复投入。", "继续查看", function reopenTrack() {
+              showSpecializationTrackOverlay(trackId);
+            });
+            return;
+          }
+          const result = unlockSpecializationNode(trackId, node.id);
+          if (!result.ok) {
+            showNotice("职业专精", "无法解锁", result.reason || "当前无法解锁该专精节点。", "继续查看", function reopenTrack() {
+              showSpecializationTrackOverlay(trackId);
+            });
+            return;
+          }
+          renderSkillButtons();
+          syncStatusPanel();
+          appendLog("已解锁专精节点：" + result.track.name + " - " + result.node.name + "。");
+          showSpecializationTrackOverlay(trackId);
+        },
+      };
+    }).concat([
+      {
+        label: "返回专精总览",
+        onClick: showSpecializationOverviewOverlay,
+      },
+    ]);
+
+    showOverlay(
+      "职业专精",
+      track.name,
+      track.summary + "<br>当前技能点：" + player.skillPoints + renderSpecializationTrackHtml(track) + showChoiceButtons(choices),
+      "返回导师",
+      showMentorOverlay
+    );
+    bindOverlayChoices(choices);
+  }
+
+  function showSpecializationOverviewOverlay() {
+    if (!player.classId) {
+      showNotice("职业导师", "尚未选择职业", "请先选择职业，再来分配专精路线。", "选择职业", showClassSelectionOverlay);
+      return;
+    }
+    const tracks = getSpecializationTracks();
+    const choices = tracks.map(function mapTrack(track) {
+      const unlockedCount = track.nodes.filter(function filterNode(node) {
+        return node.unlocked;
+      }).length;
+      return {
+        label: track.name + "（已解锁 " + unlockedCount + "/" + track.nodes.length + "）",
+        onClick: function openTrack() {
+          showSpecializationTrackOverlay(track.id);
+        },
+      };
+    });
+
+    showOverlay(
+      "职业导师",
+      "职业专精",
+      "每条专精路线都会给你不同的技能与强化方向。当前技能点：" + player.skillPoints + showChoiceButtons(choices),
+      "返回导师",
+      showMentorOverlay
+    );
+    bindOverlayChoices(choices);
   }
 
   function applyRewardEffect(effect, sourceLabel) {
@@ -1007,7 +1123,7 @@
 
   function renderSkillButtons() {
     ui.skillButtons.innerHTML = "";
-    getPlayerSkills().filter(function filterSkill(skill) {
+    getResolvedPlayerSkills().filter(function filterSkill(skill) {
       return skill.id !== "attack";
     }).forEach(function renderSkill(skill) {
       const button = document.createElement("button");
@@ -1060,13 +1176,14 @@
 
     const choices = [
       { label: "重新选择职业", onClick: showClassSelectionOverlay },
+      { label: "职业专精（技能树）", onClick: showSpecializationOverviewOverlay },
       { label: "强化攻击（消耗 1 技能点）", onClick: function spendAtk() { handleSpendSkillPoint("attack", "攻击提升。"); } },
       { label: "强化防御（消耗 1 技能点）", onClick: function spendDef() { handleSpendSkillPoint("defense", "防御提升。"); } },
       { label: "强化生命（消耗 1 技能点）", onClick: function spendHp() { handleSpendSkillPoint("maxHp", "生命上限提升。"); } },
       { label: "强化法力（消耗 1 技能点）", onClick: function spendMp() { handleSpendSkillPoint("maxMp", "法力上限提升。"); } },
     ];
 
-    showOverlay("职业导师", "分配成长", "导师会帮你重选职业，或者把技能点投入到属性成长上。" + showChoiceButtons(choices), "离开", hideOverlay);
+    showOverlay("职业导师", "分配成长", "导师会帮你重选职业、分配属性成长，或者沿着职业专精继续深化这套 build。" + showChoiceButtons(choices), "离开", hideOverlay);
     bindOverlayChoices(choices);
   }
 
@@ -1432,6 +1549,7 @@
     ? combatApi.createCombatController({
         player: player,
         skills: skills,
+        resolveSkill: getResolvedSkill,
         onLog: appendLog,
         onStatusSync: syncStatusPanel,
         onEffect: function onEffect(name) {

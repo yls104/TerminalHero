@@ -2,6 +2,7 @@ function createCombatController(options) {
   const config = options || {};
   const player = config.player;
   const skills = config.skills || {};
+  const resolveSkill = config.resolveSkill || function fallbackResolveSkill(skillId) { return skills[skillId] || null; };
   const ioApi = window.CombatIO || {};
   const normalizeCombatLogEntry = ioApi.normalizeCombatLogEntry || function fallbackNormalize(input, meta) {
     return {
@@ -315,7 +316,7 @@ function createCombatController(options) {
   }
 
   function applyPlayerSkill(skillId) {
-    const skill = skills[skillId];
+    const skill = resolveSkill(skillId);
     if (!skill || state !== "combat" || !playerTurn || locked) {
       return false;
     }

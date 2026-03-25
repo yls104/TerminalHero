@@ -17,8 +17,11 @@
     const stageDescription = data.stageDescription || "";
     const className = player.className || "-";
     const buildNote = player.classBuildNote || "";
+    const specializationText = player.buildSnapshot && player.buildSnapshot.activeTrackNames && player.buildSnapshot.activeTrackNames.length
+      ? " 已激活专精：" + player.buildSnapshot.activeTrackNames.join(" / ") + "。"
+      : "";
     const classSummary = player.className
-      ? player.className + "，当前位于 " + stageLabel + "。" + stageDescription + (buildNote ? " 构筑提示：" + buildNote : "")
+      ? player.className + "，当前位于 " + stageLabel + "。" + stageDescription + (buildNote ? " 构筑提示：" + buildNote : "") + specializationText
       : "在城镇中选择职业，确认你这轮的成长路线。";
 
     return {
@@ -145,6 +148,7 @@
         { label: "职业", value: player.className || "未选择" },
         { label: "构筑方向", value: player.classBuildNote || player.classDescription || "尚未选择职业" },
         { label: "核心资源", value: player.classResource && player.classResource.id ? player.classResource.label + "（" + player.classResource.current + " / " + player.classResource.max + "）" : "当前职业暂无专属资源" },
+        { label: "已激活专精", value: player.buildSnapshot && player.buildSnapshot.activeTrackNames && player.buildSnapshot.activeTrackNames.length ? player.buildSnapshot.activeTrackNames.join("、") : "暂未投入专精节点" },
       ],
       sections: data.sections || [],
     };

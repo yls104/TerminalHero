@@ -170,6 +170,11 @@ button,
   line-height: 1.5;
 }
 
+.overlay-inline-note {
+  color: #67e8f9;
+  font-size: 0.82rem;
+}
+
 .overlay-button {
   border: 1px solid #22d3ee;
   border-radius: 999px;
