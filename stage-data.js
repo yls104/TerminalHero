@@ -434,6 +434,31 @@
           },
         ],
       },
+      {
+        id: "predator_tracks",
+        name: "掠食踪迹",
+        type: "hunt",
+        weight: 2,
+        tags: ["pressure", "loot"],
+        prompt: "泥地上留着新鲜的兽爪痕迹。你可以顺着踪迹主动狩猎，也可以布下诱饵稳稳回收战利品。",
+        choices: [
+          {
+            label: "主动追猎（失去 12 生命，攻击 +1，获得狼牙素材）",
+            effects: [
+              { type: "damage", value: 12 },
+              { type: "stat", stat: "attack", amount: 1, label: "林间追猎" },
+              { type: "material", itemId: "fang_material", label: "狼牙素材", amount: 1 },
+            ],
+          },
+          {
+            label: "布下诱饵（恢复生命并获得金币）",
+            effects: [
+              { type: "heal", value: 20 },
+              { type: "gold", min: 18, max: 28 },
+            ],
+          },
+        ],
+      },
     ],
     archive_events: [
       {
@@ -479,6 +504,29 @@
             label: "记录咒痕（法力上限 +4）",
             effects: [
               { type: "stat", stat: "maxMp", amount: 4, label: "咒痕储能" },
+            ],
+          },
+        ],
+      },
+      {
+        id: "quiet_scriptorium",
+        name: "静默抄写间",
+        type: "study",
+        weight: 2,
+        tags: ["resource", "relic"],
+        prompt: "一间尚未完全坍塌的抄写间藏着旧时代的术式页。你可以潜心研读，也可以拆解书架里的封印部件。",
+        choices: [
+          {
+            label: "研读术式（经验 +18，法力上限 +4）",
+            effects: [
+              { type: "exp", value: 18 },
+              { type: "stat", stat: "maxMp", amount: 4, label: "抄写间感悟" },
+            ],
+          },
+          {
+            label: "拆解封印（获得遗物或金币补偿）",
+            effects: [
+              { type: "relic", poolId: "archive_relics" },
             ],
           },
         ],
@@ -534,6 +582,31 @@
           },
         ],
       },
+      {
+        id: "slag_cache",
+        name: "炉渣军械堆",
+        type: "armory",
+        weight: 2,
+        tags: ["power", "materials"],
+        prompt: "崩塌的军械堆里还埋着烧红的锻材。你可以冒险撬开它们，也可以就地借火淬炼兵器。",
+        choices: [
+          {
+            label: "撬开军械堆（失去 10 生命，获得金币与余烬碎片）",
+            effects: [
+              { type: "damage", value: 10 },
+              { type: "gold", min: 28, max: 42 },
+              { type: "material", itemId: "ember_shard", label: "余烬碎片", amount: 1 },
+            ],
+          },
+          {
+            label: "借火淬兵（攻击 +1，恢复 12 法力）",
+            effects: [
+              { type: "stat", stat: "attack", amount: 1, label: "余火淬炼" },
+              { type: "mp", value: 12 },
+            ],
+          },
+        ],
+      },
     ],
   };
 
@@ -567,12 +640,18 @@
   const ELITE_TEMPLATES = {
     verdant_grove: [
       { id: "alpha_stalker", name: "林冠追猎者", hp: 68, attack: 13, defense: 4, speed: 11, exp: 42, gold: 28, role: "swift", encounterType: "elite", assetKey: "grove_enemy", dropTableId: "verdant_common" },
+      { id: "venom_matriarch", name: "毒沼兽母", hp: 74, attack: 12, defense: 4, speed: 9, exp: 46, gold: 30, role: "stalker", encounterType: "elite", assetKey: "grove_enemy", dropTableId: "verdant_common" },
+      { id: "briar_ram", name: "棘冠蛮角兽", hp: 82, attack: 14, defense: 6, speed: 6, exp: 48, gold: 32, role: "bulwark", encounterType: "elite", assetKey: "grove_enemy", dropTableId: "verdant_common" },
     ],
     sunken_archive: [
       { id: "silent_curator", name: "缄默馆长", hp: 76, attack: 14, defense: 5, speed: 8, exp: 48, gold: 34, role: "caster", encounterType: "elite", assetKey: "archive_enemy", dropTableId: "archive_common" },
+      { id: "seal_siphoner", name: "封缄汲能者", hp: 70, attack: 13, defense: 4, speed: 9, exp: 50, gold: 36, role: "mana_drain", encounterType: "elite", assetKey: "archive_enemy", dropTableId: "archive_common" },
+      { id: "libram_sentinel", name: "圣匣书卫", hp: 86, attack: 13, defense: 7, speed: 5, exp: 54, gold: 38, role: "bulwark", encounterType: "elite", assetKey: "archive_enemy", dropTableId: "archive_common" },
     ],
     ember_hollow: [
       { id: "magma_reaver", name: "熔岩收割者", hp: 84, attack: 16, defense: 5, speed: 9, exp: 54, gold: 38, role: "berserker", encounterType: "elite", assetKey: "ember_enemy", dropTableId: "ember_common" },
+      { id: "cinder_howler", name: "余火哀嚎者", hp: 72, attack: 15, defense: 4, speed: 10, exp: 52, gold: 36, role: "pyromancer", encounterType: "elite", assetKey: "ember_enemy", dropTableId: "ember_common" },
+      { id: "slag_phalanx", name: "炉渣方阵长", hp: 90, attack: 14, defense: 7, speed: 5, exp: 58, gold: 40, role: "bulwark", encounterType: "elite", assetKey: "ember_enemy", dropTableId: "ember_common" },
     ],
   };
 

@@ -1244,7 +1244,29 @@
       };
     });
 
-    showOverlay("事件节点", eventNode.name, eventNode.prompt + showChoiceButtons(choices), "稍后再来", hideOverlay);
+    const eventTypeMap = {
+      risk_reward: "搏命收益",
+      recovery: "恢复节点",
+      hunt: "追猎节点",
+      skill_test: "知识试炼",
+      story: "残响事件",
+      study: "研究节点",
+      sacrifice: "献祭节点",
+      ambush: "伏击节点",
+      armory: "军备节点",
+    };
+    const eventMeta = []
+      .concat(eventNode.type ? ["类型：" + (eventTypeMap[eventNode.type] || eventNode.type)] : [])
+      .concat(eventNode.tags && eventNode.tags.length ? ["标签：" + eventNode.tags.join(" / ")] : [])
+      .join("　");
+
+    showOverlay(
+      "事件节点",
+      eventNode.name,
+      (eventMeta ? "<div class=\"detail-stats\"><p>" + eventMeta + "</p></div>" : "") + eventNode.prompt + showChoiceButtons(choices),
+      "稍后再来",
+      hideOverlay
+    );
     bindOverlayChoices(choices);
   }
 

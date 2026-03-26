@@ -475,6 +475,41 @@ function createCombatController(options) {
       emitEffect("playerHit", { damage: dealt, enemy: currentEnemy });
       return;
     }
+    if (role === "stalker" && Math.random() < 0.36) {
+      const rawDamage = damageByFormula(currentEnemy.attack, 1.16, player.defense);
+      const dealt = applyDamage(player, playerStatus, rawDamage);
+      playerStatus.poisonTurns = Math.max(playerStatus.poisonTurns, 1);
+      playerStatus.poisonDamage = Math.max(playerStatus.poisonDamage, 5);
+      log(currentEnemy.name + " 借着林影突袭，造成 " + dealt + " 点伤害并留下毒性创口。", { type: "enemy_action", source: "enemy", turn: "enemy" });
+      emitEffect("playerHit", { damage: dealt, enemy: currentEnemy });
+      return;
+    }
+    if (role === "mana_drain" && Math.random() < 0.34) {
+      const rawDamage = damageByFormula(currentEnemy.attack, 1.08, player.defense);
+      const dealt = applyDamage(player, playerStatus, rawDamage);
+      const drained = Math.min(player.mp, 6);
+      player.mp = clamp(player.mp - drained, 0, player.maxMp);
+      log(currentEnemy.name + " 抽离你的法力，造成 " + dealt + " 点伤害并吸走 " + drained + " 点法力。", { type: "enemy_action", source: "enemy", turn: "enemy" });
+      emitEffect("playerHit", { damage: dealt, enemy: currentEnemy });
+      return;
+    }
+    if (role === "bulwark" && Math.random() < 0.3) {
+      enemyStatus.guard = Math.max(enemyStatus.guard, 0.42);
+      enemyStatus.attackBuffValue = Math.max(enemyStatus.attackBuffValue, 0.12);
+      enemyStatus.attackBuffTurns = 1;
+      log(currentEnemy.name + " 收缩阵线，架起防势并准备下一次重击。", { type: "enemy_action", source: "enemy", turn: "enemy" });
+      emitEffect("enemyHit", { damage: 0, enemy: currentEnemy });
+      return;
+    }
+    if (role === "pyromancer" && Math.random() < 0.34) {
+      const rawDamage = damageByFormula(currentEnemy.attack, 1.14, player.defense);
+      const dealt = applyDamage(player, playerStatus, rawDamage);
+      playerStatus.poisonTurns = Math.max(playerStatus.poisonTurns, 2);
+      playerStatus.poisonDamage = Math.max(playerStatus.poisonDamage, 6);
+      log(currentEnemy.name + " 洒下灼火灰烬，造成 " + dealt + " 点伤害并附加灼烧。", { type: "enemy_action", source: "enemy", turn: "enemy" });
+      emitEffect("playerHit", { damage: dealt, enemy: currentEnemy });
+      return;
+    }
 
     const rawDamage = damageByFormula(effectiveAttack(currentEnemy, enemyStatus), 1, player.defense);
     const dealt = applyDamage(player, playerStatus, rawDamage);
