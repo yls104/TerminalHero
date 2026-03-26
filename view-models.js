@@ -131,6 +131,7 @@
         { label: "新遗物", value: (data.gainedRelics || []).join("、") || "暂无" },
         { label: "新材料", value: (data.gainedMaterials || []).join("、") || "暂无" },
         { label: "本轮祝福", value: (data.gainedBlessings || []).join("、") || "暂无" },
+        { label: "章节推进", value: data.unlockedChapterLabel || "无" },
         { label: "新解锁区域", value: data.unlockedStageLabel || "无" },
       ],
     };

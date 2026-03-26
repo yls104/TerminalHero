@@ -42,11 +42,17 @@
 
   const STAGE_META = stageApi.STAGE_META || {};
   const STAGE_SEQUENCE = stageApi.STAGE_SEQUENCE || [];
+  const CHAPTERS = stageApi.CHAPTERS || [];
   const SHOP_ITEMS = stageApi.SHOP_ITEMS || [];
   const TOWN_UPGRADES = stageApi.TOWN_UPGRADES || {};
   const RELIC_POOLS = stageApi.RELIC_POOLS || {};
   const DROP_TABLES = stageApi.DROP_TABLES || {};
   const getStageMeta = stageApi.getStageMeta || function fallbackStageMeta(stageName) { return STAGE_META[stageName] || {}; };
+  const getChapterByStageId = stageApi.getChapterByStageId || function fallbackChapterByStageId(stageId) {
+    return CHAPTERS.find(function findChapter(chapter) {
+      return chapter.stageId === stageId;
+    }) || null;
+  };
   const createStageInstance = stageApi.createStageInstance || function fallbackStageInstance() { return { map: [], encounters: {}, events: {}, portalPos: null, contentPools: {} }; };
   const createStageProgress = stageApi.createStageProgress || function fallbackProgress() { return { availableStages: [], clearedBosses: {} }; };
   const positionKey = stageApi.positionKey || function fallbackPositionKey(x, y) { return x + "," + y; };
@@ -224,6 +230,7 @@
       bossCleared: false,
       outcomeText: "",
       unlockedStageLabel: "",
+      unlockedChapterLabel: "",
       legacyMarksEarned: 0,
       townRenownEarned: 0,
     };
@@ -253,6 +260,28 @@
   }
 
   function ensureProgressState() {
+    const defaultProgress = createStageProgress();
+    if (!Array.isArray(progress.availableStages) || !progress.availableStages.length) {
+      progress.availableStages = defaultProgress.availableStages.slice();
+    }
+    if (!progress.clearedBosses || typeof progress.clearedBosses !== "object") {
+      progress.clearedBosses = {};
+    }
+    if (!progress.chapterProgress || typeof progress.chapterProgress !== "object") {
+      progress.chapterProgress = cloneValue(defaultProgress.chapterProgress || {});
+    }
+    if (!Array.isArray(progress.chapterProgress.unlockedChapterIds) || !progress.chapterProgress.unlockedChapterIds.length) {
+      progress.chapterProgress.unlockedChapterIds = cloneValue((defaultProgress.chapterProgress && defaultProgress.chapterProgress.unlockedChapterIds) || [1]);
+    }
+    if (!Array.isArray(progress.chapterProgress.clearedStageIds)) {
+      progress.chapterProgress.clearedStageIds = [];
+    }
+    if (typeof progress.chapterProgress.currentChapterId !== "number") {
+      progress.chapterProgress.currentChapterId = ((defaultProgress.chapterProgress && defaultProgress.chapterProgress.currentChapterId) || 1);
+    }
+    if (typeof progress.chapterProgress.campaignComplete !== "boolean") {
+      progress.chapterProgress.campaignComplete = Boolean(defaultProgress.chapterProgress && defaultProgress.chapterProgress.campaignComplete);
+    }
     if (!progress.longTerm || typeof progress.longTerm !== "object") {
       progress.longTerm = {};
     }
@@ -270,6 +299,73 @@
         progress.longTerm.townUpgrades[upgradeId] = 0;
       }
     });
+
+    CHAPTERS.forEach(function eachChapter(chapter) {
+      if (progress.clearedBosses[chapter.stageId] && progress.chapterProgress.clearedStageIds.indexOf(chapter.stageId) === -1) {
+        progress.chapterProgress.clearedStageIds.push(chapter.stageId);
+      }
+      if (progress.availableStages.indexOf(chapter.stageId) !== -1 && progress.chapterProgress.unlockedChapterIds.indexOf(chapter.id) === -1) {
+        progress.chapterProgress.unlockedChapterIds.push(chapter.id);
+      }
+    });
+  }
+
+  function getUnlockedChapterIds() {
+    ensureProgressState();
+    return progress.chapterProgress.unlockedChapterIds;
+  }
+
+  function isStageCleared(stageId) {
+    ensureProgressState();
+    return progress.chapterProgress.clearedStageIds.indexOf(stageId) !== -1 || Boolean(progress.clearedBosses[stageId]);
+  }
+
+  function unlockChapter(chapterId) {
+    ensureProgressState();
+    if (getUnlockedChapterIds().indexOf(chapterId) !== -1) {
+      return false;
+    }
+    progress.chapterProgress.unlockedChapterIds.push(chapterId);
+    return true;
+  }
+
+  function markStageCleared(stageId) {
+    ensureProgressState();
+    if (progress.chapterProgress.clearedStageIds.indexOf(stageId) === -1) {
+      progress.chapterProgress.clearedStageIds.push(stageId);
+    }
+    const chapter = getChapterByStageId(stageId);
+    if (chapter) {
+      progress.chapterProgress.currentChapterId = chapter.id;
+    }
+  }
+
+  function tryAdvanceChapterAfterBoss(stageId) {
+    ensureProgressState();
+    const chapter = getChapterByStageId(stageId);
+    if (!chapter) {
+      return { unlockedChapter: null, blockedChapter: null, campaignComplete: false };
+    }
+
+    markStageCleared(stageId);
+    const currentIndex = CHAPTERS.findIndex(function findChapterIndex(item) {
+      return item.id === chapter.id;
+    });
+    const nextChapter = currentIndex >= 0 ? CHAPTERS[currentIndex + 1] : null;
+    if (!nextChapter) {
+      progress.chapterProgress.campaignComplete = true;
+      progress.chapterProgress.currentChapterId = chapter.id;
+      return { unlockedChapter: null, blockedChapter: null, campaignComplete: true };
+    }
+
+    progress.chapterProgress.currentChapterId = nextChapter.id;
+    if ((progress.longTerm.townRenown || 0) < nextChapter.requiredRenown) {
+      return { unlockedChapter: null, blockedChapter: nextChapter, campaignComplete: false };
+    }
+
+    unlockChapter(nextChapter.id);
+    unlockStage(nextChapter.stageId);
+    return { unlockedChapter: nextChapter, blockedChapter: null, campaignComplete: false };
   }
 
   function getTownUpgradeLevel(upgradeId) {
@@ -433,6 +529,7 @@
 
     progress.availableStages = Array.isArray(snapshot.progress.availableStages) ? snapshot.progress.availableStages.slice() : createStageProgress().availableStages.slice();
     progress.clearedBosses = snapshot.progress.clearedBosses ? cloneValue(snapshot.progress.clearedBosses) : {};
+    progress.chapterProgress = snapshot.progress.chapterProgress ? cloneValue(snapshot.progress.chapterProgress) : createStageProgress().chapterProgress;
     progress.longTerm = snapshot.progress.longTerm ? cloneValue(snapshot.progress.longTerm) : createStageProgress().longTerm;
     ensureProgressState();
 
@@ -1887,14 +1984,23 @@
     bindOverlayChoices(choices);
   }
 
-  function renderStageSelectionBriefing(stageIds) {
+  function renderStageSelectionBriefing() {
+    const unlockedChapterIds = getUnlockedChapterIds();
     return "<div class=\"detail-stats\">"
-      + stageIds.map(function mapStage(stageId) {
-        const meta = getStageMeta(stageId);
-        return "<p><strong>" + meta.label + "</strong>"
+      + CHAPTERS.map(function mapChapter(chapter) {
+        const meta = getStageMeta(chapter.stageId);
+        const isUnlocked = unlockedChapterIds.indexOf(chapter.id) !== -1;
+        const cleared = isStageCleared(chapter.stageId);
+        const statusText = cleared
+          ? "已通关"
+          : (isUnlocked ? "已开放" : ("未开放（需城镇声望 " + chapter.requiredRenown + "）"));
+        return "<p><strong>" + chapter.label + "</strong>"
+          + "<br>章节状态：" + statusText
+          + "<br>区域：" + (meta.label || chapter.stageId)
           + "<br>路线：" + (meta.routeLabel || "标准推进")
           + "<br>压力：" + (meta.pressureLabel || "常规战斗")
           + "<br>奖励倾向：" + (meta.rewardLabel || "基础收益")
+          + "<br>章节目标：" + chapter.summary
           + "</p>";
       }).join("")
       + "</div>";
@@ -1903,9 +2009,10 @@
   function showGatekeeperOverlay() {
     const choices = progress.availableStages.map(function mapStage(stageId) {
       const meta = getStageMeta(stageId);
-      const cleared = progress.clearedBosses[stageId];
+      const cleared = isStageCleared(stageId);
+      const chapter = getChapterByStageId(stageId);
       return {
-        label: meta.label + (cleared ? "（已通关）" : ""),
+        label: (chapter ? chapter.label + " / " : "") + meta.label + (cleared ? "（已通关）" : ""),
         onClick: function travel() {
           hideOverlay();
           startRun(stageId);
@@ -1917,9 +2024,9 @@
 
     showOverlay(
       "守门人",
-      "选择试炼路线",
-      "每次进入关卡都会重新生成地图、精英和事件节点。清光小怪与精英后，Boss 传送门才会开启。"
-        + renderStageSelectionBriefing(progress.availableStages)
+      "选择章节路线",
+      "每次进入关卡都会重新生成地图、精英和事件节点。清光小怪与精英后，Boss 传送门才会开启；章节开放还会受到城镇声望推进影响。"
+        + renderStageSelectionBriefing()
         + showChoiceButtons(choices),
       "留下",
       hideOverlay
@@ -1932,7 +2039,9 @@
       return;
     }
     progress.availableStages.push(stageId);
-    appendLog(logText);
+    if (logText) {
+      appendLog(logText);
+    }
   }
 
   function unlockPortalIfNeeded() {
@@ -2366,15 +2475,22 @@
               if (bossWin) {
                 progress.clearedBosses[currentStageName] = true;
                 runSummary.bossCleared = true;
-                const currentStageIndex = STAGE_SEQUENCE.indexOf(currentStageName);
-                const nextStage = STAGE_SEQUENCE[currentStageIndex + 1];
-                if (nextStage) {
-                  unlockStage(nextStage, "你解锁了新区域：" + getStageMeta(nextStage).label + "。");
-                  runSummary.unlockedStageLabel = getStageMeta(nextStage).label;
-                }
                 awardLongTermProgress(runSummary);
+                const chapterAdvance = tryAdvanceChapterAfterBoss(currentStageName);
+                if (chapterAdvance.unlockedChapter) {
+                  runSummary.unlockedStageLabel = getStageMeta(chapterAdvance.unlockedChapter.stageId).label;
+                  runSummary.unlockedChapterLabel = chapterAdvance.unlockedChapter.label;
+                  appendLog("世界推进：" + chapterAdvance.unlockedChapter.label + " 已开放。");
+                } else if (chapterAdvance.blockedChapter) {
+                  appendLog("世界推进：下一章节需要城镇声望 " + chapterAdvance.blockedChapter.requiredRenown + "，当前为 " + (progress.longTerm.townRenown || 0) + "。");
+                } else if (chapterAdvance.campaignComplete) {
+                  runSummary.unlockedChapterLabel = "终章已完成";
+                  appendLog("世界推进：三章试炼已全部完成。");
+                }
                 showRunSummaryOverlay(buildRunSummarySnapshot({
-                  outcomeText: "首领击破，成功完成本轮试炼。",
+                  outcomeText: chapterAdvance.campaignComplete
+                    ? "终章击破，整条试炼线已经完成。"
+                    : "首领击破，成功完成本轮试炼。",
                 }), function returnTown() {
                   loadStage("azure_town");
                   setGameState(GAME_STATE.EXPLORE);

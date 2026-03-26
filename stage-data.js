@@ -106,6 +106,18 @@
 
   const STAGE_SEQUENCE = ["verdant_grove", "sunken_archive", "ember_hollow"];
 
+  const CHAPTERS = [
+    { id: 1, label: "第一章：林地试炼", stageId: "verdant_grove", requiredRenown: 0, summary: "从青藤密林开始，学会在高机动和中毒压力里建立自己的第一套节奏。" },
+    { id: 2, label: "第二章：书库回响", stageId: "sunken_archive", requiredRenown: 2, summary: "深入沉没书库，在控场和法力消耗中磨出更完整的 build。" },
+    { id: 3, label: "第三章：余烬终局", stageId: "ember_hollow", requiredRenown: 4, summary: "在余烬裂谷迎接最终高压，检验整套构筑是否真正成型。" },
+  ];
+
+  function getChapterByStageId(stageId) {
+    return CHAPTERS.find(function findChapter(chapter) {
+      return chapter.stageId === stageId;
+    }) || null;
+  }
+
   const SHOP_ITEMS = [
     {
       id: "iron_blade",
@@ -1258,6 +1270,12 @@
     return {
       availableStages: [STAGE_SEQUENCE[0]],
       clearedBosses: {},
+      chapterProgress: {
+        unlockedChapterIds: [CHAPTERS[0].id],
+        clearedStageIds: [],
+        currentChapterId: CHAPTERS[0].id,
+        campaignComplete: false,
+      },
       longTerm: {
         legacyMarks: 0,
         townRenown: 0,
@@ -1299,12 +1317,14 @@
     STAGE_MAPS: STAGE_MAPS,
     STAGE_META: STAGE_META,
     STAGE_SEQUENCE: STAGE_SEQUENCE,
+    CHAPTERS: CHAPTERS,
     SHOP_ITEMS: SHOP_ITEMS,
     TOWN_UPGRADES: TOWN_UPGRADES,
     cloneMap: cloneMap,
     mergeBonusPackages: mergeBonusPackages,
     positionKey: positionKey,
     getStageMeta: getStageMeta,
+    getChapterByStageId: getChapterByStageId,
     createStageProgress: createStageProgress,
     createStageInstance: createStageInstance,
     createEncounterRuntime: createEncounterRuntime,
