@@ -51,6 +51,7 @@
   const findRelicByName = stageApi.findRelicByName || function fallbackRelic() { return null; };
   const createEquipmentOffer = stageApi.createEquipmentOffer || function fallbackEquipmentOffer(item) { return item; };
   const upgradeEquipmentInstance = stageApi.upgradeEquipmentInstance || function fallbackUpgradeEquipmentInstance(item) { return item; };
+  const createRewardChoices = stageApi.createRewardChoices || function noRewardChoices() { return []; };
 
   const createHudViewModel = viewModelApi.createHudViewModel || function fallbackHudViewModel() { return {}; };
   const createEnemyViewModel = viewModelApi.createEnemyViewModel || function fallbackEnemyViewModel() { return { visible: false, name: "", hpText: "0 / 0", hpPercent: 0 }; };
@@ -154,7 +155,7 @@
   let currentPortalPos = null;
   let currentEncounterPool = {};
   let currentEventPool = {};
-  let currentStageContent = { eventPoolId: "", relicPoolId: "", dropTableId: "", elitePoolId: "", routeLabel: "", pressureLabel: "", rewardLabel: "", layoutProfile: "" };
+  let currentStageContent = { eventPoolId: "", relicPoolId: "", dropTableId: "", elitePoolId: "", rewardProfileId: "", routeLabel: "", pressureLabel: "", rewardLabel: "", layoutProfile: "" };
   let renderPosition = { x: 1, y: 1 };
   let overlayAction = null;
   let combatSnapshot = null;
@@ -869,7 +870,7 @@
     currentPortalPos = generatedStage.portalPos || null;
     currentEncounterPool = generatedStage.encounters || {};
     currentEventPool = generatedStage.events || {};
-    currentStageContent = generatedStage.contentPools || { eventPoolId: "", relicPoolId: "", dropTableId: "", elitePoolId: "", routeLabel: "", pressureLabel: "", rewardLabel: "", layoutProfile: "" };
+    currentStageContent = generatedStage.contentPools || { eventPoolId: "", relicPoolId: "", dropTableId: "", elitePoolId: "", rewardProfileId: "", routeLabel: "", pressureLabel: "", rewardLabel: "", layoutProfile: "" };
     if (stageName === "azure_town") {
       refreshMerchantStock();
     }
@@ -1158,8 +1159,7 @@
     };
   }
 
-  function buildVictoryChoices(enemy) {
-    const encounterType = enemy && enemy.encounterType ? enemy.encounterType : "normal";
+  function createFallbackRewardChoices(encounterType, dropReward) {
     const choices = [
       {
         label: encounterType === "boss" ? "凯旋补给（回满生命与法力）" : "补给包（恢复 24 生命 / 10 法力）",
@@ -1170,7 +1170,7 @@
       encounterType === "elite" || encounterType === "boss"
         ? { label: "战术心得（+1 技能点）", effects: [{ type: "skill_point", value: 1 }] }
         : { label: "赏金加码（+22 金币）", effects: [{ type: "gold", value: 22 }] },
-      resolveDropReward((enemy && enemy.dropTableId) || currentStageContent.dropTableId),
+      dropReward,
     ];
 
     if (encounterType === "normal" && choices[2].effects[0] && choices[2].effects[0].type === "gold") {
@@ -1183,11 +1183,63 @@
     if (encounterType === "boss") {
       choices[1] = { label: "成长契机（+1 技能点，生命上限 +6）", effects: [{ type: "skill_point", value: 1 }, { type: "stat", stat: "maxHp", amount: 6, label: "胜利余辉" }] };
     }
+
     return choices;
   }
 
+  function buildRewardChoiceSummary(choice) {
+    if (!choice || !Array.isArray(choice.effects)) {
+      return "区域奖励。";
+    }
+    return choice.effects.map(function mapEffect(effect) {
+      if (effect.type === "heal") {
+        return "恢复 " + effect.value + " 生命";
+      }
+      if (effect.type === "mp") {
+        return "恢复 " + effect.value + " 法力";
+      }
+      if (effect.type === "gold") {
+        return "获得金币";
+      }
+      if (effect.type === "material") {
+        return "获得" + (effect.label || effect.itemId || "材料");
+      }
+      if (effect.type === "relic") {
+        return "获得区域遗物";
+      }
+      if (effect.type === "skill_point") {
+        return "获得 " + effect.value + " 技能点";
+      }
+      if (effect.type === "exp") {
+        return "获得 " + effect.value + " 经验";
+      }
+      if (effect.type === "stat") {
+        const statNames = { attack: "攻击", defense: "防御", maxHp: "生命上限", maxMp: "法力上限", speed: "速度" };
+        return (statNames[effect.stat] || effect.stat) + " +" + effect.amount;
+      }
+      return "获得区域收益";
+    }).join("；");
+  }
+
+  function buildVictoryChoices(enemy) {
+    const encounterType = enemy && enemy.encounterType ? enemy.encounterType : "normal";
+    const rewardProfileId = (enemy && enemy.rewardProfile) || currentStageContent.rewardProfileId || currentStageName;
+    const dropTableId = (enemy && enemy.dropTableId) || currentStageContent.dropTableId;
+    const configuredChoices = createRewardChoices(rewardProfileId, encounterType).map(function mapChoice(choice) {
+      if (choice.useDropTable) {
+        return resolveDropReward(choice.dropTableId || dropTableId);
+      }
+      return choice;
+    }).filter(Boolean);
+
+    return configuredChoices.length
+      ? configuredChoices
+      : createFallbackRewardChoices(encounterType, resolveDropReward(dropTableId));
+  }
+
   function showVictoryRewardOverlay(enemy, onComplete) {
-    const choices = buildVictoryChoices(enemy).map(function mapChoice(choice) {
+    const rewardChoices = buildVictoryChoices(enemy);
+    const choices = rewardChoices.map(function mapChoice(choice) {
       return {
         label: choice.label,
         onClick: function takeReward() {
@@ -1201,7 +1253,13 @@
       };
     });
 
-    showOverlay("战后奖励", "挑选一项战利品", "这一战已经结束，从下列奖励中选择一项带走。" + showChoiceButtons(choices), "放弃奖励", function skipReward() {
+    const choicePreviewHtml = "<div class=\"detail-stats\">"
+      + rewardChoices.map(function mapChoice(choice) {
+        return "<p><strong>" + choice.label + "</strong><br>" + buildRewardChoiceSummary(choice) + "</p>";
+      }).join("")
+      + "</div>";
+
+    showOverlay("战后奖励", "挑选一项战利品", "这一战已经结束，从下列奖励中选择一项带走。" + choicePreviewHtml + showChoiceButtons(choices), "放弃奖励", function skipReward() {
       hideOverlay();
       appendLog("你放弃了本次额外奖励。");
       if (onComplete) {

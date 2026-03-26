@@ -615,43 +615,118 @@
       { id: "gold_small", type: "gold", min: 10, max: 18, weight: 5 },
       { id: "fang_material", type: "material", label: "狼牙素材", amount: 1, weight: 3 },
     ],
+    verdant_elite: [
+      { id: "gold_mid", type: "gold", min: 20, max: 32, weight: 4 },
+      { id: "fang_material", type: "material", label: "狼牙素材", amount: 1, weight: 4 },
+      { id: "fang_bundle", type: "material", label: "狼牙素材", amount: 2, weight: 2 },
+      { id: "grove_relic_pick", type: "relic", poolId: "verdant_relics", weight: 2 },
+    ],
     verdant_boss: [
       { id: "gold_large", type: "gold", min: 48, max: 72, weight: 5 },
       { id: "relic_pick", type: "relic", poolId: "verdant_relics", weight: 3 },
+      { id: "fang_bundle_boss", type: "material", label: "狼牙素材", amount: 2, weight: 2 },
     ],
     archive_common: [
       { id: "gold_small", type: "gold", min: 12, max: 20, weight: 5 },
       { id: "ink_scroll", type: "material", label: "墨卷残页", amount: 1, weight: 3 },
     ],
+    archive_elite: [
+      { id: "gold_mid", type: "gold", min: 22, max: 34, weight: 4 },
+      { id: "ink_scroll", type: "material", label: "墨卷残页", amount: 1, weight: 4 },
+      { id: "ink_bundle", type: "material", label: "墨卷残页", amount: 2, weight: 2 },
+      { id: "archive_relic_pick", type: "relic", poolId: "archive_relics", weight: 2 },
+    ],
     archive_boss: [
       { id: "gold_large", type: "gold", min: 58, max: 84, weight: 5 },
       { id: "relic_pick", type: "relic", poolId: "archive_relics", weight: 3 },
+      { id: "ink_bundle_boss", type: "material", label: "墨卷残页", amount: 2, weight: 2 },
     ],
     ember_common: [
       { id: "gold_small", type: "gold", min: 14, max: 24, weight: 5 },
       { id: "ember_shard", type: "material", label: "余烬碎片", amount: 1, weight: 3 },
     ],
+    ember_elite: [
+      { id: "gold_mid", type: "gold", min: 24, max: 38, weight: 4 },
+      { id: "ember_shard", type: "material", label: "余烬碎片", amount: 1, weight: 4 },
+      { id: "ember_bundle", type: "material", label: "余烬碎片", amount: 2, weight: 2 },
+      { id: "ember_relic_pick", type: "relic", poolId: "ember_relics", weight: 2 },
+    ],
     ember_boss: [
       { id: "gold_large", type: "gold", min: 72, max: 104, weight: 5 },
       { id: "relic_pick", type: "relic", poolId: "ember_relics", weight: 3 },
+      { id: "ember_bundle_boss", type: "material", label: "余烬碎片", amount: 2, weight: 2 },
     ],
+  };
+
+  const REWARD_PROFILES = {
+    verdant_grove: {
+      normal: [
+        { label: "林间补给（恢复 22 生命 / 12 法力）", effects: [{ type: "heal", value: 22 }, { type: "mp", value: 12 }] },
+        { label: "追猎步调（速度 +1）", effects: [{ type: "stat", stat: "speed", amount: 1, label: "追猎步调" }] },
+        { useDropTable: true },
+      ],
+      elite: [
+        { label: "猎团战术（+1 技能点，攻击 +1）", effects: [{ type: "skill_point", value: 1 }, { type: "stat", stat: "attack", amount: 1, label: "猎团战术" }] },
+        { label: "林泉回稳（恢复 30 生命 / 16 法力）", effects: [{ type: "heal", value: 30 }, { type: "mp", value: 16 }] },
+        { useDropTable: true, dropTableId: "verdant_elite" },
+      ],
+      boss: [
+        { label: "狼王遗产（获得遗物）", effects: [{ type: "relic", poolId: "verdant_relics" }] },
+        { label: "荒野成长（+1 技能点，速度 +1，生命上限 +8）", effects: [{ type: "skill_point", value: 1 }, { type: "stat", stat: "speed", amount: 1, label: "荒野成长" }, { type: "stat", stat: "maxHp", amount: 8, label: "狼王余韵" }] },
+        { useDropTable: true, dropTableId: "verdant_boss" },
+      ],
+    },
+    sunken_archive: {
+      normal: [
+        { label: "奥术回补（恢复 18 法力，获得 12 经验）", effects: [{ type: "mp", value: 18 }, { type: "exp", value: 12 }] },
+        { label: "抄录心得（法力上限 +4）", effects: [{ type: "stat", stat: "maxMp", amount: 4, label: "抄录心得" }] },
+        { useDropTable: true },
+      ],
+      elite: [
+        { label: "封印解析（+1 技能点，法力上限 +4）", effects: [{ type: "skill_point", value: 1 }, { type: "stat", stat: "maxMp", amount: 4, label: "封印解析" }] },
+        { label: "回响灌注（恢复 18 法力，攻击 +1）", effects: [{ type: "mp", value: 18 }, { type: "stat", stat: "attack", amount: 1, label: "回响灌注" }] },
+        { useDropTable: true, dropTableId: "archive_elite" },
+      ],
+      boss: [
+        { label: "禁书馈赠（获得遗物）", effects: [{ type: "relic", poolId: "archive_relics" }] },
+        { label: "书库契机（+1 技能点，法力上限 +6，获得 20 经验）", effects: [{ type: "skill_point", value: 1 }, { type: "stat", stat: "maxMp", amount: 6, label: "书库契机" }, { type: "exp", value: 20 }] },
+        { useDropTable: true, dropTableId: "archive_boss" },
+      ],
+    },
+    ember_hollow: {
+      normal: [
+        { label: "余火狂热（攻击 +1）", effects: [{ type: "stat", stat: "attack", amount: 1, label: "余火狂热" }] },
+        { label: "焦炉补给（恢复 24 生命 / 8 法力）", effects: [{ type: "heal", value: 24 }, { type: "mp", value: 8 }] },
+        { useDropTable: true },
+      ],
+      elite: [
+        { label: "裂谷压制（+1 技能点，攻击 +1）", effects: [{ type: "skill_point", value: 1 }, { type: "stat", stat: "attack", amount: 1, label: "裂谷压制" }] },
+        { label: "熔渣淬炼（生命上限 +8，恢复 10 法力）", effects: [{ type: "stat", stat: "maxHp", amount: 8, label: "熔渣淬炼" }, { type: "mp", value: 10 }] },
+        { useDropTable: true, dropTableId: "ember_elite" },
+      ],
+      boss: [
+        { label: "暴君战利（获得遗物）", effects: [{ type: "relic", poolId: "ember_relics" }] },
+        { label: "熔核蜕变（+1 技能点，攻击 +2，生命上限 +6）", effects: [{ type: "skill_point", value: 1 }, { type: "stat", stat: "attack", amount: 2, label: "熔核蜕变" }, { type: "stat", stat: "maxHp", amount: 6, label: "暴君余焰" }] },
+        { useDropTable: true, dropTableId: "ember_boss" },
+      ],
+    },
   };
 
   const ELITE_TEMPLATES = {
     verdant_grove: [
-      { id: "alpha_stalker", name: "林冠追猎者", hp: 68, attack: 13, defense: 4, speed: 11, exp: 42, gold: 28, role: "swift", encounterType: "elite", assetKey: "grove_enemy", dropTableId: "verdant_common" },
-      { id: "venom_matriarch", name: "毒沼兽母", hp: 74, attack: 12, defense: 4, speed: 9, exp: 46, gold: 30, role: "stalker", encounterType: "elite", assetKey: "grove_enemy", dropTableId: "verdant_common" },
-      { id: "briar_ram", name: "棘冠蛮角兽", hp: 82, attack: 14, defense: 6, speed: 6, exp: 48, gold: 32, role: "bulwark", encounterType: "elite", assetKey: "grove_enemy", dropTableId: "verdant_common" },
+      { id: "alpha_stalker", name: "林冠追猎者", hp: 68, attack: 13, defense: 4, speed: 11, exp: 42, gold: 28, role: "swift", encounterType: "elite", assetKey: "grove_enemy", dropTableId: "verdant_elite" },
+      { id: "venom_matriarch", name: "毒沼兽母", hp: 74, attack: 12, defense: 4, speed: 9, exp: 46, gold: 30, role: "stalker", encounterType: "elite", assetKey: "grove_enemy", dropTableId: "verdant_elite" },
+      { id: "briar_ram", name: "棘冠蛮角兽", hp: 82, attack: 14, defense: 6, speed: 6, exp: 48, gold: 32, role: "bulwark", encounterType: "elite", assetKey: "grove_enemy", dropTableId: "verdant_elite" },
     ],
     sunken_archive: [
-      { id: "silent_curator", name: "缄默馆长", hp: 76, attack: 14, defense: 5, speed: 8, exp: 48, gold: 34, role: "caster", encounterType: "elite", assetKey: "archive_enemy", dropTableId: "archive_common" },
-      { id: "seal_siphoner", name: "封缄汲能者", hp: 70, attack: 13, defense: 4, speed: 9, exp: 50, gold: 36, role: "mana_drain", encounterType: "elite", assetKey: "archive_enemy", dropTableId: "archive_common" },
-      { id: "libram_sentinel", name: "圣匣书卫", hp: 86, attack: 13, defense: 7, speed: 5, exp: 54, gold: 38, role: "bulwark", encounterType: "elite", assetKey: "archive_enemy", dropTableId: "archive_common" },
+      { id: "silent_curator", name: "缄默馆长", hp: 76, attack: 14, defense: 5, speed: 8, exp: 48, gold: 34, role: "caster", encounterType: "elite", assetKey: "archive_enemy", dropTableId: "archive_elite" },
+      { id: "seal_siphoner", name: "封缄汲能者", hp: 70, attack: 13, defense: 4, speed: 9, exp: 50, gold: 36, role: "mana_drain", encounterType: "elite", assetKey: "archive_enemy", dropTableId: "archive_elite" },
+      { id: "libram_sentinel", name: "圣匣书卫", hp: 86, attack: 13, defense: 7, speed: 5, exp: 54, gold: 38, role: "bulwark", encounterType: "elite", assetKey: "archive_enemy", dropTableId: "archive_elite" },
     ],
     ember_hollow: [
-      { id: "magma_reaver", name: "熔岩收割者", hp: 84, attack: 16, defense: 5, speed: 9, exp: 54, gold: 38, role: "berserker", encounterType: "elite", assetKey: "ember_enemy", dropTableId: "ember_common" },
-      { id: "cinder_howler", name: "余火哀嚎者", hp: 72, attack: 15, defense: 4, speed: 10, exp: 52, gold: 36, role: "pyromancer", encounterType: "elite", assetKey: "ember_enemy", dropTableId: "ember_common" },
-      { id: "slag_phalanx", name: "炉渣方阵长", hp: 90, attack: 14, defense: 7, speed: 5, exp: 58, gold: 40, role: "bulwark", encounterType: "elite", assetKey: "ember_enemy", dropTableId: "ember_common" },
+      { id: "magma_reaver", name: "熔岩收割者", hp: 84, attack: 16, defense: 5, speed: 9, exp: 54, gold: 38, role: "berserker", encounterType: "elite", assetKey: "ember_enemy", dropTableId: "ember_elite" },
+      { id: "cinder_howler", name: "余火哀嚎者", hp: 72, attack: 15, defense: 4, speed: 10, exp: 52, gold: 36, role: "pyromancer", encounterType: "elite", assetKey: "ember_enemy", dropTableId: "ember_elite" },
+      { id: "slag_phalanx", name: "炉渣方阵长", hp: 90, attack: 14, defense: 7, speed: 5, exp: 58, gold: 40, role: "bulwark", encounterType: "elite", assetKey: "ember_enemy", dropTableId: "ember_elite" },
     ],
   };
 
@@ -667,6 +742,7 @@
   STAGE_META.verdant_grove.dropTableId = "verdant_common";
   STAGE_META.verdant_grove.bossDropTableId = "verdant_boss";
   STAGE_META.verdant_grove.elitePoolId = "verdant_grove";
+  STAGE_META.verdant_grove.rewardProfileId = "verdant_grove";
   STAGE_META.verdant_grove.tempoBias = "tempo_pressure";
   STAGE_META.verdant_grove.classPressureTags = ["持续输出", "移动压制", "中毒应对"];
 
@@ -675,6 +751,7 @@
   STAGE_META.sunken_archive.dropTableId = "archive_common";
   STAGE_META.sunken_archive.bossDropTableId = "archive_boss";
   STAGE_META.sunken_archive.elitePoolId = "sunken_archive";
+  STAGE_META.sunken_archive.rewardProfileId = "sunken_archive";
   STAGE_META.sunken_archive.tempoBias = "control_drag";
   STAGE_META.sunken_archive.classPressureTags = ["爆发窗口", "法力循环", "减速处理"];
 
@@ -683,6 +760,7 @@
   STAGE_META.ember_hollow.dropTableId = "ember_common";
   STAGE_META.ember_hollow.bossDropTableId = "ember_boss";
   STAGE_META.ember_hollow.elitePoolId = "ember_hollow";
+  STAGE_META.ember_hollow.rewardProfileId = "ember_hollow";
   STAGE_META.ember_hollow.tempoBias = "high_risk_burst";
   STAGE_META.ember_hollow.classPressureTags = ["高压生存", "斩杀窗口", "持续灼烧"];
 
@@ -767,7 +845,7 @@
     encounter.dropTableId = encounter.dropTableId || (encounter.isBoss ? stageMeta.bossDropTableId : stageMeta.dropTableId) || "";
     encounter.relicPoolId = stageMeta.relicPoolId || "";
     encounter.eventPoolId = stageMeta.eventPoolId || "";
-    encounter.rewardProfile = encounter.rewardProfile || (encounter.encounterType === "elite" ? "elite_reward" : "standard_reward");
+    encounter.rewardProfile = encounter.rewardProfile || stageMeta.rewardProfileId || "";
     return encounter;
   }
 
@@ -806,6 +884,14 @@
       relicPoolId: stageMeta.relicPoolId || "",
       dropTableId: stageMeta.dropTableId || "",
     };
+  }
+
+  function createRewardChoices(profileId, encounterType) {
+    const profile = REWARD_PROFILES[profileId] || null;
+    if (!profile) {
+      return [];
+    }
+    return cloneValue(profile[encounterType] || []);
   }
 
   function getStageMeta(stageName) {
@@ -1086,6 +1172,7 @@
         relicPoolId: meta.relicPoolId || "",
         dropTableId: meta.dropTableId || "",
         elitePoolId: meta.elitePoolId || "",
+        rewardProfileId: meta.rewardProfileId || "",
         routeLabel: meta.routeLabel || "",
         pressureLabel: meta.pressureLabel || "",
         rewardLabel: meta.rewardLabel || "",
@@ -1135,6 +1222,7 @@
         relicPoolId: meta.relicPoolId || "",
         dropTableId: meta.bossDropTableId || meta.dropTableId || "",
         elitePoolId: meta.elitePoolId || "",
+        rewardProfileId: meta.rewardProfileId || "",
       },
     };
   }
@@ -1159,6 +1247,7 @@
           relicPoolId: "",
           dropTableId: "",
           elitePoolId: "",
+          rewardProfileId: "",
         },
       };
     }
@@ -1169,6 +1258,7 @@
     RELIC_POOLS: RELIC_POOLS,
     EVENT_POOLS: EVENT_POOLS,
     DROP_TABLES: DROP_TABLES,
+    REWARD_PROFILES: REWARD_PROFILES,
     ELITE_TEMPLATES: ELITE_TEMPLATES,
     STAGE_MAPS: STAGE_MAPS,
     STAGE_META: STAGE_META,
@@ -1182,6 +1272,7 @@
     createStageInstance: createStageInstance,
     createEncounterRuntime: createEncounterRuntime,
     createEventRuntime: createEventRuntime,
+    createRewardChoices: createRewardChoices,
     createEquipmentOffer: createEquipmentOffer,
     upgradeEquipmentInstance: upgradeEquipmentInstance,
     getRelicCatalog: getRelicCatalog,
