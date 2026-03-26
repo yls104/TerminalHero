@@ -8,6 +8,7 @@
   const stateApi = window.GameStateStore || {};
   const stageApi = window.GameStageData || {};
   const viewModelApi = window.GameViewModels || {};
+  const saveApi = window.GameSaveSystem || {};
 
   const GAME_STATE = stateApi.GAME_STATE || {
     EXPLORE: "EXPLORE_STATE",
@@ -61,6 +62,10 @@
   const renderRunSummaryHtml = viewModelApi.renderRunSummaryHtml || function fallbackRunSummaryHtml() { return ""; };
   const createBuildCodexViewModel = viewModelApi.createBuildCodexViewModel || function fallbackBuildCodexViewModel() { return { overlayEyebrow: "", overlayTitle: "", summaryRows: [], sections: [] }; };
   const renderBuildCodexHtml = viewModelApi.renderBuildCodexHtml || function fallbackBuildCodexHtml() { return ""; };
+  const saveSnapshot = saveApi.saveSnapshot || function noSave() { return { ok: false, reason: "当前版本未接入存档。" }; };
+  const loadSnapshot = saveApi.loadSnapshot || function noLoad() { return { ok: false, reason: "当前版本未接入存档。" }; };
+  const clearSnapshot = saveApi.clearSnapshot || function noClear() { return { ok: false, reason: "当前版本未接入存档。" }; };
+  const getSaveMetadata = saveApi.getSaveMetadata || function noMeta() { return { exists: false, savedAt: "", summary: "" }; };
   const normalizeCombatLogEntry = combatIoApi.normalizeCombatLogEntry || function fallbackLogEntry(input) {
     return typeof input === "string" ? { text: input, type: "info", emphasis: false } : { text: String((input && input.text) || ""), type: "info", emphasis: false };
   };
@@ -118,6 +123,7 @@
     overlayText: document.querySelector("#overlayText"),
     overlayButton: document.querySelector("#overlayButton"),
     btnDetailStats: document.querySelector("#btnDetailStats"),
+    btnSaveMenu: document.querySelector("#btnSaveMenu"),
     virtualJoystick: document.querySelector("#virtualJoystick"),
     joystickBase: document.querySelector("#joystickBase"),
     joystickKnob: document.querySelector("#joystickKnob"),
@@ -188,6 +194,10 @@
     return Math.max(min, Math.min(max, value));
   }
 
+  function cloneValue(value) {
+    return JSON.parse(JSON.stringify(value));
+  }
+
   function randInt(min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
   }
@@ -235,6 +245,103 @@
     if (!Array.isArray(player.runBlessings)) {
       player.runBlessings = [];
     }
+  }
+
+  function formatSaveTime(value) {
+    if (!value) {
+      return "未知时间";
+    }
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return "未知时间";
+    }
+    return date.toLocaleString("zh-CN", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }
+
+  function buildSaveSnapshot() {
+    return {
+      currentStageName: currentStageName,
+      currentStageMode: currentStageMode,
+      currentMap: cloneValue(currentMap),
+      currentPortalPos: cloneValue(currentPortalPos),
+      currentEncounterPool: cloneValue(currentEncounterPool),
+      currentEventPool: cloneValue(currentEventPool),
+      currentStageContent: cloneValue(currentStageContent),
+      player: cloneValue(player),
+      progress: cloneValue(progress),
+      merchantStock: cloneValue(merchantStock),
+      runSummary: cloneValue(runSummary),
+      renderPosition: cloneValue(renderPosition),
+    };
+  }
+
+  function canPersistGame() {
+    if (getGameState() === GAME_STATE.COMBAT || getGameState() === GAME_STATE.BOSS_INTRO || getGameState() === GAME_STATE.GAME_OVER) {
+      return { ok: false, reason: "战斗中、Boss 演出中或结算失败时无法存档。" };
+    }
+    if (!player.classId) {
+      return { ok: false, reason: "请先选择职业，再保存你的冒险进度。" };
+    }
+    return { ok: true };
+  }
+
+  function saveCurrentProgress(options) {
+    const settings = options || {};
+    const validation = canPersistGame();
+    if (!validation.ok) {
+      return validation;
+    }
+    const result = saveSnapshot(buildSaveSnapshot());
+    if (result.ok && !settings.silent) {
+      appendLog((settings.label || "存档已更新。") + "（" + formatSaveTime(result.savedAt) + "）");
+    }
+    return result;
+  }
+
+  function applyLoadedSnapshot(snapshot) {
+    if (!snapshot || !snapshot.player || !snapshot.progress) {
+      return { ok: false, reason: "存档内容不完整。" };
+    }
+
+    Object.keys(player).forEach(function eachKey(key) {
+      delete player[key];
+    });
+    Object.assign(player, cloneValue(snapshot.player));
+    ensureRunCollections();
+    setRelicResolver(findRelicByName);
+
+    progress.availableStages = Array.isArray(snapshot.progress.availableStages) ? snapshot.progress.availableStages.slice() : createStageProgress().availableStages.slice();
+    progress.clearedBosses = snapshot.progress.clearedBosses ? cloneValue(snapshot.progress.clearedBosses) : {};
+
+    currentStageName = snapshot.currentStageName || "azure_town";
+    currentStageMode = snapshot.currentStageMode || (currentStageName === "azure_town" ? "town" : "field");
+    currentMap = Array.isArray(snapshot.currentMap) && snapshot.currentMap.length ? cloneValue(snapshot.currentMap) : createStageInstance(currentStageName, currentStageMode === "boss" ? { mode: "boss" } : {}).map;
+    currentPortalPos = snapshot.currentPortalPos ? cloneValue(snapshot.currentPortalPos) : null;
+    currentEncounterPool = snapshot.currentEncounterPool ? cloneValue(snapshot.currentEncounterPool) : {};
+    currentEventPool = snapshot.currentEventPool ? cloneValue(snapshot.currentEventPool) : {};
+    currentStageContent = snapshot.currentStageContent
+      ? cloneValue(snapshot.currentStageContent)
+      : { eventPoolId: "", relicPoolId: "", dropTableId: "", elitePoolId: "", rewardProfileId: "", routeLabel: "", pressureLabel: "", rewardLabel: "", layoutProfile: "" };
+    merchantStock = Array.isArray(snapshot.merchantStock) ? cloneValue(snapshot.merchantStock) : [];
+    runSummary = snapshot.runSummary ? cloneValue(snapshot.runSummary) : createEmptyRunSummary();
+    renderPosition = snapshot.renderPosition ? cloneValue(snapshot.renderPosition) : { x: player.position.x, y: player.position.y };
+    movementState.active = false;
+    clearHeldMoveKeys();
+    encounterPos = null;
+    combatSnapshot = null;
+    syncEnemyPanel(null);
+    setActionMenu(false, false);
+    updateSkillMenuVisibility();
+    renderSkillButtons();
+    setGameState(GAME_STATE.EXPLORE);
+    syncStatusPanel();
+    return { ok: true };
   }
 
   function addMaterial(materialLabel, amount) {
@@ -1360,6 +1467,7 @@
           applyClassToPlayer(classId);
           renderSkillButtons();
           syncStatusPanel();
+          saveCurrentProgress({ silent: true });
           hideOverlay();
           appendLog("你选择了职业：" + player.className + "。");
         },
@@ -1367,6 +1475,112 @@
     });
 
     showOverlay("蔚蓝城镇", "选择职业", "不同职业拥有完全不同的技能构筑与战斗节奏。" + showChoiceButtons(choices), "关闭", hideOverlay);
+    bindOverlayChoices(choices);
+  }
+
+  function showSaveManagementOverlay() {
+    const metadata = getSaveMetadata();
+    const choices = [
+      {
+        label: "保存进度",
+        onClick: function saveGameNow() {
+          const result = saveCurrentProgress({ label: "手动存档完成。" });
+          if (!result.ok) {
+            showNotice("存档管理", "无法保存", result.reason || "当前无法保存进度。", "返回存档菜单", showSaveManagementOverlay);
+            return;
+          }
+          syncStatusPanel();
+          showNotice("存档管理", "保存成功", "当前进度已写入本地存档。保存时间：" + formatSaveTime(result.savedAt), "继续", showSaveManagementOverlay);
+        },
+      },
+      {
+        label: "读取最近存档",
+        onClick: function loadGameNow() {
+          const loaded = loadSnapshot();
+          if (!loaded.ok) {
+            showNotice("存档管理", "无法读取", loaded.reason || "当前没有可读取的存档。", "返回存档菜单", showSaveManagementOverlay);
+            return;
+          }
+          const applied = applyLoadedSnapshot(loaded.snapshot);
+          if (!applied.ok) {
+            showNotice("存档管理", "存档无效", applied.reason || "读取到的存档内容不完整。", "返回存档菜单", showSaveManagementOverlay);
+            return;
+          }
+          hideOverlay();
+          appendLog("已读取存档，恢复至 " + getCurrentStageLabel() + "。");
+        },
+      },
+      {
+        label: "删除存档",
+        onClick: function clearGameSave() {
+          if (!metadata.exists) {
+            showNotice("存档管理", "暂无存档", "当前没有可删除的本地存档。", "返回存档菜单", showSaveManagementOverlay);
+            return;
+          }
+          const cleared = clearSnapshot();
+          if (!cleared.ok) {
+            showNotice("存档管理", "删除失败", cleared.reason || "当前无法删除存档。", "返回存档菜单", showSaveManagementOverlay);
+            return;
+          }
+          showNotice("存档管理", "存档已删除", "本地存档已经清除。后续需要重新保存。", "继续", showSaveManagementOverlay);
+        },
+      },
+    ];
+
+    showOverlay(
+      "存档管理",
+      "本地进度",
+      (metadata.exists
+        ? ("<div class=\"detail-stats\"><p><strong>最近存档：</strong>" + formatSaveTime(metadata.savedAt) + "</p><p><strong>摘要：</strong>" + (metadata.summary || "当前存档可读取") + "</p></div>")
+        : "<div class=\"detail-stats\"><p>当前还没有可读取的本地存档。</p></div>")
+        + showChoiceButtons(choices),
+      "关闭",
+      hideOverlay
+    );
+    bindOverlayChoices(choices);
+  }
+
+  function showStartResumeOverlay() {
+    const metadata = getSaveMetadata();
+    if (!metadata.exists) {
+      showClassSelectionOverlay();
+      return;
+    }
+    const choices = [
+      {
+        label: "继续冒险",
+        onClick: function continueFromSave() {
+          const loaded = loadSnapshot();
+          if (!loaded.ok) {
+            showNotice("冒险继续", "读取失败", loaded.reason || "当前无法读取本地存档。", "开始新冒险", showClassSelectionOverlay);
+            return;
+          }
+          const applied = applyLoadedSnapshot(loaded.snapshot);
+          if (!applied.ok) {
+            showNotice("冒险继续", "存档损坏", applied.reason || "存档内容无法恢复。", "开始新冒险", showClassSelectionOverlay);
+            return;
+          }
+          hideOverlay();
+          appendLog("已从本地存档恢复，继续你的冒险。");
+        },
+      },
+      {
+        label: "开始新冒险",
+        onClick: function beginFreshRun() {
+          clearSnapshot();
+          hideOverlay();
+          showClassSelectionOverlay();
+        },
+      },
+    ];
+
+    showOverlay(
+      "冒险继续",
+      "检测到本地存档",
+      "<div class=\"detail-stats\"><p><strong>最近存档：</strong>" + formatSaveTime(metadata.savedAt) + "</p><p><strong>摘要：</strong>" + (metadata.summary || "可继续当前进度") + "</p></div>" + showChoiceButtons(choices),
+      "关闭",
+      hideOverlay
+    );
     bindOverlayChoices(choices);
   }
 
@@ -1383,6 +1597,7 @@
 
     const choices = [
       { label: "重新选择职业", onClick: showClassSelectionOverlay },
+      { label: "存档管理", onClick: showSaveManagementOverlay },
       { label: "职业专精（技能树）", onClick: showSpecializationOverviewOverlay },
       { label: "强化攻击（消耗 1 技能点）", onClick: function spendAtk() { handleSpendSkillPoint("attack", "攻击提升。"); } },
       { label: "强化防御（消耗 1 技能点）", onClick: function spendDef() { handleSpendSkillPoint("defense", "防御提升。"); } },
@@ -1818,6 +2033,9 @@
     if (ui.btnDetailStats) {
       ui.btnDetailStats.addEventListener("click", showDetailStatsOverlay);
     }
+    if (ui.btnSaveMenu) {
+      ui.btnSaveMenu.addEventListener("click", showSaveManagementOverlay);
+    }
   }
 
   function bindTouchControls() {
@@ -1988,6 +2206,7 @@
                   loadStage("azure_town");
                   setGameState(GAME_STATE.EXPLORE);
                   runSummary = createEmptyRunSummary();
+                  saveCurrentProgress({ silent: true });
                 });
               } else {
                 appendLog(enemy && enemy.encounterType === "elite" ? "你击溃了精英敌人，战场节奏开始向你倾斜。" : "你带着战利品继续推进。");
@@ -2063,7 +2282,7 @@
       appendLog("资源已加载，城镇与战斗素材已就绪。");
     });
     appendLog("系统：你现在从蔚蓝城镇出发。职业、技能、装备和关卡循环都已接入。");
-    showClassSelectionOverlay();
+    showStartResumeOverlay();
   }
 
   init();

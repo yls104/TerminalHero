@@ -361,6 +361,10 @@ button,
   cursor: pointer;
 }
 
+.detail-button + .detail-button {
+  margin-top: 8px;
+}
+
 .detail-stats {
   text-align: left;
   display: grid;
