@@ -45,8 +45,14 @@
       description: "地形会在林地中随机生长，敌人偏向突袭与中毒。",
       bossDescription: "只有扫清林地里的小怪，狼王巢穴才会开放。",
       assetTheme: "verdant_grove",
+      layoutProfile: "grove_clearings",
+      routeLabel: "开阔林间与多岔清剿",
+      pressureLabel: "高机动突袭 / 中毒消耗",
+      rewardLabel: "遗物与机动型构筑材料",
       floorTarget: [84, 108],
       enemyCount: [5, 7],
+      eventCountRange: [2, 3],
+      eliteCount: 1,
       enemyRoster: [
         { id: "mossfang", name: "苔牙狼", hp: 34, attack: 7, defense: 2, speed: 9, exp: 18, gold: 14, role: "swift", assetKey: "grove_enemy" },
         { id: "thorn_viper", name: "棘藤蛇", hp: 30, attack: 6, defense: 1, speed: 8, exp: 19, gold: 15, role: "poisoner", assetKey: "grove_enemy" },
@@ -60,8 +66,14 @@
       description: "断墙和走廊会随机重组，敌人偏向法术骚扰与拖节奏。",
       bossDescription: "清掉书库守卫后，通往封印藏室的法阵才会出现。",
       assetTheme: "sunken_archive",
+      layoutProfile: "archive_corridors",
+      routeLabel: "回廊接房间 / 视野压迫",
+      pressureLabel: "控场拖节奏 / 法力消耗",
+      rewardLabel: "法术联动与稳态资源",
       floorTarget: [78, 102],
       enemyCount: [6, 8],
+      eventCountRange: [2, 2],
+      eliteCount: 1,
       enemyRoster: [
         { id: "ink_wisp", name: "墨雾灯灵", hp: 32, attack: 8, defense: 2, speed: 8, exp: 24, gold: 18, role: "caster", assetKey: "archive_enemy" },
         { id: "archive_guard", name: "石库守卫", hp: 44, attack: 9, defense: 5, speed: 4, exp: 26, gold: 20, role: "guardian", assetKey: "archive_enemy" },
@@ -75,8 +87,14 @@
       description: "炽热地脉会在每次进入时改变路线，怪物伤害更高更凶。",
       bossDescription: "只有扫平裂谷里的余烬军团，熔核祭坛的大门才会开启。",
       assetTheme: "ember_hollow",
+      layoutProfile: "ember_chokepoints",
+      routeLabel: "主脉冲锋 / 狭路决战",
+      pressureLabel: "高压伤害 / 精英夹击",
+      rewardLabel: "高风险高收益材料与爆发遗物",
       floorTarget: [74, 96],
       enemyCount: [7, 9],
+      eventCountRange: [1, 2],
+      eliteCount: 2,
       enemyRoster: [
         { id: "ash_raider", name: "炽袭者", hp: 40, attack: 11, defense: 2, speed: 8, exp: 29, gold: 22, role: "berserker", assetKey: "ember_enemy" },
         { id: "cinder_mage", name: "余火术士", hp: 34, attack: 12, defense: 2, speed: 7, exp: 31, gold: 24, role: "caster", assetKey: "ember_enemy" },
@@ -743,6 +761,116 @@
     return carved;
   }
 
+  function carveRect(mapData, left, top, width, height) {
+    let carved = 0;
+    const maxY = Math.min(mapData.length - 2, top + height - 1);
+    const maxX = Math.min(mapData[0].length - 2, left + width - 1);
+    for (let y = Math.max(1, top); y <= maxY; y += 1) {
+      for (let x = Math.max(1, left); x <= maxX; x += 1) {
+        if (mapData[y][x] === TILE.WALL) {
+          mapData[y][x] = TILE.FLOOR;
+          carved += 1;
+        }
+      }
+    }
+    return carved;
+  }
+
+  function carveHorizontalTunnel(mapData, x1, x2, y, thickness) {
+    const top = y - Math.floor((thickness || 1) / 2);
+    const left = Math.min(x1, x2);
+    const width = Math.abs(x2 - x1) + 1;
+    return carveRect(mapData, left, top, width, thickness || 1);
+  }
+
+  function carveVerticalTunnel(mapData, y1, y2, x, thickness) {
+    const left = x - Math.floor((thickness || 1) / 2);
+    const top = Math.min(y1, y2);
+    const height = Math.abs(y2 - y1) + 1;
+    return carveRect(mapData, left, top, thickness || 1, height);
+  }
+
+  function carveLPath(mapData, from, to, thickness) {
+    if (Math.random() < 0.5) {
+      carveHorizontalTunnel(mapData, from.x, to.x, from.y, thickness);
+      carveVerticalTunnel(mapData, from.y, to.y, to.x, thickness);
+    } else {
+      carveVerticalTunnel(mapData, from.y, to.y, from.x, thickness);
+      carveHorizontalTunnel(mapData, from.x, to.x, to.y, thickness);
+    }
+  }
+
+  function createLayoutProfile(stageName, meta) {
+    const mapData = createSolidMap();
+    if (meta.layoutProfile === "archive_corridors") {
+      const start = { x: 2, y: Math.floor(MAP_ROWS / 2) };
+      const chambers = [
+        { x: 2, y: 2, w: 5, h: 4 },
+        { x: 7, y: 8, w: 5, h: 4 },
+        { x: 13, y: 2, w: 5, h: 4 },
+        { x: 13, y: 8, w: 5, h: 4 },
+      ];
+      chambers.forEach(function carveChamber(chamber) {
+        carveRect(mapData, chamber.x, chamber.y, chamber.w, chamber.h);
+      });
+      for (let i = 0; i < chambers.length - 1; i += 1) {
+        const from = {
+          x: chambers[i].x + Math.floor(chambers[i].w / 2),
+          y: chambers[i].y + Math.floor(chambers[i].h / 2),
+        };
+        const to = {
+          x: chambers[i + 1].x + Math.floor(chambers[i + 1].w / 2),
+          y: chambers[i + 1].y + Math.floor(chambers[i + 1].h / 2),
+        };
+        carveLPath(mapData, from, to, 2);
+      }
+      carveLPath(mapData, start, { x: chambers[0].x + 1, y: chambers[0].y + 1 }, 2);
+      return { map: mapData, start: start };
+    }
+
+    if (meta.layoutProfile === "ember_chokepoints") {
+      const start = { x: 2, y: Math.floor(MAP_ROWS / 2) };
+      carveHorizontalTunnel(mapData, 2, MAP_COLS - 4, start.y, 2);
+      const branches = [
+        { x: 6, y: 3, w: 4, h: 3 },
+        { x: 6, y: 9, w: 4, h: 3 },
+        { x: 12, y: 2, w: 5, h: 3 },
+        { x: 12, y: 10, w: 5, h: 3 },
+      ];
+      branches.forEach(function carveBranch(branch) {
+        carveRect(mapData, branch.x, branch.y, branch.w, branch.h);
+        carveVerticalTunnel(mapData, start.y, branch.y + Math.floor(branch.h / 2), branch.x + 1, 1);
+      });
+      carveBrush(mapData, MAP_COLS - 5, start.y, 2);
+      return { map: mapData, start: start };
+    }
+
+    const start = { x: 1, y: 1 };
+    let walker = { x: 1, y: 1 };
+    let carved = carveBrush(mapData, walker.x, walker.y, 1);
+    const carveTarget = randInt(meta.floorTarget[0], meta.floorTarget[1]);
+    let steps = 0;
+
+    while (carved < carveTarget && steps < 4200) {
+      const directions = shuffle([
+        { dx: 1, dy: 0 },
+        { dx: -1, dy: 0 },
+        { dx: 0, dy: 1 },
+        { dx: 0, dy: -1 },
+      ]);
+      const direction = directions[0];
+      walker.x = clamp(walker.x + direction.dx, 1, MAP_COLS - 2);
+      walker.y = clamp(walker.y + direction.dy, 1, MAP_ROWS - 2);
+      carved += carveBrush(mapData, walker.x, walker.y, Math.random() < 0.28 ? 1 : 0);
+      steps += 1;
+    }
+
+    for (let i = 0; i < 3; i += 1) {
+      carveBrush(mapData, randInt(3, MAP_COLS - 4), randInt(3, MAP_ROWS - 4), 2);
+    }
+    return { map: mapData, start: start };
+  }
+
   function collectFloorCells(mapData) {
     const cells = [];
     for (let y = 1; y < mapData.length - 1; y += 1) {
@@ -814,26 +942,9 @@
 
   function generateFieldStage(stageName) {
     const meta = getStageMeta(stageName);
-    const mapData = createSolidMap();
-    const start = { x: 1, y: 1 };
-    let walker = { x: 1, y: 1 };
-    let carved = carveBrush(mapData, walker.x, walker.y, 1);
-    const carveTarget = randInt(meta.floorTarget[0], meta.floorTarget[1]);
-    let steps = 0;
-
-    while (carved < carveTarget && steps < 4200) {
-      const directions = shuffle([
-        { dx: 1, dy: 0 },
-        { dx: -1, dy: 0 },
-        { dx: 0, dy: 1 },
-        { dx: 0, dy: -1 },
-      ]);
-      const direction = directions[0];
-      walker.x = clamp(walker.x + direction.dx, 1, MAP_COLS - 2);
-      walker.y = clamp(walker.y + direction.dy, 1, MAP_ROWS - 2);
-      carved += carveBrush(mapData, walker.x, walker.y, Math.random() < 0.22 ? 1 : 0);
-      steps += 1;
-    }
+    const layout = createLayoutProfile(stageName, meta);
+    const mapData = layout.map;
+    const start = layout.start;
 
     const floors = collectFloorCells(mapData);
     const blocked = {};
@@ -862,7 +973,8 @@
     });
 
     const elitePool = ELITE_TEMPLATES[meta.elitePoolId] || [];
-    const eliteSpawns = chooseNodeSpawns(floors, start, elitePool.length ? 1 : 0, blocked, 6);
+    const eliteTarget = elitePool.length ? (meta.eliteCount || 1) : 0;
+    const eliteSpawns = chooseNodeSpawns(floors, start, eliteTarget, blocked, 6);
     eliteSpawns.forEach(function spawnElite(cell) {
       mapData[cell.y][cell.x] = TILE.ELITE;
       encounterPool[positionKey(cell.x, cell.y)] = createEncounterRuntime(pickRandom(elitePool), meta, {
@@ -871,7 +983,8 @@
     });
 
     const eventPool = EVENT_POOLS[meta.eventPoolId] || [];
-    const eventTarget = Math.min(eventPool.length, randInt(1, Math.min(2, Math.max(1, eventPool.length))));
+    const eventRange = meta.eventCountRange || [1, Math.min(2, Math.max(1, eventPool.length))];
+    const eventTarget = Math.min(eventPool.length, randInt(eventRange[0], Math.min(eventRange[1], Math.max(1, eventPool.length))));
     const eventSpawns = chooseNodeSpawns(floors, start, eventTarget, blocked, 3);
     eventSpawns.forEach(function spawnEvent(cell) {
       const eventTemplate = pickWeighted(eventPool);
@@ -894,6 +1007,10 @@
         relicPoolId: meta.relicPoolId || "",
         dropTableId: meta.dropTableId || "",
         elitePoolId: meta.elitePoolId || "",
+        routeLabel: meta.routeLabel || "",
+        pressureLabel: meta.pressureLabel || "",
+        rewardLabel: meta.rewardLabel || "",
+        layoutProfile: meta.layoutProfile || "",
       },
     };
   }

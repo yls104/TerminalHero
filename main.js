@@ -154,7 +154,7 @@
   let currentPortalPos = null;
   let currentEncounterPool = {};
   let currentEventPool = {};
-  let currentStageContent = { eventPoolId: "", relicPoolId: "", dropTableId: "", elitePoolId: "" };
+  let currentStageContent = { eventPoolId: "", relicPoolId: "", dropTableId: "", elitePoolId: "", routeLabel: "", pressureLabel: "", rewardLabel: "", layoutProfile: "" };
   let renderPosition = { x: 1, y: 1 };
   let overlayAction = null;
   let combatSnapshot = null;
@@ -478,7 +478,18 @@
     if (currentStageName === "azure_town") {
       return meta.description;
     }
-    return currentStageMode === "boss" ? (meta.bossDescription || meta.description) : meta.description;
+    const baseDescription = currentStageMode === "boss" ? (meta.bossDescription || meta.description) : meta.description;
+    const extraNotes = [];
+    if (currentStageContent.routeLabel) {
+      extraNotes.push("路线：" + currentStageContent.routeLabel);
+    }
+    if (currentStageContent.pressureLabel) {
+      extraNotes.push("压力：" + currentStageContent.pressureLabel);
+    }
+    if (currentStageContent.rewardLabel) {
+      extraNotes.push("奖励倾向：" + currentStageContent.rewardLabel);
+    }
+    return baseDescription + (extraNotes.length ? " " + extraNotes.join("；") + "。" : "");
   }
 
   function appendLog(message) {
@@ -858,7 +869,7 @@
     currentPortalPos = generatedStage.portalPos || null;
     currentEncounterPool = generatedStage.encounters || {};
     currentEventPool = generatedStage.events || {};
-    currentStageContent = generatedStage.contentPools || { eventPoolId: "", relicPoolId: "", dropTableId: "", elitePoolId: "" };
+    currentStageContent = generatedStage.contentPools || { eventPoolId: "", relicPoolId: "", dropTableId: "", elitePoolId: "", routeLabel: "", pressureLabel: "", rewardLabel: "", layoutProfile: "" };
     if (stageName === "azure_town") {
       refreshMerchantStock();
     }
@@ -878,6 +889,9 @@
     movementState.active = false;
     clearHeldMoveKeys();
     syncStatusPanel();
+    if (stageName !== "azure_town" && currentStageMode === "field") {
+      appendLog("区域简报：" + [currentStageContent.routeLabel, currentStageContent.pressureLabel, currentStageContent.rewardLabel].filter(Boolean).join(" / ") + "。");
+    }
   }
 
   function countTiles(tileType) {
@@ -1408,6 +1422,19 @@
     bindOverlayChoices(choices);
   }
 
+  function renderStageSelectionBriefing(stageIds) {
+    return "<div class=\"detail-stats\">"
+      + stageIds.map(function mapStage(stageId) {
+        const meta = getStageMeta(stageId);
+        return "<p><strong>" + meta.label + "</strong>"
+          + "<br>路线：" + (meta.routeLabel || "标准推进")
+          + "<br>压力：" + (meta.pressureLabel || "常规战斗")
+          + "<br>奖励倾向：" + (meta.rewardLabel || "基础收益")
+          + "</p>";
+      }).join("")
+      + "</div>";
+  }
+
   function showGatekeeperOverlay() {
     const choices = progress.availableStages.map(function mapStage(stageId) {
       const meta = getStageMeta(stageId);
@@ -1423,7 +1450,15 @@
       };
     });
 
-    showOverlay("守门人", "选择试炼路线", "每次进入关卡都会重新生成地图、精英和事件节点。清光小怪与精英后，Boss 传送门才会开启。" + showChoiceButtons(choices), "留下", hideOverlay);
+    showOverlay(
+      "守门人",
+      "选择试炼路线",
+      "每次进入关卡都会重新生成地图、精英和事件节点。清光小怪与精英后，Boss 传送门才会开启。"
+        + renderStageSelectionBriefing(progress.availableStages)
+        + showChoiceButtons(choices),
+      "留下",
+      hideOverlay
+    );
     bindOverlayChoices(choices);
   }
 
