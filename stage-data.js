@@ -93,6 +93,7 @@
       id: "iron_blade",
       name: "铁刃护手",
       slot: "武器",
+      tags: ["burst", "tempo"],
       rarity: "普通",
       cost: 42,
       bonus: { attack: 3 },
@@ -103,6 +104,7 @@
       id: "guard_mail",
       name: "守备胸甲",
       slot: "护甲",
+      tags: ["guard", "survive"],
       rarity: "普通",
       cost: 48,
       bonus: { defense: 2, maxHp: 12 },
@@ -113,6 +115,7 @@
       id: "aether_band",
       name: "以太指环",
       slot: "饰品",
+      tags: ["spell", "combo"],
       rarity: "普通",
       cost: 44,
       bonus: { maxMp: 12, speed: 1 },
@@ -123,16 +126,16 @@
 
   const RELIC_POOLS = {
     verdant_relics: [
-      { id: "fang_totem", name: "狼牙图腾", tags: ["bleed", "burst"], rarity: "common", bonus: { attack: 1 }, summary: "攻击 +1，强化终结倾向。", inspect: ["攻击 +1", "适合偏爆发和斩杀的 build。"] },
-      { id: "trail_boots", name: "巡林靴", tags: ["speed", "tempo"], rarity: "common", bonus: { speed: 1, maxMp: 4 }, summary: "速度 +1，法力上限 +4。", inspect: ["速度 +1", "法力上限 +4", "适合拉扯与频繁出手构筑。"] },
+      { id: "fang_totem", name: "狼牙图腾", tags: ["burst", "execute"], rarity: "common", bonus: { attack: 1 }, summary: "攻击 +1，强化终结倾向。", synergies: [{ matchAnyTags: ["爆发", "终结", "斩杀"], changes: { power: 0.18 }, inspectNote: "遗物联动：爆发/终结类技能伤害倍率提高。" }], inspect: ["攻击 +1", "适合偏爆发和斩杀的 build。", "联动：爆发 / 终结 / 斩杀标签技能伤害倍率 +18%。"] },
+      { id: "trail_boots", name: "巡林靴", tags: ["tempo", "sustain"], rarity: "common", bonus: { speed: 1, maxMp: 4 }, summary: "速度 +1，法力上限 +4。", synergies: [{ matchAnyTags: ["持续伤害", "控场", "续航"], changes: { cost: -1 }, inspectNote: "遗物联动：拉扯与续航技能的法力消耗降低 1。" }], inspect: ["速度 +1", "法力上限 +4", "适合拉扯与频繁出手构筑。", "联动：持续伤害 / 控场 / 续航标签技能法力消耗 -1。"] },
     ],
     archive_relics: [
-      { id: "echo_quill", name: "回响羽笔", tags: ["spell", "combo"], rarity: "common", bonus: { attack: 1, maxMp: 6 }, summary: "攻击 +1，法力上限 +6。", inspect: ["攻击 +1", "法力上限 +6", "适合法术爆发与技能连段构筑。"] },
-      { id: "seal_fragment", name: "封印碎片", tags: ["shield", "control"], rarity: "rare", bonus: { defense: 1, maxHp: 8 }, summary: "防御 +1，生命上限 +8。", inspect: ["防御 +1", "生命上限 +8", "适合需要稳住节奏的防守型构筑。"] },
+      { id: "echo_quill", name: "回响羽笔", tags: ["spell", "combo"], rarity: "common", bonus: { attack: 1, maxMp: 6 }, summary: "攻击 +1，法力上限 +6。", synergies: [{ matchAnyTags: ["循环", "爆发", "惩戒"], changes: { power: 0.16 }, inspectNote: "遗物联动：法术输出与惩戒类技能伤害倍率提高。" }], inspect: ["攻击 +1", "法力上限 +6", "适合法术爆发与技能连段构筑。", "联动：循环 / 爆发 / 惩戒标签技能伤害倍率 +16%。"] },
+      { id: "seal_fragment", name: "封印碎片", tags: ["guard", "control"], rarity: "rare", bonus: { defense: 1, maxHp: 8 }, summary: "防御 +1，生命上限 +8。", synergies: [{ matchAnyTags: ["防守", "庇护"], changes: { guard: 0.12 }, inspectNote: "遗物联动：防守与庇护技能的减伤提高。" }, { matchAnyTags: ["恢复"], changes: { power: -0.12 }, inspectNote: "遗物联动：恢复类技能的治疗倍率提高。" }], inspect: ["防御 +1", "生命上限 +8", "适合需要稳住节奏的防守型构筑。", "联动：防守 / 庇护标签技能减伤提高，恢复标签技能治疗倍率提高。"] },
     ],
     ember_relics: [
-      { id: "slag_core", name: "炉渣核心", tags: ["burn", "power"], rarity: "common", bonus: { attack: 2, maxHp: 6 }, summary: "攻击 +2，生命上限 +6。", inspect: ["攻击 +2", "生命上限 +6", "适合高压输出构筑。"] },
-      { id: "tyrant_horn", name: "暴君之角", tags: ["berserk", "risk"], rarity: "rare", bonus: { attack: 3, defense: -1 }, summary: "攻击 +3，防御 -1。", inspect: ["攻击 +3", "防御 -1", "高风险高回报的极端爆发遗物。"] },
+      { id: "slag_core", name: "炉渣核心", tags: ["power", "tempo"], rarity: "common", bonus: { attack: 2, maxHp: 6 }, summary: "攻击 +2，生命上限 +6。", synergies: [{ matchAnyTags: ["爆发", "压迫", "稳定输出"], changes: { power: 0.14 }, inspectNote: "遗物联动：高压输出技能伤害倍率提高。" }], inspect: ["攻击 +2", "生命上限 +6", "适合高压输出构筑。", "联动：爆发 / 压迫 / 稳定输出标签技能伤害倍率 +14%。"] },
+      { id: "tyrant_horn", name: "暴君之角", tags: ["risk", "execute"], rarity: "rare", bonus: { attack: 3, defense: -1 }, summary: "攻击 +3，防御 -1。", synergies: [{ matchAnyTags: ["终结", "斩杀", "处决"], changes: { power: 0.26, resourceCost: -1 }, inspectNote: "遗物联动：终结类技能更强，且职业资源消耗降低 1。" }], inspect: ["攻击 +3", "防御 -1", "高风险高回报的极端爆发遗物。", "联动：终结 / 斩杀 / 处决标签技能伤害倍率 +26%，职业资源消耗 -1。"] },
     ],
   };
 

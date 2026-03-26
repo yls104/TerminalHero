@@ -25,6 +25,8 @@
   const getPlayerSkills = entitiesApi.getPlayerSkills || function emptySkills() { return []; };
   const getResolvedSkill = entitiesApi.getResolvedSkill || function fallbackResolvedSkill(skillId) { return skills[skillId] || null; };
   const getResolvedPlayerSkills = entitiesApi.getResolvedPlayerSkills || function fallbackResolvedSkills() { return getPlayerSkills(); };
+  const setRelicResolver = entitiesApi.setRelicResolver || function noopRelicResolver() {};
+  const refreshBuildSnapshot = entitiesApi.refreshBuildSnapshot || function noopRefreshBuildSnapshot() {};
   const getSpecializationTracks = entitiesApi.getSpecializationTracks || function noTracks() { return []; };
   const getUnlockedSpecializationNodes = entitiesApi.getUnlockedSpecializationNodes || function noUnlockedNodes() { return []; };
   const unlockSpecializationNode = entitiesApi.unlockSpecializationNode || function noUnlock() { return { ok: false, reason: "当前版本未接入职业专精。" }; };
@@ -245,6 +247,7 @@
     if (relic && relic.bonus) {
       applyBonusPackage(relic.bonus);
     }
+    refreshBuildSnapshot();
     runSummary.relicsFound += 1;
     runSummary.gainedRelics.push(relicName);
     return true;
@@ -347,6 +350,40 @@
       });
     }
     return lines;
+  }
+
+  function collectBuildTagCounts() {
+    const tagCounts = {};
+
+    function addTag(tag) {
+      if (!tag) {
+        return;
+      }
+      tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+    }
+
+    getResolvedPlayerSkills().forEach(function eachSkill(skill) {
+      (skill.inspectTags || []).forEach(addTag);
+    });
+
+    getUnlockedSpecializationNodes().forEach(function eachNode(node) {
+      addTag(node.trackName);
+    });
+
+    (player.buildSnapshot && player.buildSnapshot.relicTags ? player.buildSnapshot.relicTags : []).forEach(addTag);
+
+    player.equipment.forEach(function eachEquipment(id) {
+      const item = SHOP_ITEMS.find(function findItem(entry) {
+        return entry.id === id;
+      });
+      (item && item.tags ? item.tags : []).forEach(addTag);
+    });
+
+    return Object.keys(tagCounts).sort(function sortTags(a, b) {
+      return tagCounts[b] - tagCounts[a] || a.localeCompare(b);
+    }).map(function mapTag(tag) {
+      return { tag: tag, count: tagCounts[tag] };
+    });
   }
 
   function applyBonusPackage(bonus) {
@@ -622,6 +659,15 @@
       };
     });
 
+    const buildTagEntries = collectBuildTagCounts().map(function mapTag(entry) {
+      return {
+        name: entry.tag,
+        meta: "构筑标签 / 出现 " + entry.count + " 次",
+        summary: "当前技能、专精、装备或遗物共同指向这个方向。",
+        details: ["这个标签正在参与 build 识别，后续会继续承接遗物与装备联动。"],
+      };
+    });
+
     const materialEntries = Object.keys(player.materials || {}).map(function mapMaterial(name) {
       return {
         name: name,
@@ -636,6 +682,7 @@
       sections: [
         { title: "技能详情", entries: skillEntries.length ? skillEntries : [{ name: "暂无技能", meta: "", summary: "先选择职业后再查看。", details: [] }] },
         { title: "职业专精", entries: specializationEntries.length ? specializationEntries : [{ name: "暂无专精", meta: "", summary: "先选择职业后再查看。", details: [] }] },
+        { title: "构筑标签", entries: buildTagEntries.length ? buildTagEntries : [{ name: "暂无标签", meta: "", summary: "当前还没有形成明显的 build 倾向。", details: [] }] },
         { title: "装备详情", entries: equippedEntries.length ? equippedEntries : [{ name: "暂无装备", meta: "", summary: "当前没有已装备物品。", details: [] }] },
         { title: "遗物详情", entries: relicEntries.length ? relicEntries : [{ name: "暂无遗物", meta: "", summary: "还没有获取遗物。", details: [] }] },
         { title: "材料与资源", entries: materialEntries.length ? materialEntries : [{ name: "暂无材料", meta: "", summary: "后续构筑素材会显示在这里。", details: [] }] },
@@ -1670,6 +1717,7 @@
 
   function init() {
     ensureRunCollections();
+    setRelicResolver(findRelicByName);
     canvas.width = 20 * TILE_SIZE;
     canvas.height = 15 * TILE_SIZE;
     bindStaticButtons();

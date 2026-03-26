@@ -34,6 +34,7 @@ const PLAYER_TEMPLATE = {
     activeTrackNames: [],
     unlockedNodeNames: [],
     unlockedSkillIds: [],
+    relicTags: [],
   },
   unlockedSkills: [],
   learnedUltimate: false,
@@ -334,6 +335,7 @@ const specializationTrees = {
 };
 
 const player = JSON.parse(JSON.stringify(PLAYER_TEMPLATE));
+let externalRelicResolver = null;
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
@@ -341,6 +343,11 @@ function clamp(value, min, max) {
 
 function deepClone(value) {
   return JSON.parse(JSON.stringify(value));
+}
+
+function setRelicResolver(resolver) {
+  externalRelicResolver = typeof resolver === "function" ? resolver : null;
+  refreshBuildSnapshot();
 }
 
 function resetPlayerToTemplate() {
@@ -484,10 +491,51 @@ function collectSkillModifiers(skillId) {
   return modifiers;
 }
 
+function createSkillTagSet(skill) {
+  const tagSet = [];
+  (skill.inspectTags || []).forEach(function eachTag(tag) {
+    if (!tagSet.includes(tag)) {
+      tagSet.push(tag);
+    }
+  });
+  if (skill.type && !tagSet.includes(skill.type)) {
+    tagSet.push(skill.type);
+  }
+  if (skill.effect && !tagSet.includes(skill.effect)) {
+    tagSet.push(skill.effect);
+  }
+  return tagSet;
+}
+
+function collectRelicSkillModifiers(skill) {
+  if (!externalRelicResolver) {
+    return [];
+  }
+  const skillTags = createSkillTagSet(skill);
+  const modifiers = [];
+  (player.relics || []).forEach(function eachRelic(relicId) {
+    const relic = externalRelicResolver(relicId);
+    if (!relic || !Array.isArray(relic.synergies)) {
+      return;
+    }
+    relic.synergies.forEach(function eachSynergy(synergy) {
+      const matchAny = synergy.matchAnyTags || [];
+      const matches = matchAny.length === 0 || matchAny.some(function matchTag(tag) {
+        return skillTags.includes(tag);
+      });
+      if (matches) {
+        modifiers.push(synergy);
+      }
+    });
+  });
+  return modifiers;
+}
+
 function refreshBuildSnapshot() {
   const unlockedNodes = getUnlockedSpecializationNodes();
   const trackNames = [];
   const unlockedSkillIds = [];
+  const relicTags = [];
 
   unlockedNodes.forEach(function eachNode(node) {
     if (!trackNames.includes(node.trackName)) {
@@ -500,12 +548,24 @@ function refreshBuildSnapshot() {
     });
   });
 
+  if (externalRelicResolver) {
+    (player.relics || []).forEach(function eachRelic(relicId) {
+      const relic = externalRelicResolver(relicId);
+      (relic && relic.tags ? relic.tags : []).forEach(function eachTag(tag) {
+        if (!relicTags.includes(tag)) {
+          relicTags.push(tag);
+        }
+      });
+    });
+  }
+
   player.buildSnapshot = {
     activeTrackNames: trackNames,
     unlockedNodeNames: unlockedNodes.map(function mapNode(node) {
       return node.name;
     }),
     unlockedSkillIds: unlockedSkillIds,
+    relicTags: relicTags,
   };
 }
 
@@ -565,6 +625,21 @@ function getResolvedSkill(skillId) {
   const inspectNotes = [];
 
   collectSkillModifiers(skillId).forEach(function applyModifier(modifier) {
+    const changes = modifier.changes || {};
+    Object.keys(changes).forEach(function eachKey(key) {
+      if (typeof changes[key] === "number") {
+        const previous = typeof resolvedSkill[key] === "number" ? resolvedSkill[key] : 0;
+        resolvedSkill[key] = previous + changes[key];
+      } else {
+        resolvedSkill[key] = changes[key];
+      }
+    });
+    if (modifier.inspectNote) {
+      inspectNotes.push(modifier.inspectNote);
+    }
+  });
+
+  collectRelicSkillModifiers(resolvedSkill).forEach(function applyRelicModifier(modifier) {
     const changes = modifier.changes || {};
     Object.keys(changes).forEach(function eachKey(key) {
       if (typeof changes[key] === "number") {
@@ -728,6 +803,8 @@ window.GameEntities = {
   getPlayerSkills,
   getResolvedSkill,
   getResolvedPlayerSkills,
+  setRelicResolver,
+  refreshBuildSnapshot,
   getSpecializationTracks,
   getUnlockedSpecializationNodes,
   unlockSpecializationNode,
