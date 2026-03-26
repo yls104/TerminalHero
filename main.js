@@ -43,6 +43,7 @@
   const STAGE_META = stageApi.STAGE_META || {};
   const STAGE_SEQUENCE = stageApi.STAGE_SEQUENCE || [];
   const SHOP_ITEMS = stageApi.SHOP_ITEMS || [];
+  const TOWN_UPGRADES = stageApi.TOWN_UPGRADES || {};
   const RELIC_POOLS = stageApi.RELIC_POOLS || {};
   const DROP_TABLES = stageApi.DROP_TABLES || {};
   const getStageMeta = stageApi.getStageMeta || function fallbackStageMeta(stageName) { return STAGE_META[stageName] || {}; };
@@ -90,6 +91,8 @@
     exp: document.querySelector("#expValue"),
     gold: document.querySelector("#goldValue"),
     skillPoints: document.querySelector("#spValue"),
+    legacyMarks: document.querySelector("#legacyValue"),
+    townRenown: document.querySelector("#renownValue"),
     classResourceItem: document.querySelector("#classResourceItem"),
     classResourceLabel: document.querySelector("#classResourceLabel"),
     classResourceValue: document.querySelector("#classResourceValue"),
@@ -221,6 +224,8 @@
       bossCleared: false,
       outcomeText: "",
       unlockedStageLabel: "",
+      legacyMarksEarned: 0,
+      townRenownEarned: 0,
     };
   }
 
@@ -247,6 +252,114 @@
     }
   }
 
+  function ensureProgressState() {
+    if (!progress.longTerm || typeof progress.longTerm !== "object") {
+      progress.longTerm = {};
+    }
+    if (typeof progress.longTerm.legacyMarks !== "number") {
+      progress.longTerm.legacyMarks = 0;
+    }
+    if (typeof progress.longTerm.townRenown !== "number") {
+      progress.longTerm.townRenown = 0;
+    }
+    if (!progress.longTerm.townUpgrades || typeof progress.longTerm.townUpgrades !== "object") {
+      progress.longTerm.townUpgrades = {};
+    }
+    Object.keys(TOWN_UPGRADES).forEach(function eachUpgrade(upgradeId) {
+      if (typeof progress.longTerm.townUpgrades[upgradeId] !== "number") {
+        progress.longTerm.townUpgrades[upgradeId] = 0;
+      }
+    });
+  }
+
+  function getTownUpgradeLevel(upgradeId) {
+    ensureProgressState();
+    return progress.longTerm.townUpgrades[upgradeId] || 0;
+  }
+
+  function applyTownUpgradeBonusesToPlayer() {
+    const hpLevel = getTownUpgradeLevel("training_ground");
+    const mpLevel = getTownUpgradeLevel("arcane_archive");
+    if (hpLevel > 0) {
+      player.maxHp += hpLevel * 10;
+      player.hp = player.maxHp;
+    }
+    if (mpLevel > 0) {
+      player.maxMp += mpLevel * 6;
+      player.mp = player.maxMp;
+    }
+  }
+
+  function awardLongTermProgress(summary) {
+    ensureProgressState();
+    const source = summary || runSummary;
+    const legacyMarks = Math.max(0, (source.elitesDefeated || 0) + (source.bossCleared ? 3 : 0));
+    const townRenown = Math.max(0, (source.bossCleared ? 2 : 0) + Math.floor((source.eventsResolved || 0) / 2));
+    progress.longTerm.legacyMarks += legacyMarks;
+    progress.longTerm.townRenown += townRenown;
+    runSummary.legacyMarksEarned += legacyMarks;
+    runSummary.townRenownEarned += townRenown;
+    if (legacyMarks > 0 || townRenown > 0) {
+      appendLog("回城沉淀：获得传承印记 " + legacyMarks + "，城镇声望 " + townRenown + "。");
+    }
+  }
+
+  function getEncounterGoldBonus(enemy) {
+    const level = getTownUpgradeLevel("supply_caravan");
+    if (!enemy || level <= 0) {
+      return 0;
+    }
+    if (enemy.isBoss) {
+      return level * 18;
+    }
+    if (enemy.encounterType === "elite") {
+      return level * 6;
+    }
+    return 0;
+  }
+
+  function getTownUpgradePreviewLines(upgradeId) {
+    const config = TOWN_UPGRADES[upgradeId];
+    if (!config) {
+      return [];
+    }
+    const level = getTownUpgradeLevel(upgradeId);
+    const nextCost = config.costs[level];
+    return [
+      "当前等级：" + level + " / " + config.maxLevel,
+      config.effectText,
+      nextCost ? ("下一次升级消耗：" + nextCost + " 传承印记") : "已达到最高等级",
+    ];
+  }
+
+  function purchaseTownUpgrade(upgradeId) {
+    ensureProgressState();
+    const config = TOWN_UPGRADES[upgradeId];
+    if (!config) {
+      return { ok: false, reason: "未找到对应的城镇建设项目。" };
+    }
+    const currentLevel = getTownUpgradeLevel(upgradeId);
+    if (currentLevel >= config.maxLevel) {
+      return { ok: false, reason: "该建设项目已经升到上限。" };
+    }
+    const cost = config.costs[currentLevel];
+    if (progress.longTerm.legacyMarks < cost) {
+      return { ok: false, reason: "传承印记不足。" };
+    }
+    progress.longTerm.legacyMarks -= cost;
+    progress.longTerm.townUpgrades[upgradeId] = currentLevel + 1;
+
+    if (upgradeId === "training_ground") {
+      player.maxHp += 10;
+      player.hp = clamp(player.hp + 10, 1, player.maxHp);
+    } else if (upgradeId === "arcane_archive") {
+      player.maxMp += 6;
+      player.mp = clamp(player.mp + 6, 0, player.maxMp);
+    }
+    syncStatusPanel();
+    return { ok: true, level: currentLevel + 1, name: config.name };
+  }
+
   function formatSaveTime(value) {
     if (!value) {
       return "未知时间";
@@ -267,6 +380,7 @@
   function buildSaveSnapshot() {
     return {
       currentStageName: currentStageName,
+      currentStageLabel: getCurrentStageLabel(),
       currentStageMode: currentStageMode,
       currentMap: cloneValue(currentMap),
       currentPortalPos: cloneValue(currentPortalPos),
@@ -314,10 +428,13 @@
     });
     Object.assign(player, cloneValue(snapshot.player));
     ensureRunCollections();
+    ensureProgressState();
     setRelicResolver(findRelicByName);
 
     progress.availableStages = Array.isArray(snapshot.progress.availableStages) ? snapshot.progress.availableStages.slice() : createStageProgress().availableStages.slice();
     progress.clearedBosses = snapshot.progress.clearedBosses ? cloneValue(snapshot.progress.clearedBosses) : {};
+    progress.longTerm = snapshot.progress.longTerm ? cloneValue(snapshot.progress.longTerm) : createStageProgress().longTerm;
+    ensureProgressState();
 
     currentStageName = snapshot.currentStageName || "azure_town";
     currentStageMode = snapshot.currentStageMode || (currentStageName === "azure_town" ? "town" : "field");
@@ -762,6 +879,12 @@
     ui.exp.textContent = hudView.expText;
     ui.gold.textContent = hudView.goldText;
     ui.skillPoints.textContent = hudView.skillPointText;
+    if (ui.legacyMarks) {
+      ui.legacyMarks.textContent = String(progress.longTerm ? progress.longTerm.legacyMarks || 0 : 0);
+    }
+    if (ui.townRenown) {
+      ui.townRenown.textContent = String(progress.longTerm ? progress.longTerm.townRenown || 0 : 0);
+    }
     ui.classValue.textContent = hudView.classText;
     ui.stageValue.textContent = hudView.stageText;
     ui.pos.textContent = hudView.positionText;
@@ -859,6 +982,16 @@
       };
     });
 
+    const townEntries = Object.keys(TOWN_UPGRADES).map(function mapUpgrade(upgradeId) {
+      const config = TOWN_UPGRADES[upgradeId];
+      return {
+        name: config.name,
+        meta: "城镇建设 / Lv." + getTownUpgradeLevel(upgradeId),
+        summary: config.summary,
+        details: getTownUpgradePreviewLines(upgradeId),
+      };
+    });
+
     const buildView = createBuildCodexViewModel({
       player: player,
       sections: [
@@ -868,6 +1001,7 @@
         { title: "装备详情", entries: equippedEntries.length ? equippedEntries : [{ name: "暂无装备", meta: "", summary: "当前没有已装备物品。", details: [] }] },
         { title: "遗物详情", entries: relicEntries.length ? relicEntries : [{ name: "暂无遗物", meta: "", summary: "还没有获取遗物。", details: [] }] },
         { title: "材料与资源", entries: materialEntries.length ? materialEntries : [{ name: "暂无材料", meta: "", summary: "后续构筑素材会显示在这里。", details: [] }] },
+        { title: "长期沉淀", entries: [{ name: "传承印记", meta: "长期资源", summary: "当前持有：" + (progress.longTerm ? progress.longTerm.legacyMarks : 0), details: ["用于城镇建设和永久升级。"] }, { name: "城镇声望", meta: "长期资源", summary: "当前持有：" + (progress.longTerm ? progress.longTerm.townRenown : 0), details: ["用于后续世界推进与章节解锁。"] }].concat(townEntries) },
       ],
     });
     showOverlay(buildView.overlayEyebrow, buildView.overlayTitle, renderBuildCodexHtml(buildView), "关闭", hideOverlay);
@@ -1465,6 +1599,7 @@
         label: classes[classId].name,
         onClick: function choose() {
           applyClassToPlayer(classId);
+          applyTownUpgradeBonusesToPlayer();
           renderSkillButtons();
           syncStatusPanel();
           saveCurrentProgress({ silent: true });
@@ -1540,6 +1675,40 @@
     bindOverlayChoices(choices);
   }
 
+  function showTownUpgradeOverlay() {
+    ensureProgressState();
+    const choices = Object.keys(TOWN_UPGRADES).map(function mapUpgrade(upgradeId) {
+      const config = TOWN_UPGRADES[upgradeId];
+      const level = getTownUpgradeLevel(upgradeId);
+      const nextCost = config.costs[level];
+      return {
+        label: config.name + "（Lv." + level + (nextCost ? "，消耗 " + nextCost + " 传承印记" : "，已满级") + "）",
+        onClick: function buyUpgradeNow() {
+          const result = purchaseTownUpgrade(upgradeId);
+          if (!result.ok) {
+            showNotice("城镇建设", "无法升级", result.reason || "当前无法建设该项目。", "返回建设菜单", showTownUpgradeOverlay);
+            return;
+          }
+          saveCurrentProgress({ silent: true });
+          appendLog("城镇建设：" + result.name + " 升至 Lv." + result.level + "。");
+          showTownUpgradeOverlay();
+        },
+      };
+    });
+
+    const detailsHtml = "<div class=\"detail-stats\">"
+      + "<p><strong>传承印记：</strong>" + progress.longTerm.legacyMarks + "</p>"
+      + "<p><strong>城镇声望：</strong>" + progress.longTerm.townRenown + "</p>"
+      + Object.keys(TOWN_UPGRADES).map(function mapUpgradeDetail(upgradeId) {
+        const config = TOWN_UPGRADES[upgradeId];
+        return "<p><strong>" + config.name + "</strong><br>" + config.summary + "<br>" + getTownUpgradePreviewLines(upgradeId).join("；") + "</p>";
+      }).join("")
+      + "</div>";
+
+    showOverlay("职业导师", "城镇建设", "把多轮冒险带回来的沉淀投入城镇，才能让后续远征越打越顺。" + detailsHtml + showChoiceButtons(choices), "离开", hideOverlay);
+    bindOverlayChoices(choices);
+  }
+
   function showStartResumeOverlay() {
     const metadata = getSaveMetadata();
     if (!metadata.exists) {
@@ -1598,6 +1767,7 @@
     const choices = [
       { label: "重新选择职业", onClick: showClassSelectionOverlay },
       { label: "存档管理", onClick: showSaveManagementOverlay },
+      { label: "城镇建设", onClick: showTownUpgradeOverlay },
       { label: "职业专精（技能树）", onClick: showSpecializationOverviewOverlay },
       { label: "强化攻击（消耗 1 技能点）", onClick: function spendAtk() { handleSpendSkillPoint("attack", "攻击提升。"); } },
       { label: "强化防御（消耗 1 技能点）", onClick: function spendDef() { handleSpendSkillPoint("defense", "防御提升。"); } },
@@ -2180,14 +2350,16 @@
               currentMap[encounterPos.y][encounterPos.x] = TILE.FLOOR;
               delete currentEncounterPool[positionKey(encounterPos.x, encounterPos.y)];
             }
-            player.gold += payload.enemy.gold || 0;
-            runSummary.goldEarned += payload.enemy.gold || 0;
+            const bonusGold = getEncounterGoldBonus(enemy);
+            const totalGold = (payload.enemy.gold || 0) + bonusGold;
+            player.gold += totalGold;
+            runSummary.goldEarned += totalGold;
             runSummary.expGained += payload.rewards && payload.rewards.exp ? payload.rewards.exp : 0;
             runSummary.combatsWon += 1;
             if (enemy && enemy.encounterType === "elite") {
               runSummary.elitesDefeated += 1;
             }
-            appendLog("获得金币 " + (payload.enemy.gold || 0) + "。");
+            appendLog("获得金币 " + totalGold + (bonusGold > 0 ? "（补给车队额外 +" + bonusGold + "）" : "") + "。");
             unlockPortalIfNeeded();
 
             showVictoryRewardOverlay(enemy, function afterReward() {
@@ -2200,6 +2372,7 @@
                   unlockStage(nextStage, "你解锁了新区域：" + getStageMeta(nextStage).label + "。");
                   runSummary.unlockedStageLabel = getStageMeta(nextStage).label;
                 }
+                awardLongTermProgress(runSummary);
                 showRunSummaryOverlay(buildRunSummarySnapshot({
                   outcomeText: "首领击破，成功完成本轮试炼。",
                 }), function returnTown() {
@@ -2258,6 +2431,7 @@
 
   function init() {
     ensureRunCollections();
+    ensureProgressState();
     setRelicResolver(findRelicByName);
     refreshMerchantStock();
     canvas.width = 20 * TILE_SIZE;

@@ -126,6 +126,8 @@
         { label: "获得经验", value: String(data.expGained || 0) },
         { label: "获得金币", value: String(data.goldEarned || 0) },
         { label: "获得技能点", value: String(data.skillPointsEarned || 0) },
+        { label: "传承印记", value: String(data.legacyMarksEarned || 0) },
+        { label: "城镇声望", value: String(data.townRenownEarned || 0) },
         { label: "新遗物", value: (data.gainedRelics || []).join("、") || "暂无" },
         { label: "新材料", value: (data.gainedMaterials || []).join("、") || "暂无" },
         { label: "本轮祝福", value: (data.gainedBlessings || []).join("、") || "暂无" },

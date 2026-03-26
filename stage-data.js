@@ -220,6 +220,33 @@
     },
   ];
 
+  const TOWN_UPGRADES = {
+    training_ground: {
+      id: "training_ground",
+      name: "训练场扩建",
+      maxLevel: 3,
+      costs: [2, 4, 6],
+      summary: "永久提高所有职业的生命上限。",
+      effectText: "每级生命上限 +10",
+    },
+    arcane_archive: {
+      id: "arcane_archive",
+      name: "奥术档案",
+      maxLevel: 3,
+      costs: [2, 4, 6],
+      summary: "永久提高所有职业的法力上限。",
+      effectText: "每级法力上限 +6",
+    },
+    supply_caravan: {
+      id: "supply_caravan",
+      name: "补给车队",
+      maxLevel: 3,
+      costs: [2, 5, 8],
+      summary: "精英与 Boss 胜利时获得更多金币。",
+      effectText: "每级精英额外 +6 金币，Boss 额外 +18 金币",
+    },
+  };
+
   let equipmentInstanceSeed = 1;
 
   function cloneValue(value) {
@@ -1231,6 +1258,15 @@
     return {
       availableStages: [STAGE_SEQUENCE[0]],
       clearedBosses: {},
+      longTerm: {
+        legacyMarks: 0,
+        townRenown: 0,
+        townUpgrades: {
+          training_ground: 0,
+          arcane_archive: 0,
+          supply_caravan: 0,
+        },
+      },
     };
   }
 
@@ -1264,6 +1300,7 @@
     STAGE_META: STAGE_META,
     STAGE_SEQUENCE: STAGE_SEQUENCE,
     SHOP_ITEMS: SHOP_ITEMS,
+    TOWN_UPGRADES: TOWN_UPGRADES,
     cloneMap: cloneMap,
     mergeBonusPackages: mergeBonusPackages,
     positionKey: positionKey,

@@ -87,7 +87,7 @@
     const snapshot = result.snapshot || {};
     const summary = []
       .concat(snapshot.player && snapshot.player.className ? ["职业：" + snapshot.player.className] : [])
-      .concat(snapshot.currentStageName ? ["区域：" + snapshot.currentStageName] : [])
+      .concat((snapshot.currentStageLabel || snapshot.currentStageName) ? ["区域：" + (snapshot.currentStageLabel || snapshot.currentStageName)] : [])
       .join(" / ");
     return {
       exists: true,
