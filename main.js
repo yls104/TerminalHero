@@ -133,6 +133,7 @@
     overlayButton: document.querySelector("#overlayButton"),
     btnDetailStats: document.querySelector("#btnDetailStats"),
     btnSaveMenu: document.querySelector("#btnSaveMenu"),
+    btnOpenLog: document.querySelector("#btnOpenLog"),
     virtualJoystick: document.querySelector("#virtualJoystick"),
     joystickBase: document.querySelector("#joystickBase"),
     joystickKnob: document.querySelector("#joystickKnob"),
@@ -180,6 +181,7 @@
   let preferredMoveKey = "";
   let skillMenuOpen = false;
   const heldKeys = {};
+  const logHistory = [];
   const joystickState = {
     active: false,
     pointerId: null,
@@ -819,6 +821,14 @@
       return;
     }
     const entry = normalizeCombatLogEntry(message);
+    logHistory.push({
+      text: entry.text,
+      type: entry.type || "info",
+      emphasis: Boolean(entry.emphasis),
+    });
+    if (logHistory.length > 80) {
+      logHistory.shift();
+    }
     const line = document.createElement("p");
     line.textContent = entry.text;
     line.dataset.logType = entry.type || "info";
@@ -827,6 +837,42 @@
     }
     ui.battleLog.appendChild(line);
     ui.battleLog.scrollTop = ui.battleLog.scrollHeight;
+  }
+
+  function hydrateLogHistoryFromDom() {
+    if (!ui.battleLog) {
+      return;
+    }
+    Array.from(ui.battleLog.querySelectorAll("p")).forEach(function eachLine(line) {
+      const text = (line.textContent || "").trim();
+      if (!text) {
+        return;
+      }
+      logHistory.push({
+        text: text,
+        type: line.dataset.logType || "info",
+        emphasis: line.classList.contains("is-emphasis"),
+      });
+    });
+  }
+
+  function renderLogHistoryHtml() {
+    const logs = logHistory.slice(-40).reverse();
+    if (!logs.length) {
+      return "<div class=\"detail-stats\"><p>当前还没有可查看的日志。</p></div>";
+    }
+    return "<div class=\"log-history\">"
+      + logs.map(function mapLog(entry, index) {
+        return "<div class=\"log-entry\">"
+          + "<span class=\"log-entry-index\">#" + (logs.length - index) + "</span>"
+          + "<span>" + entry.text + "</span>"
+          + "</div>";
+      }).join("")
+      + "</div>";
+  }
+
+  function showBattleLogOverlay() {
+    showOverlay("战斗日志", "查看近期记录", "移动端横屏默认只保留两行紧凑视图，完整记录可以在这里查看。" + renderLogHistoryHtml(), "关闭", hideOverlay);
   }
 
   function syncTouchMoveButtons() {
@@ -2315,6 +2361,9 @@
     if (ui.btnSaveMenu) {
       ui.btnSaveMenu.addEventListener("click", showSaveManagementOverlay);
     }
+    if (ui.btnOpenLog) {
+      ui.btnOpenLog.addEventListener("click", showBattleLogOverlay);
+    }
   }
 
   function bindTouchControls() {
@@ -2550,6 +2599,7 @@
     ensureProgressState();
     setRelicResolver(findRelicByName);
     refreshMerchantStock();
+    hydrateLogHistoryFromDom();
     canvas.width = 20 * TILE_SIZE;
     canvas.height = 15 * TILE_SIZE;
     bindStaticButtons();
