@@ -32,6 +32,7 @@
   const unlockSpecializationNode = entitiesApi.unlockSpecializationNode || function noUnlock() { return { ok: false, reason: "当前版本未接入职业专精。" }; };
   const spendSkillPoint = entitiesApi.spendSkillPoint || function noSpend() { return false; };
   const buyEquipment = entitiesApi.buyEquipment || function noBuy() { return false; };
+  const upgradeEquipment = entitiesApi.upgradeEquipment || function noUpgrade() { return { ok: false, reason: "当前版本未接入装备强化。" }; };
 
   const TILE_SIZE = mapApi.TILE_SIZE || 32;
   const drawMap = mapApi.drawMap;
@@ -48,6 +49,8 @@
   const createStageProgress = stageApi.createStageProgress || function fallbackProgress() { return { availableStages: [], clearedBosses: {} }; };
   const positionKey = stageApi.positionKey || function fallbackPositionKey(x, y) { return x + "," + y; };
   const findRelicByName = stageApi.findRelicByName || function fallbackRelic() { return null; };
+  const createEquipmentOffer = stageApi.createEquipmentOffer || function fallbackEquipmentOffer(item) { return item; };
+  const upgradeEquipmentInstance = stageApi.upgradeEquipmentInstance || function fallbackUpgradeEquipmentInstance(item) { return item; };
 
   const createHudViewModel = viewModelApi.createHudViewModel || function fallbackHudViewModel() { return {}; };
   const createEnemyViewModel = viewModelApi.createEnemyViewModel || function fallbackEnemyViewModel() { return { visible: false, name: "", hpText: "0 / 0", hpPercent: 0 }; };
@@ -169,6 +172,7 @@
     directionKey: "",
   };
   let runSummary = createEmptyRunSummary();
+  let merchantStock = [];
   const movementState = {
     active: false,
     elapsed: 0,
@@ -316,6 +320,54 @@
     return lines;
   }
 
+  function describeMaterialCost(materials) {
+    return Object.keys(materials || {}).map(function mapMaterial(name) {
+      return name + " x" + materials[name];
+    }).join("，");
+  }
+
+  function getEquipmentEntry(entry) {
+    if (!entry) {
+      return null;
+    }
+    if (typeof entry === "string") {
+      const template = SHOP_ITEMS.find(function findItem(item) {
+        return item.id === entry;
+      });
+      return template ? Object.assign({ baseId: template.id, level: 1, maxLevel: template.maxLevel || 1 }, template) : null;
+    }
+    return entry;
+  }
+
+  function getEquipmentInspectLines(item) {
+    const details = [];
+    if (!item) {
+      return details;
+    }
+    const levelText = item.level ? "等级：" + item.level + " / " + (item.maxLevel || item.level) : "";
+    if (levelText) {
+      details.push(levelText);
+    }
+    if (item.description) {
+      details.push(item.description);
+    }
+    statBonusLines(item.bonus).forEach(function eachLine(line) {
+      details.push(line);
+    });
+    (item.inspect || []).forEach(function eachLine(line) {
+      if (!details.includes(line)) {
+        details.push(line);
+      }
+    });
+    return details;
+  }
+
+  function refreshMerchantStock() {
+    merchantStock = SHOP_ITEMS.map(function mapItem(item) {
+      return createEquipmentOffer(item);
+    }).filter(Boolean);
+  }
+
   function createSkillInspectLines(skill) {
     const lines = [];
     if (typeof skill.cost === "number") {
@@ -380,10 +432,8 @@
 
     (player.buildSnapshot && player.buildSnapshot.relicTags ? player.buildSnapshot.relicTags : []).forEach(addTag);
 
-    player.equipment.forEach(function eachEquipment(id) {
-      const item = SHOP_ITEMS.find(function findItem(entry) {
-        return entry.id === id;
-      });
+    player.equipment.forEach(function eachEquipment(entry) {
+      const item = getEquipmentEntry(entry);
       (item && item.tags ? item.tags : []).forEach(addTag);
     });
 
@@ -617,18 +667,16 @@
   }
 
   function showDetailStatsOverlay() {
-    const equippedEntries = player.equipment.map(function mapEquipment(id) {
-      const item = SHOP_ITEMS.find(function findItem(entry) {
-        return entry.id === id;
-      });
+    const equippedEntries = player.equipment.map(function mapEquipment(entry) {
+      const item = getEquipmentEntry(entry);
       if (!item) {
-        return { name: id, meta: "", summary: "未找到装备配置。", details: [] };
+        return { name: "未知装备", meta: "", summary: "未找到装备配置。", details: [] };
       }
       return {
         name: item.name,
-        meta: (item.slot || "装备") + " / " + (item.rarity || "普通"),
+        meta: (item.slot || "装备") + " / " + (item.rarity || "普通") + (item.level ? " / Lv." + item.level : ""),
         summary: item.description,
-        details: statBonusLines(item.bonus).concat(item.inspect || []),
+        details: getEquipmentInspectLines(item),
       };
     });
 
@@ -811,6 +859,9 @@
     currentEncounterPool = generatedStage.encounters || {};
     currentEventPool = generatedStage.events || {};
     currentStageContent = generatedStage.contentPools || { eventPoolId: "", relicPoolId: "", dropTableId: "", elitePoolId: "" };
+    if (stageName === "azure_town") {
+      refreshMerchantStock();
+    }
 
     for (let y = 0; y < currentMap.length; y += 1) {
       for (let x = 0; x < currentMap[y].length; x += 1) {
@@ -1249,29 +1300,111 @@
     bindOverlayChoices(choices);
   }
 
-  function showMerchantOverlay() {
-    const choices = SHOP_ITEMS.map(function mapItem(item) {
+  function renderMerchantEquipmentHtml(items) {
+    return "<div class=\"detail-stats\">"
+      + items.map(function mapItem(item) {
+        const upgradeText = item.upgradeCost
+          ? "下一级消耗：" + item.upgradeCost.gold + " 金币" + (describeMaterialCost(item.upgradeCost.materials) ? "，" + describeMaterialCost(item.upgradeCost.materials) : "")
+          : "已满级";
+        return "<p><strong>" + item.name + "</strong> <span class=\"overlay-inline-note\">"
+          + (item.slot || "装备") + " / " + (item.rarity || "普通") + " / Lv." + (item.level || 1)
+          + "</span><br>" + getEquipmentInspectLines(item).join("；")
+          + "<br><span class=\"overlay-inline-note\">" + upgradeText + "</span></p>";
+      }).join("")
+      + "</div>";
+  }
+
+  function showMerchantBuyOverlay() {
+    if (!merchantStock.length) {
+      refreshMerchantStock();
+    }
+    const choices = merchantStock.map(function mapItem(item) {
       return {
-        label: item.name + "（消耗 " + item.cost + " 金币）",
+        label: item.name + "（" + item.rarity + " / " + item.cost + " 金币）",
         onClick: function buy() {
           if (buyEquipment(item)) {
             syncStatusPanel();
-            hideOverlay();
             appendLog("购买装备：" + item.name + "。");
+            showMerchantOverlay();
             return;
           }
           showNotice(
             "交易失败",
             "无法购买",
-            player.equipment.includes(item.id) ? "这件装备你已经拥有了，不需要重复购买。" : "你的金币不足，先去刷怪赚些金币再来。",
+            player.equipment.some(function hasItem(entry) {
+              const ownedItem = getEquipmentEntry(entry);
+              return ownedItem && ownedItem.baseId === item.baseId;
+            }) ? "同底座装备已经拥有，先去强化或更换别的部位。" : "你的金币不足，先去刷怪赚些金币再来。",
             "继续查看",
-            showMerchantOverlay
+            showMerchantBuyOverlay
           );
         },
       };
     });
 
-    showOverlay("补给商人", "购买装备", "购买更好的装备，让这套职业构筑真正成型。" + showChoiceButtons(choices), "离开", hideOverlay);
+    showOverlay(
+      "补给商人",
+      "购买装备",
+      "商人会拿出本轮库存的具体词条装备。每件装备的词条、成长和强化消耗都能直接查看。"
+        + renderMerchantEquipmentHtml(merchantStock)
+        + showChoiceButtons(choices),
+      "返回商店",
+      showMerchantOverlay
+    );
+    bindOverlayChoices(choices);
+  }
+
+  function showMerchantUpgradeOverlay() {
+    const ownedItems = player.equipment.map(getEquipmentEntry).filter(Boolean);
+    if (!ownedItems.length) {
+      showNotice("补给商人", "暂无可强化装备", "你还没有买下任何装备，先挑一件顺手的武器或护具吧。", "返回商店", showMerchantOverlay);
+      return;
+    }
+
+    const choices = ownedItems.map(function mapItem(item) {
+      const costText = item.upgradeCost
+        ? ("消耗 " + item.upgradeCost.gold + " 金币" + (describeMaterialCost(item.upgradeCost.materials) ? " / " + describeMaterialCost(item.upgradeCost.materials) : ""))
+        : "已满级";
+      return {
+        label: item.name + "（Lv." + item.level + (item.level < item.maxLevel ? " -> " + (item.level + 1) : "") + "，" + costText + "）",
+        onClick: function upgrade() {
+          if (!item.upgradeCost) {
+            showNotice("装备强化", "无法继续强化", "这件装备已经达到当前版本的强化上限。", "返回强化列表", showMerchantUpgradeOverlay);
+            return;
+          }
+          const nextItem = upgradeEquipmentInstance(item);
+          const result = upgradeEquipment(item.instanceId, nextItem);
+          if (!result.ok) {
+            showNotice("装备强化", "强化失败", result.reason || "当前无法强化这件装备。", "返回强化列表", showMerchantUpgradeOverlay);
+            return;
+          }
+          syncStatusPanel();
+          appendLog("装备强化：" + result.item.name + " 升至 Lv." + result.item.level + "。");
+          showMerchantUpgradeOverlay();
+        },
+      };
+    });
+
+    showOverlay(
+      "补给商人",
+      "强化装备",
+      "强化会消耗金币与材料，并把装备成长值真正转成当前 build 的战力。"
+        + renderMerchantEquipmentHtml(ownedItems)
+        + showChoiceButtons(choices),
+      "返回商店",
+      showMerchantOverlay
+    );
+    bindOverlayChoices(choices);
+  }
+
+  function showMerchantOverlay() {
+    const choices = [
+      { label: "购买装备", onClick: showMerchantBuyOverlay },
+      { label: "强化装备", onClick: showMerchantUpgradeOverlay },
+      { label: "查看构筑详情", onClick: showDetailStatsOverlay },
+    ];
+
+    showOverlay("补给商人", "军备整备", "想让 build 长成型，就要同时看装备词条、成长方向和当前强化资源。" + showChoiceButtons(choices), "离开", hideOverlay);
     bindOverlayChoices(choices);
   }
 
@@ -1792,6 +1925,7 @@
   function init() {
     ensureRunCollections();
     setRelicResolver(findRelicByName);
+    refreshMerchantStock();
     canvas.width = 20 * TILE_SIZE;
     canvas.height = 15 * TILE_SIZE;
     bindStaticButtons();

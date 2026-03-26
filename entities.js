@@ -772,24 +772,94 @@ function spendSkillPoint(statKey) {
   return true;
 }
 
+function applyStatBonus(bonus) {
+  if (!bonus) {
+    return;
+  }
+  player.maxHp += bonus.maxHp || 0;
+  player.hp = clamp(player.hp + (bonus.maxHp || 0), 1, player.maxHp);
+  player.maxMp += bonus.maxMp || 0;
+  player.mp = clamp(player.mp + (bonus.maxMp || 0), 0, player.maxMp);
+  player.attack += bonus.attack || 0;
+  player.defense += bonus.defense || 0;
+  player.speed += bonus.speed || 0;
+}
+
+function removeStatBonus(bonus) {
+  if (!bonus) {
+    return;
+  }
+  player.maxHp -= bonus.maxHp || 0;
+  player.maxHp = Math.max(1, player.maxHp);
+  player.hp = clamp(player.hp, 1, player.maxHp);
+  player.maxMp -= bonus.maxMp || 0;
+  player.maxMp = Math.max(0, player.maxMp);
+  player.mp = clamp(player.mp, 0, player.maxMp);
+  player.attack -= bonus.attack || 0;
+  player.defense -= bonus.defense || 0;
+  player.speed -= bonus.speed || 0;
+}
+
 function buyEquipment(item) {
   if (!item || player.gold < item.cost) {
     return false;
   }
-  if (player.equipment.includes(item.id)) {
+  if (player.equipment.some(function hasEquipment(entry) {
+    return typeof entry === "string" ? entry === item.baseId : entry && entry.baseId === item.baseId;
+  })) {
     return false;
   }
   player.gold -= item.cost;
-  player.equipment.push(item.id);
-  player.maxHp += item.bonus.maxHp || 0;
-  player.hp += item.bonus.maxHp || 0;
-  player.maxMp += item.bonus.maxMp || 0;
-  player.mp += item.bonus.maxMp || 0;
-  player.attack += item.bonus.attack || 0;
-  player.defense += item.bonus.defense || 0;
-  player.speed += item.bonus.speed || 0;
+  player.equipment.push(deepClone(item));
+  applyStatBonus(item.bonus);
   refreshBuildSnapshot();
   return true;
+}
+
+function canAffordMaterialCost(materials) {
+  const costs = materials || {};
+  return Object.keys(costs).every(function everyMaterial(name) {
+    return (player.materials[name] || 0) >= costs[name];
+  });
+}
+
+function spendMaterialCost(materials) {
+  Object.keys(materials || {}).forEach(function eachMaterial(name) {
+    player.materials[name] = Math.max(0, (player.materials[name] || 0) - materials[name]);
+    if (player.materials[name] <= 0) {
+      delete player.materials[name];
+    }
+  });
+}
+
+function upgradeEquipment(instanceId, nextItem) {
+  const equipmentIndex = player.equipment.findIndex(function findEquipment(entry) {
+    return entry && entry.instanceId === instanceId;
+  });
+  if (equipmentIndex === -1) {
+    return { ok: false, reason: "未找到要强化的装备。" };
+  }
+  const currentItem = player.equipment[equipmentIndex];
+  if (!currentItem.upgradeCost) {
+    return { ok: false, reason: "这件装备已经强化到上限。" };
+  }
+  if (player.gold < currentItem.upgradeCost.gold) {
+    return { ok: false, reason: "金币不足。" };
+  }
+  if (!canAffordMaterialCost(currentItem.upgradeCost.materials)) {
+    return { ok: false, reason: "强化材料不足。" };
+  }
+  if (!nextItem || nextItem.instanceId !== currentItem.instanceId) {
+    return { ok: false, reason: "强化结果无效。" };
+  }
+
+  player.gold -= currentItem.upgradeCost.gold;
+  spendMaterialCost(currentItem.upgradeCost.materials);
+  removeStatBonus(currentItem.bonus);
+  player.equipment[equipmentIndex] = deepClone(nextItem);
+  applyStatBonus(nextItem.bonus);
+  refreshBuildSnapshot();
+  return { ok: true, item: deepClone(nextItem) };
 }
 
 window.GameEntities = {
@@ -813,4 +883,5 @@ window.GameEntities = {
   getClassResource,
   spendSkillPoint,
   buyEquipment,
+  upgradeEquipment,
 };

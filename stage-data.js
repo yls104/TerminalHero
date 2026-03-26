@@ -96,9 +96,35 @@
       tags: ["burst", "tempo"],
       rarity: "普通",
       cost: 42,
-      bonus: { attack: 3 },
+      bonus: { attack: 2 },
+      growthBonus: { attack: 1 },
+      maxLevel: 3,
       description: "提高稳定输出。",
-      inspect: ["攻击 +3", "适合依赖稳定普攻与技能补刀的构筑。"],
+      inspect: ["基础攻击 +2", "适合依赖稳定普攻与技能补刀的构筑。"],
+      affixPool: [
+        {
+          id: "keen",
+          name: "锋锐",
+          rarity: "精良",
+          tags: ["burst", "execute"],
+          bonus: { attack: 1 },
+          inspect: ["词条：攻击 +1", "更适合爆发和终结路线。"],
+          synergies: [{ matchAnyTags: ["爆发", "终结", "处决"], changes: { power: 0.1 }, inspectNote: "装备词条联动：爆发/终结类技能伤害倍率提高。" }],
+        },
+        {
+          id: "tempo",
+          name: "追击",
+          rarity: "精良",
+          tags: ["tempo", "combo"],
+          bonus: { speed: 1 },
+          inspect: ["词条：速度 +1", "更适合连段与拉扯构筑。"],
+          synergies: [{ matchAnyTags: ["稳定输出", "循环", "连击"], changes: { cost: -1 }, inspectNote: "装备词条联动：循环与连段技能法力消耗降低 1。" }],
+        },
+      ],
+      upgradeCosts: [
+        { gold: 28, materials: { "狼牙素材": 1 } },
+        { gold: 44, materials: { "余烬碎片": 1 } },
+      ],
     },
     {
       id: "guard_mail",
@@ -107,9 +133,35 @@
       tags: ["guard", "survive"],
       rarity: "普通",
       cost: 48,
-      bonus: { defense: 2, maxHp: 12 },
+      bonus: { defense: 1, maxHp: 8 },
+      growthBonus: { defense: 1, maxHp: 4 },
+      maxLevel: 3,
       description: "提升生存能力。",
-      inspect: ["防御 +2", "生命上限 +12", "适合需要站场换输出窗口的构筑。"],
+      inspect: ["基础防御 +1", "基础生命上限 +8", "适合需要站场换输出窗口的构筑。"],
+      affixPool: [
+        {
+          id: "warded",
+          name: "壁垒",
+          rarity: "精良",
+          tags: ["guard", "sanctuary"],
+          bonus: { defense: 1, maxHp: 4 },
+          inspect: ["词条：防御 +1", "词条：生命上限 +4", "偏向稳态推进。"],
+          synergies: [{ matchAnyTags: ["防守", "庇护"], changes: { guard: 0.12 }, inspectNote: "装备词条联动：防守与庇护技能减伤提高。" }],
+        },
+        {
+          id: "vital",
+          name: "复苏",
+          rarity: "精良",
+          tags: ["survive", "heal"],
+          bonus: { maxHp: 8, maxMp: 4 },
+          inspect: ["词条：生命上限 +8", "词条：法力上限 +4", "偏向续航恢复。"],
+          synergies: [{ matchAnyTags: ["恢复", "续航"], changes: { power: -0.12 }, inspectNote: "装备词条联动：恢复类技能治疗倍率提高。" }],
+        },
+      ],
+      upgradeCosts: [
+        { gold: 30, materials: { "狼牙素材": 1 } },
+        { gold: 46, materials: { "墨卷残页": 1 } },
+      ],
     },
     {
       id: "aether_band",
@@ -118,11 +170,187 @@
       tags: ["spell", "combo"],
       rarity: "普通",
       cost: 44,
-      bonus: { maxMp: 12, speed: 1 },
+      bonus: { maxMp: 8, speed: 1 },
+      growthBonus: { maxMp: 4, attack: 1 },
+      maxLevel: 3,
       description: "提升法力循环。",
-      inspect: ["法力上限 +12", "速度 +1", "适合法术循环与高频技能构筑。"],
+      inspect: ["基础法力上限 +8", "基础速度 +1", "适合法术循环与高频技能构筑。"],
+      affixPool: [
+        {
+          id: "echoing",
+          name: "回响",
+          rarity: "精良",
+          tags: ["spell", "burst"],
+          bonus: { maxMp: 4, attack: 1 },
+          inspect: ["词条：法力上限 +4", "词条：攻击 +1", "偏向法术爆发。"],
+          synergies: [{ matchAnyTags: ["magic", "爆发", "惩戒"], changes: { power: 0.1 }, inspectNote: "装备词条联动：法术与惩戒类技能伤害倍率提高。" }],
+        },
+        {
+          id: "flowing",
+          name: "流转",
+          rarity: "精良",
+          tags: ["combo", "tempo"],
+          bonus: { maxMp: 4, speed: 1 },
+          inspect: ["词条：法力上限 +4", "词条：速度 +1", "偏向循环与连段。"],
+          synergies: [{ matchAnyTags: ["循环", "控场", "连击"], changes: { cost: -1 }, inspectNote: "装备词条联动：循环与控场技能法力消耗降低 1。" }],
+        },
+      ],
+      upgradeCosts: [
+        { gold: 26, materials: { "墨卷残页": 1 } },
+        { gold: 42, materials: { "余烬碎片": 1 } },
+      ],
     },
   ];
+
+  let equipmentInstanceSeed = 1;
+
+  function cloneValue(value) {
+    if (Array.isArray(value)) {
+      return value.map(cloneValue);
+    }
+    if (value && typeof value === "object") {
+      const clone = {};
+      Object.keys(value).forEach(function eachKey(key) {
+        clone[key] = cloneValue(value[key]);
+      });
+      return clone;
+    }
+    return value;
+  }
+
+  function mergeBonusPackages(list) {
+    const merged = {};
+    (list || []).forEach(function eachBonus(bonus) {
+      if (!bonus || typeof bonus !== "object") {
+        return;
+      }
+      Object.keys(bonus).forEach(function eachKey(key) {
+        merged[key] = (merged[key] || 0) + (bonus[key] || 0);
+      });
+    });
+    return merged;
+  }
+
+  function scaleBonusPackage(baseBonus, growthBonus, level) {
+    const scaled = {};
+    const bonus = baseBonus || {};
+    const growth = growthBonus || {};
+    Object.keys(bonus).forEach(function eachKey(key) {
+      scaled[key] = bonus[key];
+    });
+    const growthLevel = Math.max(0, (level || 1) - 1);
+    Object.keys(growth).forEach(function eachKey(key) {
+      scaled[key] = (scaled[key] || 0) + growth[key] * growthLevel;
+    });
+    return scaled;
+  }
+
+  function formatBonusText(bonus) {
+    const labelMap = {
+      attack: "攻击",
+      defense: "防御",
+      maxHp: "生命上限",
+      maxMp: "法力上限",
+      speed: "速度",
+    };
+    return Object.keys(bonus || {}).map(function mapKey(key) {
+      const amount = bonus[key] || 0;
+      const sign = amount > 0 ? "+" : "";
+      return (labelMap[key] || key) + " " + sign + amount;
+    });
+  }
+
+  function formatMaterialCost(materials) {
+    return Object.keys(materials || {}).map(function mapMaterial(name) {
+      return name + " x" + materials[name];
+    }).join("，");
+  }
+
+  function buildEquipmentInspect(instance) {
+    const lines = [];
+    lines.push("等级：" + instance.level + " / " + instance.maxLevel);
+    if (instance.affixName) {
+      lines.push("词条：" + instance.affixName);
+    }
+    formatBonusText(instance.bonus).forEach(function eachLine(line) {
+      lines.push(line);
+    });
+    (instance.baseInspect || []).forEach(function eachBaseLine(line) {
+      lines.push(line);
+    });
+    (instance.affixInspect || []).forEach(function eachAffixLine(line) {
+      lines.push(line);
+    });
+    if (instance.level < instance.maxLevel) {
+      const nextGrowth = formatBonusText(instance.growthBonus || {});
+      if (nextGrowth.length) {
+        lines.push("下一级成长：" + nextGrowth.join("，"));
+      }
+      if (instance.upgradeCost) {
+        lines.push("强化消耗：" + instance.upgradeCost.gold + " 金币" + (formatMaterialCost(instance.upgradeCost.materials) ? "，" + formatMaterialCost(instance.upgradeCost.materials) : ""));
+      }
+    } else {
+      lines.push("已达到最大强化等级。");
+    }
+    return lines;
+  }
+
+  function finalizeEquipmentInstance(instance) {
+    const level = instance.level || 1;
+    const scaledBase = scaleBonusPackage(instance.baseBonus, instance.growthBonus, level);
+    instance.bonus = mergeBonusPackages([scaledBase, instance.affixBonus]);
+    instance.upgradeCost = level < instance.maxLevel ? cloneValue((instance.upgradeCosts || [])[level - 1] || null) : null;
+    instance.inspect = buildEquipmentInspect(instance);
+    return instance;
+  }
+
+  function createEquipmentOffer(template) {
+    if (!template) {
+      return null;
+    }
+    const affixPool = template.affixPool || [];
+    const affix = affixPool.length ? cloneValue(pickRandom(affixPool)) : null;
+    const instance = {
+      instanceId: "equip_" + equipmentInstanceSeed,
+      baseId: template.id,
+      name: affix ? (template.name + "·" + affix.name) : template.name,
+      slot: template.slot || "装备",
+      rarity: affix && affix.rarity ? affix.rarity : (template.rarity || "普通"),
+      cost: template.cost || 0,
+      level: 1,
+      maxLevel: template.maxLevel || 1,
+      description: template.description || "",
+      tags: []
+        .concat(template.tags || [])
+        .concat(affix && affix.tags ? affix.tags : [])
+        .filter(function filterTag(tag, index, list) {
+          return tag && list.indexOf(tag) === index;
+        }),
+      baseBonus: cloneValue(template.bonus || {}),
+      growthBonus: cloneValue(template.growthBonus || {}),
+      affixBonus: cloneValue(affix && affix.bonus ? affix.bonus : {}),
+      affixId: affix ? affix.id : "",
+      affixName: affix ? affix.name : "",
+      baseInspect: cloneValue(template.inspect || []),
+      affixInspect: cloneValue(affix && affix.inspect ? affix.inspect : []),
+      synergies: cloneValue(affix && affix.synergies ? affix.synergies : []),
+      upgradeCosts: cloneValue(template.upgradeCosts || []),
+    };
+    equipmentInstanceSeed += 1;
+    return finalizeEquipmentInstance(instance);
+  }
+
+  function upgradeEquipmentInstance(instance) {
+    if (!instance) {
+      return null;
+    }
+    const nextInstance = cloneValue(instance);
+    if ((nextInstance.level || 1) >= (nextInstance.maxLevel || 1)) {
+      return finalizeEquipmentInstance(nextInstance);
+    }
+    nextInstance.level += 1;
+    return finalizeEquipmentInstance(nextInstance);
+  }
 
   const RELIC_POOLS = {
     verdant_relics: [
@@ -751,12 +979,15 @@
     STAGE_SEQUENCE: STAGE_SEQUENCE,
     SHOP_ITEMS: SHOP_ITEMS,
     cloneMap: cloneMap,
+    mergeBonusPackages: mergeBonusPackages,
     positionKey: positionKey,
     getStageMeta: getStageMeta,
     createStageProgress: createStageProgress,
     createStageInstance: createStageInstance,
     createEncounterRuntime: createEncounterRuntime,
     createEventRuntime: createEventRuntime,
+    createEquipmentOffer: createEquipmentOffer,
+    upgradeEquipmentInstance: upgradeEquipmentInstance,
     getRelicCatalog: getRelicCatalog,
     findRelicByName: findRelicByName,
   };
