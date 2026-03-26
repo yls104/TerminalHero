@@ -114,8 +114,9 @@
     overlayText: document.querySelector("#overlayText"),
     overlayButton: document.querySelector("#overlayButton"),
     btnDetailStats: document.querySelector("#btnDetailStats"),
-    touchControls: document.querySelector("#touchControls"),
-    touchMoveButtons: Array.from(document.querySelectorAll(".touch-move")),
+    virtualJoystick: document.querySelector("#virtualJoystick"),
+    joystickBase: document.querySelector("#joystickBase"),
+    joystickKnob: document.querySelector("#joystickKnob"),
   };
 
   const movementByKey = {
@@ -160,6 +161,13 @@
   let preferredMoveKey = "";
   let skillMenuOpen = false;
   const heldKeys = {};
+  const joystickState = {
+    active: false,
+    pointerId: null,
+    knobX: 0,
+    knobY: 0,
+    directionKey: "",
+  };
   let runSummary = createEmptyRunSummary();
   const movementState = {
     active: false,
@@ -439,10 +447,12 @@
   }
 
   function syncTouchMoveButtons() {
-    ui.touchMoveButtons.forEach(function syncButton(button) {
-      const key = button.dataset.moveKey || "";
-      button.classList.toggle("is-pressed", Boolean(heldKeys[key]));
-    });
+    if (!ui.virtualJoystick || !ui.joystickKnob || !ui.joystickBase) {
+      return;
+    }
+    ui.virtualJoystick.classList.toggle("is-active", joystickState.active);
+    ui.joystickBase.classList.toggle("is-engaged", Boolean(joystickState.directionKey));
+    ui.joystickKnob.style.transform = "translate(" + joystickState.knobX + "px, " + joystickState.knobY + "px)";
   }
 
   function clearHeldMoveKeys() {
@@ -450,6 +460,11 @@
       heldKeys[key] = false;
     });
     preferredMoveKey = "";
+    joystickState.active = false;
+    joystickState.pointerId = null;
+    joystickState.knobX = 0;
+    joystickState.knobY = 0;
+    joystickState.directionKey = "";
     syncTouchMoveButtons();
   }
 
@@ -520,11 +535,11 @@
   }
 
   function setExploreControlsVisible(visible) {
-    if (!ui.touchControls) {
+    if (!ui.virtualJoystick) {
       return;
     }
-    ui.touchControls.classList.toggle("is-hidden", !visible);
-    ui.touchControls.setAttribute("aria-hidden", visible ? "false" : "true");
+    ui.virtualJoystick.classList.toggle("is-hidden", !visible);
+    ui.virtualJoystick.setAttribute("aria-hidden", visible ? "false" : "true");
     if (!visible) {
       clearHeldMoveKeys();
     }
@@ -1437,6 +1452,53 @@
     }
   }
 
+  function setJoystickDirection(nextKey) {
+    ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].forEach(function eachKey(key) {
+      if (key !== nextKey && heldKeys[key]) {
+        setHeldMoveState(key, false);
+      }
+    });
+    joystickState.directionKey = nextKey || "";
+    if (nextKey) {
+      setHeldMoveState(nextKey, true);
+    }
+  }
+
+  function updateJoystickFromPoint(clientX, clientY) {
+    if (!ui.joystickBase) {
+      return;
+    }
+    const rect = ui.joystickBase.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+    let dx = clientX - centerX;
+    let dy = clientY - centerY;
+    const maxDistance = Math.max(18, rect.width * 0.5 - 24);
+    const distance = Math.hypot(dx, dy);
+
+    if (distance > maxDistance) {
+      const ratio = maxDistance / distance;
+      dx *= ratio;
+      dy *= ratio;
+    }
+
+    joystickState.knobX = Math.round(dx);
+    joystickState.knobY = Math.round(dy);
+
+    const deadZone = maxDistance * 0.26;
+    let nextKey = "";
+    if (distance >= deadZone) {
+      if (Math.abs(dx) > Math.abs(dy)) {
+        nextKey = dx >= 0 ? "ArrowRight" : "ArrowLeft";
+      } else {
+        nextKey = dy >= 0 ? "ArrowDown" : "ArrowUp";
+      }
+    }
+
+    setJoystickDirection(nextKey);
+    syncTouchMoveButtons();
+  }
+
   function updateMovement(delta) {
     if (!movementState.active) {
       return;
@@ -1511,42 +1573,54 @@
   }
 
   function bindTouchControls() {
-    ui.touchMoveButtons.forEach(function bindTouchButton(button) {
-      const key = button.dataset.moveKey || "";
-      if (!movementByKey[key]) {
-        return;
+    if (ui.joystickBase) {
+      function press(event) {
+        if (isOverlayVisible() || getGameState() !== GAME_STATE.EXPLORE) {
+          return;
+        }
+        event.preventDefault();
+        joystickState.active = true;
+        joystickState.pointerId = event.pointerId;
+        if (typeof ui.joystickBase.setPointerCapture === "function") {
+          ui.joystickBase.setPointerCapture(event.pointerId);
+        }
+        updateJoystickFromPoint(event.clientX, event.clientY);
       }
 
-      function press(event) {
-        event.preventDefault();
-        if (typeof button.setPointerCapture === "function") {
-          button.setPointerCapture(event.pointerId);
+      function move(event) {
+        if (!joystickState.active || event.pointerId !== joystickState.pointerId) {
+          return;
         }
-        setHeldMoveState(key, true);
+        event.preventDefault();
+        updateJoystickFromPoint(event.clientX, event.clientY);
       }
 
       function release(event) {
-        event.preventDefault();
-        if (typeof button.releasePointerCapture === "function" && button.hasPointerCapture && button.hasPointerCapture(event.pointerId)) {
-          button.releasePointerCapture(event.pointerId);
+        if (joystickState.pointerId !== null && event.pointerId !== joystickState.pointerId) {
+          return;
         }
-        setHeldMoveState(key, false);
+        event.preventDefault();
+        if (typeof ui.joystickBase.releasePointerCapture === "function" && ui.joystickBase.hasPointerCapture && ui.joystickBase.hasPointerCapture(event.pointerId)) {
+          ui.joystickBase.releasePointerCapture(event.pointerId);
+        }
+        clearHeldMoveKeys();
       }
 
-      button.addEventListener("pointerdown", press);
-      button.addEventListener("pointerup", release);
-      button.addEventListener("pointercancel", release);
-      button.addEventListener("pointerleave", release);
-      button.addEventListener("contextmenu", function preventMenu(event) {
+      ui.joystickBase.addEventListener("pointerdown", press);
+      ui.joystickBase.addEventListener("pointermove", move);
+      ui.joystickBase.addEventListener("pointerup", release);
+      ui.joystickBase.addEventListener("pointercancel", release);
+      ui.joystickBase.addEventListener("lostpointercapture", release);
+      ui.joystickBase.addEventListener("contextmenu", function preventMenu(event) {
         event.preventDefault();
       });
-      button.addEventListener("selectstart", function preventSelection(event) {
+      ui.joystickBase.addEventListener("selectstart", function preventSelection(event) {
         event.preventDefault();
       });
-      button.addEventListener("dragstart", function preventDrag(event) {
+      ui.joystickBase.addEventListener("dragstart", function preventDrag(event) {
         event.preventDefault();
       });
-    });
+    }
 
     window.addEventListener("blur", clearHeldMoveKeys);
     document.addEventListener("visibilitychange", function onVisibilityChange() {
