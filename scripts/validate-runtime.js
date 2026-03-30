@@ -26,7 +26,8 @@ function validateHtmlContract(indexHtml) {
   [
     "gameCanvas",
     "virtualJoystick",
-    "mobileBottomBar",
+    "statusToggle",
+    "floatingStatusPanel",
     "btnOpenLog",
     "btnSaveMenu",
     "battleLog",
@@ -38,7 +39,8 @@ function validateHtmlContract(indexHtml) {
 function validateStyleContract(styleCss) {
   [
     ".virtual-joystick",
-    ".mobile-bottom-bar",
+    ".floating-status-panel",
+    ".hud-toggle",
     ".battle-log p:nth-last-child(n + 3)",
     ".mini-button",
   ].forEach(function eachSelector(selector) {

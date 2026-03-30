@@ -21,6 +21,47 @@
         <div class="canvas-wrap">
           <canvas id="gameCanvas" width="640" height="480" aria-label="游戏画布"></canvas>
           <div id="combatBanner" class="combat-banner is-hidden">战斗中</div>
+          <button id="statusToggle" type="button" class="hud-toggle" aria-expanded="false" aria-controls="floatingStatusPanel">状态</button>
+          <section id="floatingStatusPanel" class="floating-status-panel is-hidden" aria-hidden="true">
+            <div class="panel-title-row">
+              <header class="panel-title small">状态栏</header>
+              <button id="btnCloseStatusPanel" type="button" class="mini-button">关闭</button>
+            </div>
+            <div class="status-list">
+              <div class="status-item">
+                <div class="status-head">
+                  <span>生命</span>
+                  <strong id="hpValue">100 / 100</strong>
+                </div>
+                <div class="meter"><div id="hpBar" class="meter-fill hp"></div></div>
+              </div>
+              <div class="status-item">
+                <div class="status-head">
+                  <span>法力</span>
+                  <strong id="mpValue">20 / 20</strong>
+                </div>
+                <div class="meter"><div id="mpBar" class="meter-fill mp"></div></div>
+              </div>
+              <div class="status-item">
+                <span>等级</span>
+                <strong id="levelValue">1</strong>
+              </div>
+              <div class="status-item">
+                <div class="status-head">
+                  <span>经验</span>
+                  <strong id="expValue">0 / 50</strong>
+                </div>
+                <div class="meter"><div id="expBar" class="meter-fill exp"></div></div>
+              </div>
+              <div id="classResourceItem" class="status-item is-hidden" aria-hidden="true">
+                <div class="status-head">
+                  <span id="classResourceLabel">职业资源</span>
+                  <strong id="classResourceValue">0 / 0</strong>
+                </div>
+                <div class="meter"><div id="classResourceBar" class="meter-fill resource-neutral"></div></div>
+              </div>
+            </div>
+          </section>
           <div id="screenFlash" class="screen-flash is-hidden" aria-hidden="true"></div>
           <div id="sceneOverlay" class="scene-overlay is-hidden" aria-hidden="true">
             <div class="scene-overlay-card">
@@ -40,47 +81,7 @@
         <p class="hint">桌面可用 WASD / 方向键。手机横屏可拖动左下角虚拟摇杆连续移动，先清小怪，再穿过传送门挑战首领。</p>
       </section>
 
-      <section id="mobileBottomBar" class="mobile-bottom-bar card is-hidden" aria-hidden="true">
-        <div id="mobileHudDock" class="mobile-hud-dock is-hidden" aria-hidden="true"></div>
-      </section>
-
       <aside class="side-panel card">
-        <header class="panel-title">状态栏</header>
-        <div class="status-list">
-          <div class="status-item">
-            <div class="status-head">
-              <span>生命</span>
-              <strong id="hpValue">100 / 100</strong>
-            </div>
-            <div class="meter"><div id="hpBar" class="meter-fill hp"></div></div>
-          </div>
-          <div class="status-item">
-            <div class="status-head">
-              <span>法力</span>
-              <strong id="mpValue">20 / 20</strong>
-            </div>
-            <div class="meter"><div id="mpBar" class="meter-fill mp"></div></div>
-          </div>
-          <div class="status-item">
-            <span>等级</span>
-            <strong id="levelValue">1</strong>
-          </div>
-          <div class="status-item">
-            <div class="status-head">
-              <span>经验</span>
-              <strong id="expValue">0 / 50</strong>
-            </div>
-            <div class="meter"><div id="expBar" class="meter-fill exp"></div></div>
-          </div>
-          <div id="classResourceItem" class="status-item is-hidden" aria-hidden="true">
-            <div class="status-head">
-              <span id="classResourceLabel">职业资源</span>
-              <strong id="classResourceValue">0 / 0</strong>
-            </div>
-            <div class="meter"><div id="classResourceBar" class="meter-fill resource-neutral"></div></div>
-          </div>
-        </div>
-
         <section id="resourcePanel" class="panel-block">
           <header class="panel-title small">资源</header>
           <div class="resource-strip">

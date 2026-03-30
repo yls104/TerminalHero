@@ -45,12 +45,12 @@ button,
 }
 
 .layout {
-  max-width: 1240px;
+  max-width: 1400px;
   min-height: 100dvh;
   margin: 0 auto;
   padding: 16px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
   gap: 16px;
 }
 
@@ -82,6 +82,48 @@ button,
   overflow: hidden;
   border-radius: 12px;
   background: linear-gradient(180deg, rgba(15, 23, 42, 0.7), rgba(2, 6, 23, 0.92));
+}
+
+.floating-status-panel {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 2;
+  width: min(280px, calc(100% - 28px));
+  border: 1px solid rgba(103, 232, 249, 0.22);
+  border-radius: 12px;
+  padding: 10px;
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.88), rgba(2, 6, 23, 0.8));
+  backdrop-filter: blur(12px);
+  box-shadow: 0 16px 30px rgba(2, 6, 23, 0.3);
+}
+
+.floating-status-panel.is-hidden {
+  display: none;
+}
+
+.hud-toggle {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 2;
+  min-height: 34px;
+  padding: 6px 12px;
+  border: 1px solid rgba(103, 232, 249, 0.32);
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.56);
+  backdrop-filter: blur(10px);
+  color: #e0f2fe;
+  font-family: inherit;
+  font-size: 0.76rem;
+  letter-spacing: 0.06em;
+  cursor: grab;
+  touch-action: none;
+  box-shadow: 0 10px 24px rgba(2, 6, 23, 0.22);
+}
+
+.hud-toggle.is-dragging {
+  cursor: grabbing;
 }
 
 .canvas-wrap.shake {
@@ -233,6 +275,7 @@ button,
   flex-direction: column;
   gap: 14px;
   min-height: 0;
+  justify-content: flex-start;
 }
 
 .class-summary {
@@ -593,6 +636,28 @@ button,
   color: #f8fafc;
 }
 
+.combat-unit-bar {
+  position: absolute;
+  width: 150px;
+  transform: translateX(-50%);
+}
+
+.combat-unit-bar-fill {
+  height: 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(15, 23, 42, 0.86);
+  overflow: hidden;
+  background: rgba(15, 23, 42, 0.72);
+}
+
+.combat-unit-bar-value {
+  margin-top: 4px;
+  text-align: center;
+  color: #f8fafc;
+  font-size: 0.78rem;
+  text-shadow: 0 1px 2px rgba(2, 6, 23, 0.92);
+}
+
 .log-history {
   display: grid;
   gap: 8px;
@@ -696,31 +761,21 @@ button,
     min-height: 100dvh;
     padding: 4px;
     gap: 4px;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(150px, 164px);
-    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr) minmax(150px, 164px);
+    grid-template-rows: minmax(0, 1fr);
   }
 
   .game-area {
-    grid-column: 1 / span 2;
-    grid-row: 1 / span 2;
+    grid-column: 1;
+    grid-row: 1;
     padding: 4px;
     gap: 4px;
     min-height: 0;
   }
 
-  .mobile-bottom-bar {
-    grid-column: 1 / span 2;
-    grid-row: 3;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    gap: 3px;
-    padding: 3px;
-    min-height: 0;
-  }
-
   .side-panel {
-    grid-column: 3;
-    grid-row: 1 / span 3;
+    grid-column: 2;
+    grid-row: 1;
     padding: 3px;
     gap: 3px;
     overflow: hidden;
@@ -749,13 +804,9 @@ button,
 
   #gameCanvas {
     width: auto;
-    height: min(calc(100dvh - 44px), calc((100vw - 176px) * 0.75));
+    height: min(calc(100dvh - 12px), calc((100vw - 176px) * 0.75));
     max-width: 100%;
     max-height: 100%;
-  }
-
-  .mobile-bottom-bar.is-hidden {
-    display: none;
   }
 
   .virtual-joystick {
@@ -781,77 +832,11 @@ button,
     font-size: 0.58rem;
   }
 
-  .mobile-hud-dock {
-    display: grid;
-    width: 100%;
-    gap: 2px;
-    align-content: start;
-  }
-
-  .mobile-hud-dock .status-list {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 2px;
-  }
-
-  .mobile-hud-dock .panel-title {
-    display: none;
-  }
-
-  .mobile-hud-dock .status-item {
-    display: flex;
-    align-items: center;
-    min-width: 0;
-    padding: 2px 4px;
-    font-size: 0.56rem;
-    border-radius: 6px;
-  }
-
-  .mobile-hud-dock .status-head {
-    width: 100%;
-    min-width: 0;
-    gap: 3px;
-  }
-
-  .mobile-hud-dock .status-head span,
-  .mobile-hud-dock .status-head strong,
-  .mobile-hud-dock .status-item > span,
-  .mobile-hud-dock .status-item > strong {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    font-size: 0.56rem;
-  }
-
-  .mobile-hud-dock .meter {
-    display: none;
-  }
-
-  .mobile-hud-dock.is-hidden {
-    display: none;
-  }
-
-  .status-list {
-    gap: 3px;
-  }
-
-  .status-item {
-    padding: 3px 5px;
-    font-size: 0.63rem;
-    background: rgba(2, 6, 23, 0.78);
-    border-color: rgba(148, 163, 184, 0.28);
-    backdrop-filter: blur(6px);
-  }
-
   .panel-block {
     padding: 4px;
     background: rgba(2, 6, 23, 0.78);
     border-color: rgba(148, 163, 184, 0.28);
     backdrop-filter: blur(6px);
-  }
-
-  .mobile-hud-dock #resourcePanel {
-    padding: 3px 4px;
   }
 
   #actionPanel {
@@ -909,6 +894,30 @@ button,
     min-height: 22px;
     padding: 2px 8px;
     font-size: 0.54rem;
+  }
+
+  .floating-status-panel {
+    top: 10px;
+    right: 10px;
+    width: min(228px, calc(100% - 20px));
+    padding: 8px;
+  }
+
+  .floating-status-panel .status-item {
+    padding: 4px 6px;
+    font-size: 0.62rem;
+  }
+
+  .floating-status-panel .meter {
+    height: 7px;
+  }
+
+  .hud-toggle {
+    top: 10px;
+    right: 10px;
+    min-height: 28px;
+    padding: 5px 10px;
+    font-size: 0.62rem;
   }
 
   .class-meta {
@@ -1007,11 +1016,6 @@ button,
     gap: 2px;
   }
 
-  .mobile-bottom-bar {
-    gap: 2px;
-    padding: 2px;
-  }
-
   .panel-block,
   .game-area,
   .side-panel {
@@ -1027,5 +1031,15 @@ button,
   .mini-button {
     min-height: 20px;
     padding: 2px 7px;
+  }
+
+  .floating-status-panel {
+    width: min(204px, calc(100% - 16px));
+    padding: 6px;
+  }
+
+  .hud-toggle {
+    min-height: 24px;
+    padding: 4px 8px;
   }
 }

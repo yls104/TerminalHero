@@ -109,6 +109,9 @@
     resourcePanel: document.querySelector("#resourcePanel"),
     mobileBottomBar: document.querySelector("#mobileBottomBar"),
     mobileHudDock: document.querySelector("#mobileHudDock"),
+    statusToggle: document.querySelector("#statusToggle"),
+    floatingStatusPanel: document.querySelector("#floatingStatusPanel"),
+    btnCloseStatusPanel: document.querySelector("#btnCloseStatusPanel"),
     hpBar: document.querySelector("#hpBar"),
     mpBar: document.querySelector("#mpBar"),
     expBar: document.querySelector("#expBar"),
@@ -182,6 +185,16 @@
   let skillMenuOpen = false;
   const heldKeys = {};
   const logHistory = [];
+  const floatingHudState = {
+    open: false,
+    pointerId: null,
+    dragging: false,
+    moved: false,
+    offsetX: 0,
+    offsetY: 0,
+    leftPercent: 0.84,
+    topPercent: 0.04,
+  };
   const joystickState = {
     active: false,
     pointerId: null,
@@ -875,6 +888,48 @@
     showOverlay("战斗日志", "查看近期记录", "移动端横屏默认只保留两行紧凑视图，完整记录可以在这里查看。" + renderLogHistoryHtml(), "关闭", hideOverlay);
   }
 
+  function syncFloatingStatusHud() {
+    if (!ui.canvasWrap || !ui.statusToggle || !ui.floatingStatusPanel) {
+      return;
+    }
+    const wrapWidth = ui.canvasWrap.clientWidth || 1;
+    const wrapHeight = ui.canvasWrap.clientHeight || 1;
+    const buttonWidth = ui.statusToggle.offsetWidth || 76;
+    const buttonHeight = ui.statusToggle.offsetHeight || 34;
+    const minMargin = 10;
+    const left = clamp(Math.round(floatingHudState.leftPercent * wrapWidth), minMargin, Math.max(minMargin, wrapWidth - buttonWidth - minMargin));
+    const top = clamp(Math.round(floatingHudState.topPercent * wrapHeight), minMargin, Math.max(minMargin, wrapHeight - buttonHeight - minMargin));
+
+    ui.statusToggle.style.left = left + "px";
+    ui.statusToggle.style.top = top + "px";
+    ui.statusToggle.style.right = "auto";
+    ui.statusToggle.style.bottom = "auto";
+
+    const panelWidth = ui.floatingStatusPanel.offsetWidth || Math.min(280, wrapWidth - minMargin * 2);
+    const panelHeight = ui.floatingStatusPanel.offsetHeight || 220;
+    const panelLeft = clamp(left + buttonWidth - panelWidth, minMargin, Math.max(minMargin, wrapWidth - panelWidth - minMargin));
+    const preferredTop = top + buttonHeight + 8;
+    const panelTop = preferredTop + panelHeight <= wrapHeight - minMargin
+      ? preferredTop
+      : clamp(top - panelHeight - 8, minMargin, Math.max(minMargin, wrapHeight - panelHeight - minMargin));
+
+    ui.floatingStatusPanel.style.left = panelLeft + "px";
+    ui.floatingStatusPanel.style.top = panelTop + "px";
+    ui.floatingStatusPanel.style.right = "auto";
+  }
+
+  function setFloatingStatusPanelVisible(visible) {
+    floatingHudState.open = visible;
+    if (!ui.floatingStatusPanel || !ui.statusToggle) {
+      return;
+    }
+    ui.floatingStatusPanel.classList.toggle("is-hidden", !visible);
+    ui.floatingStatusPanel.setAttribute("aria-hidden", visible ? "false" : "true");
+    ui.statusToggle.setAttribute("aria-expanded", visible ? "true" : "false");
+    ui.statusToggle.textContent = visible ? "收起状态" : "状态";
+    syncFloatingStatusHud();
+  }
+
   function syncTouchMoveButtons() {
     if (!ui.virtualJoystick || !ui.joystickKnob || !ui.joystickBase) {
       return;
@@ -933,34 +988,10 @@
   }
 
   function syncResponsiveHudLayout() {
-    if (!ui.statusList || !ui.resourcePanel || !ui.sidePanel || !ui.actionPanel || !ui.mobileHudDock || !ui.mobileBottomBar) {
+    if (!ui.canvasWrap || !ui.statusToggle || !ui.floatingStatusPanel) {
       return;
     }
-
-    if (isMobileLandscapeLayout()) {
-      if (ui.statusList.parentNode !== ui.mobileHudDock) {
-        ui.mobileHudDock.appendChild(ui.statusList);
-      }
-      if (ui.resourcePanel.parentNode !== ui.mobileHudDock) {
-        ui.mobileHudDock.appendChild(ui.resourcePanel);
-      }
-      ui.mobileBottomBar.classList.remove("is-hidden");
-      ui.mobileBottomBar.setAttribute("aria-hidden", "false");
-      ui.mobileHudDock.classList.remove("is-hidden");
-      ui.mobileHudDock.setAttribute("aria-hidden", "false");
-      return;
-    }
-
-    if (ui.statusList.parentNode !== ui.sidePanel) {
-      ui.sidePanel.insertBefore(ui.statusList, ui.actionPanel);
-    }
-    if (ui.resourcePanel.parentNode !== ui.sidePanel) {
-      ui.sidePanel.insertBefore(ui.resourcePanel, ui.actionPanel);
-    }
-    ui.mobileBottomBar.classList.add("is-hidden");
-    ui.mobileBottomBar.setAttribute("aria-hidden", "true");
-    ui.mobileHudDock.classList.add("is-hidden");
-    ui.mobileHudDock.setAttribute("aria-hidden", "true");
+    syncFloatingStatusHud();
   }
 
   function setExploreControlsVisible(visible) {
@@ -1182,6 +1213,29 @@
     ctx.fillRect(x, y, size, size);
   }
 
+  function drawCombatHealthPlate(centerX, topY, currentHp, maxHp, side) {
+    const width = 150;
+    const height = 8;
+    const left = Math.round(centerX - width / 2);
+    const top = Math.round(topY);
+    const percent = maxHp > 0 ? clamp(currentHp / maxHp, 0, 1) : 0;
+
+    ctx.save();
+    ctx.fillStyle = "rgba(15, 23, 42, 0.84)";
+    ctx.fillRect(left, top, width, height);
+    ctx.strokeStyle = "rgba(2, 6, 23, 0.96)";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(left + 0.5, top + 0.5, width - 1, height - 1);
+    ctx.fillStyle = side === "enemy" ? "#ef4444" : "#22c55e";
+    ctx.fillRect(left + 1, top + 1, Math.max(0, Math.round((width - 2) * percent)), height - 2);
+    ctx.fillStyle = "#f8fafc";
+    ctx.font = "bold 13px Consolas, monospace";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top";
+    ctx.fillText(currentHp + " / " + maxHp, centerX, top + height + 4);
+    ctx.restore();
+  }
+
   function drawReadableMapLabel(text, centerX, bottomY) {
     const paddingX = 7;
     const labelHeight = 16;
@@ -1228,20 +1282,26 @@
 
   function drawCombatView() {
     const enemy = combatSnapshot && combatSnapshot.enemy;
+    const playerPortrait = { x: 92, y: 294, size: 124 };
+    const enemyPortrait = { x: canvas.width - 236, y: 94, size: 124 };
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
     gradient.addColorStop(0, "#4c0519");
     gradient.addColorStop(1, "#0f172a");
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    drawPortrait("player", 92, 294, 124, "#22d3ee");
-    drawPortrait(enemy ? (enemy.assetKey || (enemy.isBoss ? "boss" : "enemy")) : "enemy", canvas.width - 236, 94, 124, "#ef4444");
+    drawPortrait("player", playerPortrait.x, playerPortrait.y, playerPortrait.size, "#22d3ee");
+    drawPortrait(enemy ? (enemy.assetKey || (enemy.isBoss ? "boss" : "enemy")) : "enemy", enemyPortrait.x, enemyPortrait.y, enemyPortrait.size, "#ef4444");
     ctx.fillStyle = "#f8fafc";
     ctx.font = "bold 22px Consolas, monospace";
     ctx.fillText(enemy && enemy.isBoss ? "首领战" : enemy && enemy.encounterType === "elite" ? "精英战" : "战斗中", 24, 34);
     ctx.font = "15px Consolas, monospace";
-    ctx.fillText((enemy ? enemy.name : "敌人") + "  " + (enemy ? enemy.hp + "/" + enemy.maxHp : ""), 28, 66);
-    ctx.fillText(player.name + "  " + player.hp + "/" + player.maxHp, canvas.width - 250, canvas.height - 30);
+    ctx.fillText(enemy ? enemy.name : "敌人", 28, 66);
+    ctx.fillText(player.name, canvas.width - 250, canvas.height - 30);
+    drawCombatHealthPlate(playerPortrait.x + playerPortrait.size / 2, playerPortrait.y + playerPortrait.size + 10, player.hp, player.maxHp, "player");
+    if (enemy) {
+      drawCombatHealthPlate(enemyPortrait.x + enemyPortrait.size / 2, enemyPortrait.y + enemyPortrait.size + 10, enemy.hp, enemy.maxHp, "enemy");
+    }
   }
 
   function loadStage(stageName, options) {
@@ -2364,6 +2424,20 @@
     if (ui.btnOpenLog) {
       ui.btnOpenLog.addEventListener("click", showBattleLogOverlay);
     }
+    if (ui.statusToggle) {
+      ui.statusToggle.addEventListener("click", function onStatusToggle() {
+        if (floatingHudState.moved) {
+          floatingHudState.moved = false;
+          return;
+        }
+        setFloatingStatusPanelVisible(!floatingHudState.open);
+      });
+    }
+    if (ui.btnCloseStatusPanel) {
+      ui.btnCloseStatusPanel.addEventListener("click", function onStatusClose() {
+        setFloatingStatusPanelVisible(false);
+      });
+    }
   }
 
   function bindTouchControls() {
@@ -2414,6 +2488,56 @@
       ui.joystickBase.addEventListener("dragstart", function preventDrag(event) {
         event.preventDefault();
       });
+    }
+
+    if (ui.statusToggle && ui.canvasWrap) {
+      function startHudDrag(event) {
+        const rect = ui.statusToggle.getBoundingClientRect();
+        floatingHudState.pointerId = event.pointerId;
+        floatingHudState.dragging = true;
+        floatingHudState.moved = false;
+        floatingHudState.offsetX = event.clientX - rect.left;
+        floatingHudState.offsetY = event.clientY - rect.top;
+        ui.statusToggle.classList.add("is-dragging");
+        if (typeof ui.statusToggle.setPointerCapture === "function") {
+          ui.statusToggle.setPointerCapture(event.pointerId);
+        }
+        event.preventDefault();
+      }
+
+      function moveHudDrag(event) {
+        if (!floatingHudState.dragging || event.pointerId !== floatingHudState.pointerId) {
+          return;
+        }
+        const wrapRect = ui.canvasWrap.getBoundingClientRect();
+        const buttonWidth = ui.statusToggle.offsetWidth || 76;
+        const buttonHeight = ui.statusToggle.offsetHeight || 34;
+        const nextLeft = clamp(event.clientX - wrapRect.left - floatingHudState.offsetX, 10, Math.max(10, wrapRect.width - buttonWidth - 10));
+        const nextTop = clamp(event.clientY - wrapRect.top - floatingHudState.offsetY, 10, Math.max(10, wrapRect.height - buttonHeight - 10));
+        floatingHudState.leftPercent = nextLeft / Math.max(1, wrapRect.width);
+        floatingHudState.topPercent = nextTop / Math.max(1, wrapRect.height);
+        floatingHudState.moved = true;
+        syncFloatingStatusHud();
+        event.preventDefault();
+      }
+
+      function stopHudDrag(event) {
+        if (floatingHudState.pointerId !== null && event.pointerId !== floatingHudState.pointerId) {
+          return;
+        }
+        if (typeof ui.statusToggle.releasePointerCapture === "function" && ui.statusToggle.hasPointerCapture && ui.statusToggle.hasPointerCapture(event.pointerId)) {
+          ui.statusToggle.releasePointerCapture(event.pointerId);
+        }
+        floatingHudState.dragging = false;
+        floatingHudState.pointerId = null;
+        ui.statusToggle.classList.remove("is-dragging");
+      }
+
+      ui.statusToggle.addEventListener("pointerdown", startHudDrag);
+      ui.statusToggle.addEventListener("pointermove", moveHudDrag);
+      ui.statusToggle.addEventListener("pointerup", stopHudDrag);
+      ui.statusToggle.addEventListener("pointercancel", stopHudDrag);
+      ui.statusToggle.addEventListener("lostpointercapture", stopHudDrag);
     }
 
     window.addEventListener("blur", clearHeldMoveKeys);
@@ -2605,6 +2729,7 @@
     bindStaticButtons();
     bindTouchControls();
     syncResponsiveHudLayout();
+    setFloatingStatusPanelVisible(false);
     loadStage("azure_town");
     renderSkillButtons();
     updateSkillMenuVisibility();
