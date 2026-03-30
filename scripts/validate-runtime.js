@@ -1,6 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const vm = require("vm");
+const childProcess = require("child_process");
 
 const projectRoot = path.resolve(__dirname, "..");
 
@@ -258,8 +259,10 @@ function main() {
     "stage-data.js",
     "view-models.js",
     "save-system.js",
+    "scripts/validate-combat.js",
   ].forEach(validateSourceSyntax);
   validateDataAndViewModels();
+  childProcess.execFileSync(process.execPath, [path.join(__dirname, "validate-combat.js")], { stdio: "inherit" });
   console.log("基础验证通过：UI 合同、章节进度、结算视图与存档链路正常。");
 }
 

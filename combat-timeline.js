@@ -88,6 +88,7 @@
         unitId: nextActor.unitId,
         side: nextActor.side,
         label: nextActor.label,
+        speed: nextActor.speed,
         currentAv: nextActor.currentAv,
         baseAv: nextActor.baseAv,
       });
@@ -225,6 +226,7 @@
           unitId: entry.unitId,
           side: entry.side,
           label: entry.label,
+          speed: entry.speed,
           currentAv: entry.currentAv,
           baseAv: entry.baseAv,
         };
