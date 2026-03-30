@@ -26,6 +26,8 @@
   const getPlayerSkills = entitiesApi.getPlayerSkills || function emptySkills() { return []; };
   const getResolvedSkill = entitiesApi.getResolvedSkill || function fallbackResolvedSkill(skillId) { return skills[skillId] || null; };
   const getResolvedPlayerSkills = entitiesApi.getResolvedPlayerSkills || function fallbackResolvedSkills() { return getPlayerSkills(); };
+  const getResolvedUltimateSkills = entitiesApi.getResolvedUltimateSkills || function fallbackResolvedUltimateSkills() { return []; };
+  const isUltimateSkill = entitiesApi.isUltimateSkill || function fallbackIsUltimateSkill(skill) { return Boolean(skill && skill.actionType === "ultimate"); };
   const setRelicResolver = entitiesApi.setRelicResolver || function noopRelicResolver() {};
   const refreshBuildSnapshot = entitiesApi.refreshBuildSnapshot || function noopRefreshBuildSnapshot() {};
   const getSpecializationTracks = entitiesApi.getSpecializationTracks || function noTracks() { return []; };
@@ -120,6 +122,7 @@
     btnBasicAttack: document.querySelector("#btnBasicAttack"),
     btnSkillMenu: document.querySelector("#btnSkillMenu"),
     skillButtons: document.querySelector("#skillButtons"),
+    btnUltimate: document.querySelector("#btnUltimate"),
     btnFlee: document.querySelector("#btnFlee"),
     enemyPanel: document.querySelector("#enemyPanel"),
     enemyName: document.querySelector("#enemyName"),
@@ -711,6 +714,9 @@
 
   function createSkillInspectLines(skill) {
     const lines = [];
+    if (skill.actionType === "ultimate") {
+      lines.push("技能类型：终结技");
+    }
     if (typeof skill.baseDelay === "number") {
       lines.push("行动延迟：" + skill.baseDelay);
     }
@@ -738,6 +744,9 @@
     }
     if (typeof skill.ultimateChargeGain === "number" && skill.ultimateChargeGain > 0) {
       lines.push("终结充能：" + skill.ultimateChargeGain);
+    }
+    if (typeof skill.ultimateChargeCost === "number" && skill.ultimateChargeCost > 0) {
+      lines.push("终结消耗：" + skill.ultimateChargeCost);
     }
     if (skill.guard) {
       lines.push("减伤效果：" + Math.round(skill.guard * 100) + "%");
@@ -1029,13 +1038,47 @@
     ui.btnSkillMenu.textContent = skillMenuOpen ? "收起技能" : "技能";
   }
 
-  function setActionMenu(visible, enabled) {
+  function getPrimaryUltimateSkill() {
+    const ultimateSkills = getResolvedUltimateSkills().filter(Boolean);
+    return ultimateSkills.length ? ultimateSkills[0] : null;
+  }
+
+  function syncUltimateButtonState(snapshot) {
+    if (!ui.btnUltimate) {
+      return;
+    }
+
+    const skill = getPrimaryUltimateSkill();
+    const ultimateState = snapshot && snapshot.ultimate ? snapshot.ultimate : null;
+    const insertWindowOpen = Boolean(snapshot && snapshot.insertWindow && snapshot.insertWindow.open);
+    const charged = Boolean(skill && ultimateState && ultimateState.availableSkillIds && ultimateState.availableSkillIds.includes(skill.id));
+    const canUseNow = Boolean(skill && ultimateState && (ultimateState.canActNow || ultimateState.canInsert));
+    const chargeCurrent = ultimateState ? ultimateState.current : 0;
+    const chargeCost = skill ? (skill.ultimateChargeCost || 0) : 0;
+
+    if (!skill) {
+      ui.btnUltimate.textContent = "终结技（未解锁）";
+      ui.btnUltimate.title = "达到 3 级后可解锁职业终结技。";
+      ui.btnUltimate.disabled = true;
+      ui.btnUltimate.classList.remove("is-insert-window");
+      ui.btnUltimate.removeAttribute("data-skill-id");
+      return;
+    }
+
+    ui.btnUltimate.dataset.skillId = skill.id;
+    ui.btnUltimate.textContent = "终结技（" + chargeCurrent + "/" + chargeCost + "）";
+    ui.btnUltimate.title = skill.name + "：" + (skill.description || "等待插入窗口或己方行动时使用。");
+    ui.btnUltimate.disabled = !canUseNow;
+    ui.btnUltimate.classList.toggle("is-insert-window", insertWindowOpen && charged);
+  }
+
+  function setActionMenu(visible, enabled, snapshot) {
     if (ui.actionPanel) {
       ui.actionPanel.classList.toggle("is-hidden", !visible);
     }
     ui.actionMenu.classList.toggle("is-hidden", !visible);
     ui.actionMenu.setAttribute("aria-hidden", visible ? "false" : "true");
-    if (!visible) {
+    if (!visible || !enabled) {
       skillMenuOpen = false;
     }
     ui.btnBasicAttack.disabled = !enabled;
@@ -1044,6 +1087,7 @@
     Array.from(ui.skillButtons.querySelectorAll("button")).forEach(function toggle(button) {
       button.disabled = !enabled;
     });
+    syncUltimateButtonState(snapshot);
     updateSkillMenuVisibility();
   }
 
@@ -1794,7 +1838,7 @@
   function renderSkillButtons() {
     ui.skillButtons.innerHTML = "";
     getResolvedPlayerSkills().filter(function filterSkill(skill) {
-      return skill.id !== "attack";
+      return skill.id !== "attack" && !isUltimateSkill(skill);
     }).forEach(function renderSkill(skill) {
       const button = document.createElement("button");
       button.type = "button";
@@ -2413,6 +2457,14 @@
     }
   }
 
+  function onUltimateButton() {
+    const skill = getPrimaryUltimateSkill();
+    if (!skill) {
+      return;
+    }
+    onActionButton("ultimate:" + skill.id);
+  }
+
   function bindStaticButtons() {
     ui.btnBasicAttack.addEventListener("click", function onBasicAttack() {
       onActionButton("attack");
@@ -2424,6 +2476,9 @@
       skillMenuOpen = !skillMenuOpen;
       updateSkillMenuVisibility();
     });
+    if (ui.btnUltimate) {
+      ui.btnUltimate.addEventListener("click", onUltimateButton);
+    }
     ui.btnFlee.addEventListener("click", function onFlee() {
       onActionButton("flee");
     });
@@ -2625,6 +2680,7 @@
         player: player,
         skills: skills,
         resolveSkill: getResolvedSkill,
+        getUltimateSkills: getResolvedUltimateSkills,
         onLog: appendLog,
         onStatusSync: syncStatusPanel,
         onEffect: function onEffect(name) {
@@ -2647,11 +2703,11 @@
             clearHeldMoveKeys();
             setGameState(GAME_STATE.COMBAT);
             syncEnemyPanel(snapshot.enemy);
-            setActionMenu(true, Boolean(snapshot.playerTurn));
-            setCombatBanner(true, snapshot.playerTurn ? "你的回合" : "敌方回合");
+            setActionMenu(true, Boolean(snapshot.playerTurn), snapshot);
+            setCombatBanner(true, snapshot.insertWindow && snapshot.insertWindow.open ? "终结技插入" : (snapshot.playerTurn ? "你的回合" : "敌方回合"));
           } else {
             syncEnemyPanel(null);
-            setActionMenu(false, false);
+            setActionMenu(false, false, null);
             setCombatBanner(false, "");
             if (getGameState() !== GAME_STATE.GAME_OVER) {
               setGameState(GAME_STATE.EXPLORE);

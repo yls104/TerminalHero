@@ -63,6 +63,25 @@
       round: typeof data.round === "number" ? data.round : 0,
       pendingAction: data.pendingAction || "",
       currentActorId: data.currentActorId || "",
+      insertWindow: data.insertWindow
+        ? {
+            open: Boolean(data.insertWindow.open),
+            sourceUnitId: data.insertWindow.sourceUnitId || "",
+            allowedActionIds: Array.isArray(data.insertWindow.allowedActionIds) ? data.insertWindow.allowedActionIds.slice() : [],
+            reason: data.insertWindow.reason || "",
+          }
+        : null,
+      ultimate: data.ultimate
+        ? {
+            current: data.ultimate.current || 0,
+            max: data.ultimate.max || 0,
+            primarySkillId: data.ultimate.primarySkillId || "",
+            skillIds: Array.isArray(data.ultimate.skillIds) ? data.ultimate.skillIds.slice() : [],
+            availableSkillIds: Array.isArray(data.ultimate.availableSkillIds) ? data.ultimate.availableSkillIds.slice() : [],
+            canActNow: Boolean(data.ultimate.canActNow),
+            canInsert: Boolean(data.ultimate.canInsert),
+          }
+        : null,
       timeline: data.timeline
         ? {
             actors: Array.isArray(data.timeline.actors) ? data.timeline.actors.map(function mapActor(actor) {
@@ -117,7 +136,7 @@
       return {
         actionId: input.actionId,
         kind: input.kind || "skill",
-        skillId: input.skillId || (input.actionId === "attack" ? "attack" : input.actionId),
+        skillId: input.skillId || (input.actionId === "attack" ? "attack" : input.actionId.replace(/^ultimate:/, "")),
       };
     }
 
@@ -137,9 +156,25 @@
       };
     }
 
+    if (input === "ultimate") {
+      return {
+        actionId: "ultimate",
+        kind: "ultimate",
+        skillId: "",
+      };
+    }
+
+    if (typeof input === "string" && input.indexOf("ultimate:") === 0) {
+      return {
+        actionId: input,
+        kind: "ultimate",
+        skillId: input.replace(/^ultimate:/, ""),
+      };
+    }
+
     return {
       actionId: String(input || ""),
-      kind: "skill",
+      kind: String(input || "").indexOf("ultimate:") === 0 ? "ultimate" : "skill",
       skillId: String(input || ""),
     };
   }

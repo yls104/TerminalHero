@@ -3,6 +3,13 @@ function createCombatController(options) {
   const player = config.player;
   const skills = config.skills || {};
   const resolveSkill = config.resolveSkill || function fallbackResolveSkill(skillId) { return skills[skillId] || null; };
+  const getUltimateSkills = config.getUltimateSkills || function fallbackGetUltimateSkills() {
+    return (player && Array.isArray(player.unlockedSkills) ? player.unlockedSkills : []).map(function mapSkill(skillId) {
+      return resolveSkill(skillId);
+    }).filter(function filterSkill(skill) {
+      return skill && skill.actionType === "ultimate";
+    });
+  };
   const ioApi = window.CombatIO || {};
   const timelineApi = window.CombatTimeline || {};
   const normalizeCombatLogEntry = ioApi.normalizeCombatLogEntry || function fallbackNormalize(input, meta) {
@@ -32,6 +39,8 @@ function createCombatController(options) {
   let roundCount = 0;
   let enemyTurnTimer = 0;
   let timelineState = null;
+  let pendingInsertWindow = null;
+  let playerUltimate = createUltimateState();
   let playerStatus = createStatusBag();
   let enemyStatus = createStatusBag();
 
@@ -46,6 +55,13 @@ function createCombatController(options) {
       attackBuffValue: 0,
       speedDownTurns: 0,
       speedDownValue: 0,
+    };
+  }
+
+  function createUltimateState() {
+    return {
+      current: 0,
+      max: 8,
     };
   }
 
@@ -137,6 +153,21 @@ function createCombatController(options) {
     }
     player.classResource.current -= amount;
     return true;
+  }
+
+  function getResolvedUltimateSkills() {
+    return getUltimateSkills().filter(Boolean);
+  }
+
+  function getAffordableUltimateSkills() {
+    return getResolvedUltimateSkills().filter(function filterSkill(skill) {
+      return playerUltimate.current >= (skill.ultimateChargeCost || 0);
+    });
+  }
+
+  function getPrimaryUltimateSkill(skillsList) {
+    const list = skillsList || getResolvedUltimateSkills();
+    return list.length ? list[0] : null;
   }
 
   function cloneEnemyTemplate(template) {
@@ -237,6 +268,7 @@ function createCombatController(options) {
         canAct: currentEnemy.hp > 0,
       });
     }
+    timelineState.pendingInsertWindow = pendingInsertWindow;
     roundCount = timelineState.roundIndex || roundCount;
   }
 
@@ -252,9 +284,29 @@ function createCombatController(options) {
     return Boolean(actor && actor.side === "player");
   }
 
+  function getUltimateSnapshot() {
+    const allSkills = getResolvedUltimateSkills();
+    const availableSkills = getAffordableUltimateSkills();
+    const primarySkill = getPrimaryUltimateSkill(allSkills);
+    return {
+      current: playerUltimate.current,
+      max: playerUltimate.max,
+      primarySkillId: primarySkill ? primarySkill.id : "",
+      primarySkillName: primarySkill ? primarySkill.name : "",
+      skillIds: allSkills.map(function mapSkill(skill) { return skill.id; }),
+      availableSkillIds: availableSkills.map(function mapSkill(skill) { return skill.id; }),
+      canActNow: isPlayerTurn() && !locked && availableSkills.length > 0,
+      canInsert: Boolean(pendingInsertWindow && pendingInsertWindow.open && availableSkills.length > 0),
+    };
+  }
+
   function snapshotState() {
     syncTimelineActors();
     const currentActor = getCurrentTimelineActor();
+    const timelineSnapshot = timelineApi.cloneTimelineState ? timelineApi.cloneTimelineState(timelineState) : timelineState;
+    if (timelineSnapshot) {
+      timelineSnapshot.pendingInsertWindow = pendingInsertWindow;
+    }
     return createCombatSnapshot({
       inCombat: state === "combat",
       phase: state,
@@ -265,7 +317,9 @@ function createCombatController(options) {
       round: timelineState ? timelineState.roundIndex : roundCount,
       pendingAction: currentActor ? currentActor.side : "",
       currentActorId: currentActor ? currentActor.unitId : "",
-      timeline: timelineApi.cloneTimelineState ? timelineApi.cloneTimelineState(timelineState) : timelineState,
+      insertWindow: pendingInsertWindow,
+      ultimate: getUltimateSnapshot(),
+      timeline: timelineSnapshot,
     });
   }
 
@@ -329,6 +383,32 @@ function createCombatController(options) {
     return finalDamage;
   }
 
+  function gainUltimateCharge(amount, sourceLabel) {
+    const delta = Math.max(0, toNumber(amount, 0));
+    if (!delta) {
+      return 0;
+    }
+    const previous = playerUltimate.current;
+    playerUltimate.current = clamp(playerUltimate.current + delta, 0, playerUltimate.max);
+    const gained = playerUltimate.current - previous;
+    if (gained > 0) {
+      log((sourceLabel || "战斗节奏") + " 为你积累了 " + gained + " 点终结充能。", { type: "ultimate_gain", source: "player", turn: "timeline" });
+    }
+    return gained;
+  }
+
+  function spendUltimateCharge(amount) {
+    const cost = Math.max(0, toNumber(amount, 0));
+    if (!cost) {
+      return true;
+    }
+    if (playerUltimate.current < cost) {
+      return false;
+    }
+    playerUltimate.current -= cost;
+    return true;
+  }
+
   function resolveActionDelay(unit, skillLike) {
     const baseAv = timelineApi.computeBaseAv ? timelineApi.computeBaseAv(effectiveSpeed(unit, unit === player ? playerStatus : enemyStatus)) : 52;
     const skillBaseDelay = toNumber(skillLike && skillLike.baseDelay, 52);
@@ -363,6 +443,28 @@ function createCombatController(options) {
     }
   }
 
+  function refreshInsertWindow(reason) {
+    const actor = getCurrentTimelineActor();
+    const availableSkills = getAffordableUltimateSkills();
+    if (actor && actor.side === "enemy" && availableSkills.length) {
+      pendingInsertWindow = {
+        open: true,
+        sourceUnitId: "player",
+        allowedActionIds: availableSkills.map(function mapSkill(skill) { return skill.id; }),
+        reason: reason || "enemy_turn",
+      };
+    } else {
+      pendingInsertWindow = null;
+    }
+  }
+
+  function closeInsertWindow() {
+    pendingInsertWindow = null;
+    if (timelineState) {
+      timelineState.pendingInsertWindow = null;
+    }
+  }
+
   function finishCombat(result, reason) {
     if (state !== "combat") {
       return;
@@ -374,10 +476,12 @@ function createCombatController(options) {
       enemyTile: sourceTile,
       enemy: currentEnemy,
     });
+    closeInsertWindow();
     state = "idle";
     locked = false;
     roundCount = 0;
     timelineState = null;
+    playerUltimate = createUltimateState();
     emitSnapshot();
     if (config.onCombatEnd) {
       config.onCombatEnd(payload);
@@ -390,6 +494,7 @@ function createCombatController(options) {
     if (!timelineState || !timelineApi.resolveAction) {
       return;
     }
+    closeInsertWindow();
     syncTimelineActors();
     logTimelineChanges(actionContext);
     timelineApi.resolveAction(timelineState, actionContext);
@@ -442,6 +547,7 @@ function createCombatController(options) {
       return;
     }
 
+    refreshInsertWindow(actor.side === "enemy" ? "enemy_turn" : "");
     emitSnapshot();
 
     if (actor.side === "player") {
@@ -450,6 +556,23 @@ function createCombatController(options) {
         log("时间轴推进：轮到你行动。", { type: "turn_change", source: "system", turn: "player" });
       }
       emitSnapshot();
+      return;
+    }
+
+    if (pendingInsertWindow) {
+      locked = false;
+      if (!initial) {
+        log("终结技插入窗口已打开，现在可以抢在 " + label + " 行动前出手。", { type: "ultimate_window", source: "system", emphasis: true, turn: "timeline" });
+      }
+      emitSnapshot();
+      clearEnemyTimer();
+      enemyTurnTimer = setTimeout(function delayedEnemyTurnAfterWindow() {
+        enemyTurnTimer = 0;
+        locked = true;
+        closeInsertWindow();
+        emitSnapshot();
+        runEnemyTurn();
+      }, 1400);
       return;
     }
 
@@ -474,6 +597,11 @@ function createCombatController(options) {
     currentEnemy = cloneEnemyTemplate(encounter.enemyTemplate || getEnemyTemplate(encounter.tile, player.level));
     playerStatus = createStatusBag();
     enemyStatus = createStatusBag();
+    playerUltimate = createUltimateState();
+    if (typeof encounter.playerUltimateCharge === "number") {
+      playerUltimate.current = clamp(encounter.playerUltimateCharge, 0, playerUltimate.max);
+    }
+    pendingInsertWindow = null;
     state = "combat";
     locked = true;
     roundCount = 0;
@@ -498,9 +626,15 @@ function createCombatController(options) {
     return true;
   }
 
-  function applyPlayerSkill(skillId) {
+  function applyPlayerSkill(skillId, actionMode) {
     const skill = resolveSkill(skillId);
-    if (!skill || state !== "combat" || !isPlayerTurn() || locked) {
+    const isUltimateAction = (actionMode || (skill && skill.actionType)) === "ultimate";
+    const playerCanActNormally = isPlayerTurn() && !locked;
+    const canUseInsertWindow = isUltimateAction
+      && pendingInsertWindow
+      && pendingInsertWindow.open
+      && pendingInsertWindow.allowedActionIds.indexOf(skillId) !== -1;
+    if (!skill || state !== "combat" || (!playerCanActNormally && !canUseInsertWindow)) {
       return false;
     }
     if (skill.resourceCost && !spendPlayerClassResource(skill.resourceCost)) {
@@ -514,7 +648,16 @@ function createCombatController(options) {
       log("MP 不足，无法施放 " + skill.name + "。", { type: "resource_fail", source: "player" });
       return false;
     }
+    if (isUltimateAction && !spendUltimateCharge(skill.ultimateChargeCost || 0)) {
+      if (skill.resourceCost) {
+        gainPlayerClassResource(skill.resourceCost);
+      }
+      log("终结充能不足，无法施放 " + skill.name + "。", { type: "resource_fail", source: "player" });
+      return false;
+    }
 
+    clearEnemyTimer();
+    closeInsertWindow();
     player.mp = clamp(player.mp - skill.cost, 0, player.maxMp);
     const attackValue = effectiveAttack(player, playerStatus);
     const actionContext = createActionContext("player", "enemy", skill.id, skill.actionType || "skill", skill);
@@ -526,31 +669,32 @@ function createCombatController(options) {
       }
       const rawDamage = damageByFormula(attackValue, power, currentEnemy.defense);
       const dealt = applyDamage(currentEnemy, enemyStatus, rawDamage);
-      log("你使用了 " + skill.name + "，对 " + currentEnemy.name + " 造成 " + dealt + " 点伤害。", {
-        type: "player_action",
+      log((isUltimateAction ? "你插入施放了 " : "你使用了 ") + skill.name + "，对 " + currentEnemy.name + " 造成 " + dealt + " 点伤害。", {
+        type: isUltimateAction ? "ultimate_action" : "player_action",
         source: "player",
+        emphasis: isUltimateAction,
         turn: "player",
       });
       emitEffect("enemyHit", { damage: dealt, enemy: currentEnemy });
     } else if (skill.effect === "heal") {
       const healValue = Math.max(1, Math.round((attackValue * Math.abs(skill.power) + player.level * 4) * rand(0.96, 1.08)));
       player.hp = clamp(player.hp + healValue, 0, player.maxHp);
-      log("你施放了 " + skill.name + "，恢复了 " + healValue + " 点生命。", { type: "player_action", source: "player", turn: "player" });
+      log("你施放了 " + skill.name + "，恢复了 " + healValue + " 点生命。", { type: isUltimateAction ? "ultimate_action" : "player_action", source: "player", emphasis: isUltimateAction, turn: "player" });
       emitEffect("playerHeal", { amount: healValue });
       actionContext.targetUnitId = "player";
     } else if (skill.effect === "guard") {
       playerStatus.guard = Math.max(playerStatus.guard, skill.guard || 0.3);
-      log("你施放了 " + skill.name + "，准备承受下一波攻击。", { type: "player_action", source: "player", turn: "player" });
+      log("你施放了 " + skill.name + "，准备承受下一波攻击。", { type: isUltimateAction ? "ultimate_action" : "player_action", source: "player", emphasis: isUltimateAction, turn: "player" });
       actionContext.targetUnitId = "player";
     } else if (skill.effect === "buff_attack") {
       playerStatus.attackBuffValue = skill.buff || 0.2;
       playerStatus.attackBuffTurns = skill.turns || 2;
-      log("你施放了 " + skill.name + "，攻击力提升。", { type: "player_action", source: "player", turn: "player" });
+      log("你施放了 " + skill.name + "，攻击力提升。", { type: isUltimateAction ? "ultimate_action" : "player_action", source: "player", emphasis: isUltimateAction, turn: "player" });
       actionContext.targetUnitId = "player";
     } else if (skill.effect === "restore_mp") {
       player.mp = clamp(player.mp + (skill.restoreMp || 6), 0, player.maxMp);
       playerStatus.guard = Math.max(playerStatus.guard, skill.guard || 0);
-      log("你施放了 " + skill.name + "，恢复了法力。", { type: "player_action", source: "player", turn: "player" });
+      log("你施放了 " + skill.name + "，恢复了法力。", { type: isUltimateAction ? "ultimate_action" : "player_action", source: "player", emphasis: isUltimateAction, turn: "player" });
       actionContext.targetUnitId = "player";
     } else if (skill.effect === "poison") {
       const rawDamage = damageByFormula(attackValue, skill.power || 1, currentEnemy.defense);
@@ -558,30 +702,36 @@ function createCombatController(options) {
       enemyStatus.poisonTurns = skill.poisonTurns || 2;
       enemyStatus.poisonDamage = skill.poisonDamage || 5;
       log("你使用了 " + skill.name + "，造成 " + dealt + " 点伤害并附加中毒。", {
-        type: "player_action",
+        type: isUltimateAction ? "ultimate_action" : "player_action",
         source: "player",
+        emphasis: isUltimateAction,
         turn: "player",
       });
       emitEffect("enemyHit", { damage: dealt, enemy: currentEnemy });
     } else if (skill.effect === "regen") {
       playerStatus.regenTurns = skill.regenTurns || 2;
       playerStatus.regenValue = skill.regenValue || 8;
-      log("你施放了 " + skill.name + "，持续恢复开始生效。", { type: "player_action", source: "player", turn: "player" });
+      log("你施放了 " + skill.name + "，持续恢复开始生效。", { type: isUltimateAction ? "ultimate_action" : "player_action", source: "player", emphasis: isUltimateAction, turn: "player" });
       actionContext.targetUnitId = "player";
     } else if (skill.effect === "guard_heal") {
       const healValue = Math.max(1, Math.round((attackValue * Math.abs(skill.power) + player.level * 2) * rand(0.95, 1.06)));
       player.hp = clamp(player.hp + healValue, 0, player.maxHp);
       playerStatus.guard = Math.max(playerStatus.guard, skill.guard || 0.3);
-      log("你施放了 " + skill.name + "，恢复了 " + healValue + " 点生命并获得减伤。", { type: "player_action", source: "player", turn: "player" });
+      log("你施放了 " + skill.name + "，恢复了 " + healValue + " 点生命并获得减伤。", { type: isUltimateAction ? "ultimate_action" : "player_action", source: "player", emphasis: isUltimateAction, turn: "player" });
       emitEffect("playerHeal", { amount: healValue });
       actionContext.targetUnitId = "player";
     }
 
-    if (skill.resourceGain) {
+    if (!isUltimateAction && skill.resourceGain) {
       const gained = gainPlayerClassResource(skill.resourceGain);
       if (gained > 0) {
         log("你积累了 " + gained + " 点" + getClassResourceLabel() + "。", { type: "resource_gain", source: "player", turn: "player" });
       }
+    }
+    if (!isUltimateAction && skill.ultimateChargeGain) {
+      gainUltimateCharge(skill.ultimateChargeGain, skill.name);
+    } else if (isUltimateAction) {
+      log("你消耗了 " + (skill.ultimateChargeCost || 0) + " 点终结充能。", { type: "ultimate_spend", source: "player", emphasis: true, turn: "player" });
     }
 
     emitStatus();
@@ -713,7 +863,9 @@ function createCombatController(options) {
       return;
     }
 
+    closeInsertWindow();
     const actionContext = enemySkillAction();
+    gainUltimateCharge(1, currentEnemy.name + " 的压制");
     emitStatus();
     syncTimelineActors();
     emitSnapshot();
@@ -751,6 +903,9 @@ function createCombatController(options) {
     if (action.kind === "flee") {
       return playerFlee();
     }
+    if (action.kind === "ultimate") {
+      return applyPlayerSkill(action.skillId || action.actionId.replace(/^ultimate:/, ""), "ultimate");
+    }
     return applyPlayerSkill(action.skillId);
   }
 
@@ -768,3 +923,4 @@ function createCombatController(options) {
 window.CombatSystem = {
   createCombatController: createCombatController,
 };
+

@@ -28,6 +28,7 @@ function validateHtmlContract(indexHtml) {
     "virtualJoystick",
     "statusToggle",
     "floatingStatusPanel",
+    "btnUltimate",
     "btnOpenLog",
     "btnSaveMenu",
     "battleLog",
@@ -41,6 +42,7 @@ function validateStyleContract(styleCss) {
     ".virtual-joystick",
     ".floating-status-panel",
     ".hud-toggle",
+    ".action-menu button.is-insert-window",
     ".battle-log p:nth-last-child(n + 3)",
     ".mini-button",
   ].forEach(function eachSelector(selector) {
@@ -49,10 +51,18 @@ function validateStyleContract(styleCss) {
 }
 
 function createBrowserContext() {
+  const pendingTimers = {};
+  let timerSeed = 0;
   const context = {
     console: console,
-    setTimeout: setTimeout,
-    clearTimeout: clearTimeout,
+    setTimeout(fn) {
+      timerSeed += 1;
+      pendingTimers[timerSeed] = fn;
+      return timerSeed;
+    },
+    clearTimeout(timerId) {
+      delete pendingTimers[timerId];
+    },
     Math: Math,
     Date: Date,
     JSON: JSON,
@@ -76,6 +86,8 @@ function createBrowserContext() {
       },
     },
   };
+  context.window.setTimeout = context.setTimeout;
+  context.window.clearTimeout = context.clearTimeout;
   context.window.window = context.window;
   return vm.createContext(context);
 }
@@ -85,15 +97,18 @@ function validateDataAndViewModels() {
   loadScriptIntoContext(context, "combat-io.js");
   loadScriptIntoContext(context, "combat-timeline.js");
   loadScriptIntoContext(context, "entities.js");
+  loadScriptIntoContext(context, "combat.js");
   loadScriptIntoContext(context, "stage-data.js");
   loadScriptIntoContext(context, "view-models.js");
   loadScriptIntoContext(context, "save-system.js");
 
+  const combatApi = context.window.CombatSystem;
   const entitiesApi = context.window.GameEntities;
   const stageApi = context.window.GameStageData;
   const viewApi = context.window.GameViewModels;
   const saveApi = context.window.GameSaveSystem;
   const timelineApi = context.window.CombatTimeline;
+  assert(combatApi && typeof combatApi.createCombatController === "function", "combat.js 必须暴露 createCombatController");
 
   assert(stageApi && typeof stageApi.createStageProgress === "function", "stage-data.js 未暴露 createStageProgress");
   assert(timelineApi && typeof timelineApi.createTimelineState === "function", "combat-timeline.js 未暴露 createTimelineState");
@@ -113,6 +128,55 @@ function validateDataAndViewModels() {
   });
   assert(timeline.currentActorId === "player", "时间轴未正确根据速度选择首个行动者");
   timelineApi.resolveAction(timeline, { sourceUnitId: "player", targetUnitId: "enemy", actionId: "attack", baseDelay: 54, advanceSelf: 0, delayTarget: 0 });
+  entitiesApi.applyClassToPlayer("warrior");
+  entitiesApi.player.level = 3;
+  entitiesApi.player.classResource.current = entitiesApi.player.classResource.max;
+  entitiesApi.unlockClassSkillIfNeeded();
+  const ultimateSkills = entitiesApi.getResolvedUltimateSkills();
+  assert(ultimateSkills.length > 0, "战士终结技未能在 3 级后正确解锁");
+
+  const combatController = combatApi.createCombatController({
+    player: entitiesApi.player,
+    skills: entitiesApi.skills,
+    resolveSkill: entitiesApi.getResolvedSkill,
+    getUltimateSkills: entitiesApi.getResolvedUltimateSkills,
+    onLog: function noopLog() {},
+    onStatusSync: function noopStatus() {},
+    onEffect: function noopEffect() {},
+    onStateChange: function noopState() {},
+    onCombatEnd: function noopEnd() {},
+  });
+  const started = combatController.startCombat({
+    tile: 3,
+    playerUltimateCharge: 8,
+    enemyTemplate: {
+      id: "timeline_enemy",
+      name: "时间试炼偶",
+      hp: 120,
+      attack: 10,
+      defense: 2,
+      speed: 18,
+      exp: 0,
+      gold: 0,
+      skills: [],
+      role: "basic",
+      assetKey: "enemy",
+      encounterType: "normal",
+      dropTableId: "field_default",
+    },
+  });
+  assert(started, "终结技插入验证战斗未能成功启动");
+
+  const beforeInsert = combatController.getState();
+  const primaryUltimate = ultimateSkills[0];
+  assert(beforeInsert.insertWindow && beforeInsert.insertWindow.open, "敌方行动前未打开终结技插入窗口");
+  assert(beforeInsert.ultimate && beforeInsert.ultimate.availableSkillIds.includes(primaryUltimate.id), "终结技可用时未出现在插入窗口可选列表中");
+
+  const usedUltimate = combatController.playerAction("ultimate:" + primaryUltimate.id);
+  assert(usedUltimate, "终结技在插入窗口内未能成功释放");
+  const afterInsert = combatController.getState();
+  assert(!afterInsert.insertWindow || !afterInsert.insertWindow.open, "终结技释放后插入窗口未关闭");
+  assert(afterInsert.ultimate && afterInsert.ultimate.current < beforeInsert.ultimate.current, "终结技释放后未正确扣减终结能量");
   assert(Boolean(timeline.currentActorId), "时间轴在结算行动后未推进到下一行动者");
 
   const progress = stageApi.createStageProgress();

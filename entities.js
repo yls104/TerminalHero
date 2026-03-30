@@ -511,6 +511,9 @@ function inferActionType(skill) {
   if (skill.actionType) {
     return skill.actionType;
   }
+  if (Array.isArray(skill.inspectTags) && skill.inspectTags.includes("终结")) {
+    return "ultimate";
+  }
   if (skill.id === "attack") {
     return "basic";
   }
@@ -528,6 +531,9 @@ function inferBaseDelay(skill) {
     return 42;
   }
   let delay = 44;
+  if (inferActionType(skill) === "ultimate") {
+    delay += 12;
+  }
   if (typeof skill.cost === "number") {
     delay += skill.cost * 2;
   }
@@ -579,6 +585,9 @@ function inferUltimateChargeGain(skill) {
   if (typeof skill.ultimateChargeGain === "number") {
     return skill.ultimateChargeGain;
   }
+  if (inferActionType(skill) === "ultimate") {
+    return 0;
+  }
   if (skill.id === "attack" || skill.id === "defend") {
     return 1;
   }
@@ -586,6 +595,20 @@ function inferUltimateChargeGain(skill) {
     return 3;
   }
   return 2;
+}
+
+function inferUltimateChargeCost(skill) {
+  if (typeof skill.ultimateChargeCost === "number") {
+    return skill.ultimateChargeCost;
+  }
+  return inferActionType(skill) === "ultimate" ? 5 : 0;
+}
+
+function isUltimateSkill(skill) {
+  if (!skill) {
+    return false;
+  }
+  return inferActionType(skill) === "ultimate";
 }
 
 function collectRelicSkillModifiers(skill) {
@@ -748,7 +771,8 @@ function getResolvedSkill(skillId) {
   resolvedSkill.delayTarget = Math.max(0, inferDelayTarget(resolvedSkill));
   resolvedSkill.speedScale = typeof resolvedSkill.speedScale === "number" ? resolvedSkill.speedScale : 1;
   resolvedSkill.ultimateChargeGain = Math.max(0, inferUltimateChargeGain(resolvedSkill));
-  resolvedSkill.ultimateChargeCost = Math.max(0, typeof resolvedSkill.ultimateChargeCost === "number" ? resolvedSkill.ultimateChargeCost : 0);
+  resolvedSkill.ultimateChargeCost = Math.max(0, inferUltimateChargeCost(resolvedSkill));
+  resolvedSkill.canInsertUltimate = resolvedSkill.actionType === "ultimate";
   if (inspectNotes.length) {
     resolvedSkill.inspectNotes = inspectNotes;
   }
@@ -759,6 +783,12 @@ function getResolvedPlayerSkills() {
   return player.unlockedSkills.map(function mapSkill(skillId) {
     return getResolvedSkill(skillId);
   }).filter(Boolean);
+}
+
+function getResolvedUltimateSkills() {
+  return getResolvedPlayerSkills().filter(function filterUltimate(skill) {
+    return isUltimateSkill(skill);
+  });
 }
 
 function canUnlockSpecializationNode(trackId, nodeId) {
@@ -961,6 +991,8 @@ window.GameEntities = {
   getPlayerSkills,
   getResolvedSkill,
   getResolvedPlayerSkills,
+  getResolvedUltimateSkills,
+  isUltimateSkill,
   setRelicResolver,
   refreshBuildSnapshot,
   getSpecializationTracks,
