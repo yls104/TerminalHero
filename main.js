@@ -133,6 +133,7 @@
     overlayEyebrow: document.querySelector("#overlayEyebrow"),
     overlayTitle: document.querySelector("#overlayTitle"),
     overlayText: document.querySelector("#overlayText"),
+    overlayCloseButton: document.querySelector("#overlayCloseButton"),
     overlayButton: document.querySelector("#overlayButton"),
     btnDetailStats: document.querySelector("#btnDetailStats"),
     btnSaveMenu: document.querySelector("#btnSaveMenu"),
@@ -189,9 +190,12 @@
     open: false,
     pointerId: null,
     dragging: false,
+    pendingDrag: false,
     moved: false,
     offsetX: 0,
     offsetY: 0,
+    pressX: 0,
+    pressY: 0,
     leftPercent: 0.84,
     topPercent: 0.04,
   };
@@ -928,6 +932,7 @@
     ui.statusToggle.setAttribute("aria-expanded", visible ? "true" : "false");
     ui.statusToggle.textContent = visible ? "收起状态" : "状态";
     syncFloatingStatusHud();
+    window.requestAnimationFrame(syncFloatingStatusHud);
   }
 
   function syncTouchMoveButtons() {
@@ -964,6 +969,7 @@
     ui.overlayText.innerHTML = text;
     ui.overlayButton.textContent = buttonLabel;
     ui.sceneOverlay.classList.remove("is-hidden");
+    ui.sceneOverlay.setAttribute("aria-hidden", "false");
   }
 
   function showNotice(eyebrow, title, text, buttonLabel, action) {
@@ -972,6 +978,7 @@
 
   function hideOverlay() {
     ui.sceneOverlay.classList.add("is-hidden");
+    ui.sceneOverlay.setAttribute("aria-hidden", "true");
     overlayAction = null;
     clearHeldMoveKeys();
   }
@@ -2415,6 +2422,9 @@
         hideOverlay();
       }
     });
+    if (ui.overlayCloseButton) {
+      ui.overlayCloseButton.addEventListener("click", hideOverlay);
+    }
     if (ui.btnDetailStats) {
       ui.btnDetailStats.addEventListener("click", showDetailStatsOverlay);
     }
@@ -2491,23 +2501,36 @@
     }
 
     if (ui.statusToggle && ui.canvasWrap) {
+      const dragThreshold = 8;
+
       function startHudDrag(event) {
         const rect = ui.statusToggle.getBoundingClientRect();
         floatingHudState.pointerId = event.pointerId;
-        floatingHudState.dragging = true;
+        floatingHudState.dragging = false;
+        floatingHudState.pendingDrag = true;
         floatingHudState.moved = false;
         floatingHudState.offsetX = event.clientX - rect.left;
         floatingHudState.offsetY = event.clientY - rect.top;
-        ui.statusToggle.classList.add("is-dragging");
+        floatingHudState.pressX = event.clientX;
+        floatingHudState.pressY = event.clientY;
         if (typeof ui.statusToggle.setPointerCapture === "function") {
           ui.statusToggle.setPointerCapture(event.pointerId);
         }
-        event.preventDefault();
       }
 
       function moveHudDrag(event) {
-        if (!floatingHudState.dragging || event.pointerId !== floatingHudState.pointerId) {
+        if (event.pointerId !== floatingHudState.pointerId) {
           return;
+        }
+        const deltaX = event.clientX - floatingHudState.pressX;
+        const deltaY = event.clientY - floatingHudState.pressY;
+        if (!floatingHudState.dragging) {
+          if (!floatingHudState.pendingDrag || Math.hypot(deltaX, deltaY) < dragThreshold) {
+            return;
+          }
+          floatingHudState.dragging = true;
+          floatingHudState.pendingDrag = false;
+          ui.statusToggle.classList.add("is-dragging");
         }
         const wrapRect = ui.canvasWrap.getBoundingClientRect();
         const buttonWidth = ui.statusToggle.offsetWidth || 76;
@@ -2529,6 +2552,7 @@
           ui.statusToggle.releasePointerCapture(event.pointerId);
         }
         floatingHudState.dragging = false;
+        floatingHudState.pendingDrag = false;
         floatingHudState.pointerId = null;
         ui.statusToggle.classList.remove("is-dragging");
       }

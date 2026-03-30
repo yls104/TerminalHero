@@ -88,7 +88,7 @@ button,
   position: absolute;
   top: 14px;
   right: 14px;
-  z-index: 2;
+  z-index: 4;
   width: min(280px, calc(100% - 28px));
   border: 1px solid rgba(103, 232, 249, 0.22);
   border-radius: 12px;
@@ -106,7 +106,7 @@ button,
   position: absolute;
   top: 14px;
   right: 14px;
-  z-index: 2;
+  z-index: 5;
   min-height: 34px;
   padding: 6px 12px;
   border: 1px solid rgba(103, 232, 249, 0.32);
@@ -181,6 +181,7 @@ button,
 }
 
 .scene-overlay-card {
+  position: relative;
   width: min(88%, 420px);
   max-height: min(82dvh, 520px);
   overflow: auto;
@@ -190,6 +191,32 @@ button,
   box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
   padding: 22px 20px;
   text-align: center;
+}
+
+.overlay-close-button {
+  position: sticky;
+  top: 0;
+  margin-left: auto;
+  margin-bottom: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(148, 163, 184, 0.32);
+  border-radius: 999px;
+  background: rgba(2, 6, 23, 0.88);
+  color: #e2e8f0;
+  min-height: 32px;
+  padding: 4px 12px;
+  font-size: 0.72rem;
+  font-family: inherit;
+  cursor: pointer;
+  z-index: 1;
+}
+
+.overlay-close-button:hover,
+.overlay-close-button:focus-visible {
+  border-color: rgba(34, 211, 238, 0.62);
+  color: #f8fafc;
 }
 
 .overlay-eyebrow {
