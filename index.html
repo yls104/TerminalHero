@@ -109,6 +109,7 @@
 
         <section id="actionPanel" class="panel-block">
           <header class="panel-title small">行动菜单</header>
+          <div id="actionHint" class="action-hint">进入战斗后，这里会提示当前时间轴节奏与插入窗口。</div>
           <div class="action-menu is-hidden" id="actionMenu" aria-hidden="true">
             <button id="btnBasicAttack" type="button">普通攻击</button>
             <button id="btnSkillMenu" type="button">技能</button>
@@ -116,6 +117,12 @@
             <button id="btnUltimate" type="button">终结技</button>
             <button id="btnFlee" type="button">撤退</button>
           </div>
+        </section>
+
+        <section id="timelinePanel" class="panel-block">
+          <header class="panel-title small">行动序列</header>
+          <div id="timelineStatus" class="timeline-status">未进入战斗，时间轴将在遭遇战开始后显示。</div>
+          <div id="timelinePreview" class="timeline-preview timeline-preview-empty"></div>
         </section>
 
         <section id="classPanel" class="panel-block">

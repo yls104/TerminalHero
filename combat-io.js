@@ -104,6 +104,7 @@
                 unitId: entry.unitId,
                 side: entry.side,
                 label: entry.label,
+                speed: entry.speed,
                 currentAv: entry.currentAv,
                 baseAv: entry.baseAv,
               };

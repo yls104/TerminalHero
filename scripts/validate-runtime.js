@@ -28,7 +28,11 @@ function validateHtmlContract(indexHtml) {
     "virtualJoystick",
     "statusToggle",
     "floatingStatusPanel",
+    "actionHint",
     "btnUltimate",
+    "timelinePanel",
+    "timelineStatus",
+    "timelinePreview",
     "btnOpenLog",
     "btnSaveMenu",
     "battleLog",
@@ -42,7 +46,10 @@ function validateStyleContract(styleCss) {
     ".virtual-joystick",
     ".floating-status-panel",
     ".hud-toggle",
+    ".action-hint",
+    ".action-button-meta",
     ".action-menu button.is-insert-window",
+    ".timeline-chip",
     ".battle-log p:nth-last-child(n + 3)",
     ".mini-button",
   ].forEach(function eachSelector(selector) {
@@ -113,6 +120,8 @@ function validateDataAndViewModels() {
   assert(stageApi && typeof stageApi.createStageProgress === "function", "stage-data.js 未暴露 createStageProgress");
   assert(timelineApi && typeof timelineApi.createTimelineState === "function", "combat-timeline.js 未暴露 createTimelineState");
   assert(entitiesApi && typeof entitiesApi.getResolvedSkill === "function", "entities.js 未暴露 getResolvedSkill");
+  assert(viewApi && typeof viewApi.createCombatTimelineViewModel === "function", "view-models.js 未暴露 createCombatTimelineViewModel");
+  assert(viewApi && typeof viewApi.createCombatMenuTimingViewModel === "function", "view-models.js 未暴露 createCombatMenuTimingViewModel");
   assert(Array.isArray(stageApi.CHAPTERS) && stageApi.CHAPTERS.length >= 3, "章节配置未正确暴露");
 
   const attackSkill = entitiesApi.getResolvedSkill("attack");
@@ -128,6 +137,28 @@ function validateDataAndViewModels() {
   });
   assert(timeline.currentActorId === "player", "时间轴未正确根据速度选择首个行动者");
   timelineApi.resolveAction(timeline, { sourceUnitId: "player", targetUnitId: "enemy", actionId: "attack", baseDelay: 54, advanceSelf: 0, delayTarget: 0 });
+  const timelineView = viewApi.createCombatTimelineViewModel({
+    inCombat: true,
+    playerTurn: true,
+    insertWindow: { open: false },
+    timeline: timeline,
+  });
+  assert(Array.isArray(timelineView.entries) && timelineView.entries.length > 0, "时间轴视图模型未生成行动预览");
+  assert(timelineView.entries[0].meta.includes("AV"), "时间轴视图模型未展示 AV 信息");
+  const menuTimingView = viewApi.createCombatMenuTimingViewModel({
+    skill: attackSkill,
+    snapshot: {
+      inCombat: true,
+      playerTurn: true,
+      ultimate: {
+        current: 0,
+      },
+      insertWindow: {
+        open: false,
+      },
+    },
+  });
+  assert(menuTimingView.metaText.includes("延迟"), "战斗菜单节奏视图模型未展示延迟信息");
   entitiesApi.applyClassToPlayer("warrior");
   entitiesApi.player.level = 3;
   entitiesApi.player.classResource.current = entitiesApi.player.classResource.max;

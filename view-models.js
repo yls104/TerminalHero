@@ -177,6 +177,69 @@
     return "<div class=\"build-codex\"><div class=\"detail-stats\">" + summaryHtml + "</div>" + sectionsHtml + "</div>";
   }
 
+  function createCombatTimelineViewModel(snapshot) {
+    const data = snapshot || {};
+    const timeline = data.timeline || {};
+    const queuePreview = Array.isArray(timeline.queuePreview) ? timeline.queuePreview.slice(0, 5) : [];
+    const statusText = data.inCombat
+      ? (data.insertWindow && data.insertWindow.open
+        ? "敌方即将行动，你可以插入终结技改写节奏。"
+        : data.playerTurn
+          ? "当前轮到你行动，延迟更短的技能更容易更快回到行动位。"
+          : "敌方正在逼近行动位，观察下一个窗口并准备抢轴。")
+      : "未进入战斗，时间轴将在遭遇战开始后显示。";
+
+    return {
+      visible: Boolean(data.inCombat),
+      statusText: statusText,
+      entries: queuePreview.map(function mapEntry(entry, index) {
+        const isCurrent = entry.unitId === timeline.currentActorId;
+        return {
+          key: entry.unitId + "-" + index,
+          label: entry.side === "player" ? "你" : entry.label,
+          badge: isCurrent ? "当前行动" : "第 " + (index + 1) + " 位",
+          meta: "速度 " + entry.speed + " / AV " + entry.currentAv + " / 基准 " + entry.baseAv,
+          sideClass: entry.side === "player" ? "is-player" : "is-enemy",
+          isCurrent: isCurrent,
+        };
+      }),
+    };
+  }
+
+  function createCombatMenuTimingViewModel(input) {
+    const data = input || {};
+    const skill = data.skill || {};
+    const snapshot = data.snapshot || {};
+    const parts = [];
+
+    if (typeof skill.baseDelay === "number") {
+      parts.push("延迟 " + skill.baseDelay);
+    }
+    if (skill.advanceSelf) {
+      parts.push("自身提前 " + skill.advanceSelf);
+    }
+    if (skill.delayTarget) {
+      parts.push("目标延后 " + skill.delayTarget);
+    }
+    if (skill.ultimateChargeGain) {
+      parts.push("终结 +" + skill.ultimateChargeGain);
+    }
+    if (skill.actionType === "ultimate" && typeof skill.ultimateChargeCost === "number") {
+      const currentCharge = snapshot.ultimate ? snapshot.ultimate.current || 0 : 0;
+      parts.push("终结 -" + skill.ultimateChargeCost + "（当前 " + currentCharge + "）");
+      if (snapshot.insertWindow && snapshot.insertWindow.open) {
+        parts.push("可插入");
+      }
+    }
+    if (!parts.length) {
+      parts.push("稳定推进");
+    }
+
+    return {
+      metaText: parts.join(" / "),
+    };
+  }
+
   window.GameViewModels = {
     createHudViewModel: createHudViewModel,
     createEnemyViewModel: createEnemyViewModel,
@@ -186,5 +249,7 @@
     renderRunSummaryHtml: renderRunSummaryHtml,
     createBuildCodexViewModel: createBuildCodexViewModel,
     renderBuildCodexHtml: renderBuildCodexHtml,
+    createCombatTimelineViewModel: createCombatTimelineViewModel,
+    createCombatMenuTimingViewModel: createCombatMenuTimingViewModel,
   };
 })();

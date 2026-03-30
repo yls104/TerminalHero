@@ -531,6 +531,17 @@ button,
   gap: 8px;
 }
 
+.action-hint {
+  margin: 0 0 8px;
+  padding: 8px 10px;
+  border: 1px solid rgba(34, 211, 238, 0.12);
+  border-radius: 8px;
+  background: rgba(8, 47, 73, 0.32);
+  color: #cbd5e1;
+  font-size: 0.76rem;
+  line-height: 1.45;
+}
+
 .skill-buttons {
   display: grid;
   gap: 8px;
@@ -546,6 +557,10 @@ button,
 }
 
 .action-menu button {
+  display: grid;
+  gap: 3px;
+  align-items: start;
+  text-align: left;
   border: 1px solid #1d4ed8;
   border-radius: 8px;
   background: #1e3a8a;
@@ -572,6 +587,77 @@ button,
 .action-menu button:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+}
+
+.action-button-main {
+  display: block;
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.action-button-meta {
+  display: block;
+  color: #bfdbfe;
+  font-size: 0.7rem;
+  line-height: 1.35;
+}
+
+.timeline-status {
+  margin: 0 0 8px;
+  color: #cbd5e1;
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.timeline-preview {
+  display: grid;
+  gap: 6px;
+}
+
+.timeline-preview-empty {
+  min-height: 40px;
+}
+
+.timeline-chip {
+  display: grid;
+  gap: 3px;
+  padding: 8px 10px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.62);
+}
+
+.timeline-chip.is-current {
+  border-color: rgba(34, 211, 238, 0.55);
+  background: rgba(8, 47, 73, 0.78);
+  box-shadow: inset 0 0 0 1px rgba(34, 211, 238, 0.14);
+}
+
+.timeline-chip.is-player {
+  border-left: 3px solid #22d3ee;
+}
+
+.timeline-chip.is-enemy {
+  border-left: 3px solid #f87171;
+}
+
+.timeline-chip-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  color: #f8fafc;
+  font-size: 0.78rem;
+}
+
+.timeline-chip-meta {
+  color: #94a3b8;
+  font-size: 0.68rem;
+  line-height: 1.35;
+}
+
+.timeline-chip-badge {
+  color: #67e8f9;
+  letter-spacing: 0.04em;
 }
 
 .virtual-joystick {
@@ -902,10 +988,40 @@ button,
     align-content: start;
   }
 
+  .action-hint,
+  .timeline-status {
+    padding: 4px 6px;
+    font-size: 0.58rem;
+    margin-bottom: 4px;
+  }
+
   .action-menu button {
     min-height: 32px;
     padding: 5px 7px;
+    font-size: 0.62rem;
+    gap: 2px;
+  }
+
+  .action-button-main {
     font-size: 0.66rem;
+  }
+
+  .action-button-meta,
+  .timeline-chip-meta {
+    font-size: 0.52rem;
+  }
+
+  .timeline-preview {
+    gap: 3px;
+  }
+
+  .timeline-chip {
+    padding: 4px 5px;
+    gap: 2px;
+  }
+
+  .timeline-chip-head {
+    font-size: 0.6rem;
   }
 
   .resource-strip {
