@@ -711,6 +711,15 @@
 
   function createSkillInspectLines(skill) {
     const lines = [];
+    if (typeof skill.baseDelay === "number") {
+      lines.push("行动延迟：" + skill.baseDelay);
+    }
+    if (skill.advanceSelf) {
+      lines.push("自身提前：" + skill.advanceSelf);
+    }
+    if (skill.delayTarget) {
+      lines.push("目标延后：" + skill.delayTarget);
+    }
     if (typeof skill.cost === "number") {
       lines.push("法力消耗：" + skill.cost);
     }
@@ -726,6 +735,9 @@
     }
     if (skill.resourceCost) {
       lines.push("消耗职业资源：" + skill.resourceCost);
+    }
+    if (typeof skill.ultimateChargeGain === "number" && skill.ultimateChargeGain > 0) {
+      lines.push("终结充能：" + skill.ultimateChargeGain);
     }
     if (skill.guard) {
       lines.push("减伤效果：" + Math.round(skill.guard * 100) + "%");

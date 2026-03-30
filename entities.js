@@ -507,6 +507,87 @@ function createSkillTagSet(skill) {
   return tagSet;
 }
 
+function inferActionType(skill) {
+  if (skill.actionType) {
+    return skill.actionType;
+  }
+  if (skill.id === "attack") {
+    return "basic";
+  }
+  return "skill";
+}
+
+function inferBaseDelay(skill) {
+  if (typeof skill.baseDelay === "number") {
+    return skill.baseDelay;
+  }
+  if (skill.id === "attack") {
+    return 52;
+  }
+  if (skill.id === "defend") {
+    return 42;
+  }
+  let delay = 44;
+  if (typeof skill.cost === "number") {
+    delay += skill.cost * 2;
+  }
+  if (skill.type === "magic") {
+    delay += 3;
+  }
+  if (skill.effect === "heal" || skill.effect === "guard_heal" || skill.effect === "regen") {
+    delay += 2;
+  }
+  if (skill.effect === "guard" || skill.effect === "restore_mp" || skill.effect === "buff_attack") {
+    delay -= 2;
+  }
+  if (typeof skill.power === "number" && skill.power >= 1.6) {
+    delay += 8;
+  }
+  return clamp(Math.round(delay), 36, 88);
+}
+
+function inferAdvanceSelf(skill) {
+  if (typeof skill.advanceSelf === "number") {
+    return skill.advanceSelf;
+  }
+  if (skill.effect === "guard" || skill.effect === "restore_mp") {
+    return 8;
+  }
+  if (skill.effect === "buff_attack") {
+    return 5;
+  }
+  if (skill.bonusFirst) {
+    return 6;
+  }
+  return 0;
+}
+
+function inferDelayTarget(skill) {
+  if (typeof skill.delayTarget === "number") {
+    return skill.delayTarget;
+  }
+  if (typeof skill.slow === "number" && skill.slow > 0) {
+    return skill.slow * 6;
+  }
+  if (skill.effect === "poison") {
+    return 4;
+  }
+  return 0;
+}
+
+function inferUltimateChargeGain(skill) {
+  if (typeof skill.ultimateChargeGain === "number") {
+    return skill.ultimateChargeGain;
+  }
+  if (skill.id === "attack" || skill.id === "defend") {
+    return 1;
+  }
+  if (skill.resourceCost) {
+    return 3;
+  }
+  return 2;
+}
+
 function collectRelicSkillModifiers(skill) {
   if (!externalRelicResolver) {
     return [];
@@ -661,6 +742,13 @@ function getResolvedSkill(skillId) {
   if (typeof resolvedSkill.resourceGain === "number") {
     resolvedSkill.resourceGain = Math.max(0, resolvedSkill.resourceGain);
   }
+  resolvedSkill.actionType = inferActionType(resolvedSkill);
+  resolvedSkill.baseDelay = inferBaseDelay(resolvedSkill);
+  resolvedSkill.advanceSelf = Math.max(0, inferAdvanceSelf(resolvedSkill));
+  resolvedSkill.delayTarget = Math.max(0, inferDelayTarget(resolvedSkill));
+  resolvedSkill.speedScale = typeof resolvedSkill.speedScale === "number" ? resolvedSkill.speedScale : 1;
+  resolvedSkill.ultimateChargeGain = Math.max(0, inferUltimateChargeGain(resolvedSkill));
+  resolvedSkill.ultimateChargeCost = Math.max(0, typeof resolvedSkill.ultimateChargeCost === "number" ? resolvedSkill.ultimateChargeCost : 0);
   if (inspectNotes.length) {
     resolvedSkill.inspectNotes = inspectNotes;
   }

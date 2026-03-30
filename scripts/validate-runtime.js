@@ -82,16 +82,38 @@ function createBrowserContext() {
 
 function validateDataAndViewModels() {
   const context = createBrowserContext();
+  loadScriptIntoContext(context, "combat-io.js");
+  loadScriptIntoContext(context, "combat-timeline.js");
+  loadScriptIntoContext(context, "entities.js");
   loadScriptIntoContext(context, "stage-data.js");
   loadScriptIntoContext(context, "view-models.js");
   loadScriptIntoContext(context, "save-system.js");
 
+  const entitiesApi = context.window.GameEntities;
   const stageApi = context.window.GameStageData;
   const viewApi = context.window.GameViewModels;
   const saveApi = context.window.GameSaveSystem;
+  const timelineApi = context.window.CombatTimeline;
 
   assert(stageApi && typeof stageApi.createStageProgress === "function", "stage-data.js 未暴露 createStageProgress");
+  assert(timelineApi && typeof timelineApi.createTimelineState === "function", "combat-timeline.js 未暴露 createTimelineState");
+  assert(entitiesApi && typeof entitiesApi.getResolvedSkill === "function", "entities.js 未暴露 getResolvedSkill");
   assert(Array.isArray(stageApi.CHAPTERS) && stageApi.CHAPTERS.length >= 3, "章节配置未正确暴露");
+
+  const attackSkill = entitiesApi.getResolvedSkill("attack");
+  assert(typeof attackSkill.baseDelay === "number", "技能解析未补齐 baseDelay");
+  assert(typeof attackSkill.advanceSelf === "number", "技能解析未补齐 advanceSelf");
+  assert(typeof attackSkill.delayTarget === "number", "技能解析未补齐 delayTarget");
+
+  const timeline = timelineApi.createTimelineState({
+    actors: [
+      { unitId: "player", side: "player", label: "勇者", hp: 100, maxHp: 100, speed: 12 },
+      { unitId: "enemy", side: "enemy", label: "史莱姆", hp: 30, maxHp: 30, speed: 6 },
+    ],
+  });
+  assert(timeline.currentActorId === "player", "时间轴未正确根据速度选择首个行动者");
+  timelineApi.resolveAction(timeline, { sourceUnitId: "player", targetUnitId: "enemy", actionId: "attack", baseDelay: 54, advanceSelf: 0, delayTarget: 0 });
+  assert(Boolean(timeline.currentActorId), "时间轴在结算行动后未推进到下一行动者");
 
   const progress = stageApi.createStageProgress();
   assert(progress.chapterProgress, "createStageProgress 未生成 chapterProgress");
@@ -134,6 +156,10 @@ function main() {
   validateStyleContract(readFile("style.css"));
   [
     "main.js",
+    "combat-io.js",
+    "combat-timeline.js",
+    "combat.js",
+    "entities.js",
     "stage-data.js",
     "view-models.js",
     "save-system.js",

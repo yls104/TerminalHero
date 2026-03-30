@@ -62,6 +62,37 @@
       locked: Boolean(data.locked),
       round: typeof data.round === "number" ? data.round : 0,
       pendingAction: data.pendingAction || "",
+      currentActorId: data.currentActorId || "",
+      timeline: data.timeline
+        ? {
+            actors: Array.isArray(data.timeline.actors) ? data.timeline.actors.map(function mapActor(actor) {
+              return {
+                unitId: actor.unitId,
+                side: actor.side,
+                label: actor.label,
+                hp: actor.hp,
+                maxHp: actor.maxHp,
+                speed: actor.speed,
+                currentAv: actor.currentAv,
+                baseAv: actor.baseAv,
+                canAct: actor.canAct !== false,
+              };
+            }) : [],
+            roundIndex: data.timeline.roundIndex || 0,
+            currentActorId: data.timeline.currentActorId || "",
+            queuePreview: Array.isArray(data.timeline.queuePreview) ? data.timeline.queuePreview.map(function mapEntry(entry) {
+              return {
+                unitId: entry.unitId,
+                side: entry.side,
+                label: entry.label,
+                currentAv: entry.currentAv,
+                baseAv: entry.baseAv,
+              };
+            }) : [],
+            pendingInsertWindow: data.timeline.pendingInsertWindow || null,
+            lastResolvedAction: data.timeline.lastResolvedAction || null,
+          }
+        : null,
     };
   }
 
