@@ -63,6 +63,22 @@
             </div>
           </section>
 
+          <div id="mobileExploreHud" class="mobile-explore-hud is-hidden" aria-hidden="true">
+            <div class="mobile-explore-bar">
+              <div class="mobile-explore-main">
+                <span id="mobileClassValue" class="mobile-summary-pill mobile-summary-primary">职业：-</span>
+                <span id="mobileStageValue" class="mobile-summary-pill">区域：城镇</span>
+              </div>
+              <button id="mobilePanelToggle" type="button" class="mobile-panel-toggle" aria-controls="sidePanel" aria-expanded="false">远征</button>
+            </div>
+            <div class="mobile-explore-secondary">
+              <span id="mobilePosValue" class="mobile-summary-pill">坐标：(1, 1)</span>
+              <span id="mobileGoldValue" class="mobile-summary-pill">金币 0</span>
+              <span id="mobileSpValue" class="mobile-summary-pill">技能点 0</span>
+            </div>
+          </div>
+          <button id="mobilePanelBackdrop" type="button" class="mobile-panel-backdrop is-hidden" aria-hidden="true" tabindex="-1"></button>
+
           <div id="combatHudLayer" class="combat-hud-layer is-hidden" aria-hidden="true">
             <div class="combat-top-strip">
               <section id="playerCombatPanel" class="panel-block combat-hud-card player-combat-panel">
@@ -128,9 +144,12 @@
         <p class="hint">桌面可用 WASD / 方向键。手机横屏可拖动左下角虚拟摇杆连续移动，先清小怪，再穿过传送门挑战首领。</p>
       </section>
 
-      <aside class="side-panel card">
+      <aside id="sidePanel" class="side-panel card">
         <section id="resourcePanel" class="panel-block">
-          <header class="panel-title small">远征摘要</header>
+          <div class="panel-title-row">
+            <header class="panel-title small">远征摘要</header>
+            <button id="mobileSideCloseButton" type="button" class="mini-button mobile-side-close">收起</button>
+          </div>
           <div class="adventure-summary">
             <div class="adventure-heading">
               <div class="adventure-heading-main">

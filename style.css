@@ -164,6 +164,88 @@ button,
   padding: 10px 12px;
 }
 
+.mobile-explore-hud,
+.mobile-panel-backdrop,
+.mobile-side-close {
+  display: none;
+}
+
+.mobile-explore-hud {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 5;
+  width: min(calc(100% - 90px), 360px);
+  gap: 6px;
+  pointer-events: none;
+}
+
+.mobile-explore-hud.is-hidden,
+.mobile-panel-backdrop.is-hidden {
+  display: none;
+}
+
+.mobile-explore-bar,
+.mobile-explore-main,
+.mobile-explore-secondary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mobile-explore-bar {
+  justify-content: space-between;
+}
+
+.mobile-explore-main,
+.mobile-explore-secondary {
+  flex-wrap: wrap;
+}
+
+.mobile-summary-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 4px 10px;
+  border: 1px solid rgba(120, 200, 191, 0.16);
+  border-radius: 999px;
+  background: rgba(10, 19, 25, 0.72);
+  box-shadow: 0 10px 22px rgba(2, 6, 23, 0.22);
+  color: #dff3ef;
+  font-size: 0.72rem;
+  line-height: 1.1;
+  backdrop-filter: blur(10px);
+}
+
+.mobile-summary-primary {
+  border-color: rgba(216, 178, 108, 0.24);
+  background: rgba(38, 23, 20, 0.78);
+  color: #fff1dc;
+}
+
+.mobile-panel-toggle {
+  pointer-events: auto;
+  min-height: 30px;
+  padding: 5px 12px;
+  border: 1px solid rgba(103, 232, 249, 0.32);
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(17, 52, 75, 0.92), rgba(10, 18, 38, 0.92));
+  box-shadow: 0 12px 24px rgba(2, 6, 23, 0.28);
+  color: #f0fdff;
+  font-family: inherit;
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+
+.mobile-panel-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 7;
+  border: 0;
+  background: rgba(4, 8, 17, 0.34);
+  cursor: pointer;
+}
+
 .floating-status-panel {
   position: absolute;
   top: 14px;
@@ -489,8 +571,14 @@ body.combat-mode .canvas-wrap {
 
 body.combat-mode .hud-toggle,
 body.combat-mode .floating-status-panel,
-body.combat-mode .combat-banner {
+body.combat-mode .combat-banner,
+body.combat-mode .mobile-explore-hud,
+body.combat-mode .mobile-panel-backdrop {
   display: none !important;
+}
+
+body.mobile-side-panel-open .mobile-explore-hud {
+  opacity: 0.54;
 }
 
 .adventure-summary {
@@ -1147,12 +1235,13 @@ body.combat-mode .combat-banner {
   }
 
   .layout {
+    position: relative;
     max-width: none;
     height: 100dvh;
     min-height: 100dvh;
     padding: 4px;
     gap: 4px;
-    grid-template-columns: minmax(0, 1fr) minmax(150px, 164px);
+    grid-template-columns: minmax(0, 1fr);
     grid-template-rows: minmax(0, 1fr);
   }
 
@@ -1165,11 +1254,28 @@ body.combat-mode .combat-banner {
   }
 
   .side-panel {
-    grid-column: 2;
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    bottom: 4px;
+    grid-column: 1;
     grid-row: 1;
+    width: min(236px, 44vw);
+    z-index: 9;
     padding: 3px;
     gap: 3px;
-    overflow: hidden;
+    overflow: auto;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(calc(100% + 12px));
+    transition: transform 0.18s ease, opacity 0.18s ease;
+  }
+
+  body.mobile-side-panel-open .side-panel {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateX(0);
+    box-shadow: 0 20px 36px rgba(0, 0, 0, 0.34);
   }
 
   body.combat-mode .layout {
@@ -1204,9 +1310,21 @@ body.combat-mode .combat-banner {
 
   #gameCanvas {
     width: auto;
-    height: min(calc(100dvh - 12px), calc((100vw - 176px) * 0.75));
+    height: min(calc(100dvh - 12px), calc((100vw - 12px) * 0.75));
     max-width: 100%;
     max-height: 100%;
+  }
+
+  .mobile-explore-hud {
+    display: grid;
+  }
+
+  .mobile-side-close {
+    display: inline-flex;
+  }
+
+  body.mobile-side-panel-open .mobile-panel-backdrop {
+    display: block;
   }
 
   .virtual-joystick {
@@ -1425,8 +1543,6 @@ body.combat-mode .combat-banner {
   }
 
   .floating-status-panel {
-    top: 10px;
-    right: 10px;
     width: min(228px, calc(100% - 20px));
     padding: 8px;
   }
@@ -1441,8 +1557,6 @@ body.combat-mode .combat-banner {
   }
 
   .hud-toggle {
-    top: 10px;
-    right: 10px;
     min-height: 28px;
     padding: 5px 10px;
     font-size: 0.62rem;
@@ -1516,7 +1630,7 @@ body.combat-mode .combat-banner {
 
 @media (max-width: 980px) and (orientation: landscape) and (pointer: coarse) and (max-height: 430px) {
   #gameCanvas {
-    height: min(calc(100dvh - 50px), calc((100vw - 168px) * 0.75));
+    height: min(calc(100dvh - 50px), calc((100vw - 12px) * 0.75));
   }
 
   .joystick-base {

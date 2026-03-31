@@ -112,6 +112,15 @@
     rewardValue: document.querySelector("#rewardValue"),
     pos: document.querySelector("#posValue"),
     sidePanel: document.querySelector(".side-panel"),
+    mobileExploreHud: document.querySelector("#mobileExploreHud"),
+    mobileClassValue: document.querySelector("#mobileClassValue"),
+    mobileStageValue: document.querySelector("#mobileStageValue"),
+    mobilePosValue: document.querySelector("#mobilePosValue"),
+    mobileGoldValue: document.querySelector("#mobileGoldValue"),
+    mobileSpValue: document.querySelector("#mobileSpValue"),
+    mobilePanelToggle: document.querySelector("#mobilePanelToggle"),
+    mobilePanelBackdrop: document.querySelector("#mobilePanelBackdrop"),
+    mobileSideCloseButton: document.querySelector("#mobileSideCloseButton"),
     statusList: document.querySelector(".status-list"),
     resourcePanel: document.querySelector("#resourcePanel"),
     mobileBottomBar: document.querySelector("#mobileBottomBar"),
@@ -215,6 +224,9 @@
     pressY: 0,
     leftPercent: 0.84,
     topPercent: 0.04,
+  };
+  const mobileHudState = {
+    sidePanelOpen: false,
   };
   const joystickState = {
     active: false,
@@ -931,6 +943,21 @@
     if (!ui.canvasWrap || !ui.statusToggle || !ui.floatingStatusPanel) {
       return;
     }
+    if (isMobileLandscapeLayout()) {
+      const right = 8;
+      const bottom = 8;
+      const buttonHeight = ui.statusToggle.offsetHeight || 34;
+      ui.statusToggle.style.left = "auto";
+      ui.statusToggle.style.top = "auto";
+      ui.statusToggle.style.right = right + "px";
+      ui.statusToggle.style.bottom = bottom + "px";
+
+      ui.floatingStatusPanel.style.left = "auto";
+      ui.floatingStatusPanel.style.top = "auto";
+      ui.floatingStatusPanel.style.right = right + "px";
+      ui.floatingStatusPanel.style.bottom = (bottom + buttonHeight + 6) + "px";
+      return;
+    }
     const wrapWidth = ui.canvasWrap.clientWidth || 1;
     const wrapHeight = ui.canvasWrap.clientHeight || 1;
     const buttonWidth = ui.statusToggle.offsetWidth || 76;
@@ -955,6 +982,7 @@
     ui.floatingStatusPanel.style.left = panelLeft + "px";
     ui.floatingStatusPanel.style.top = panelTop + "px";
     ui.floatingStatusPanel.style.right = "auto";
+    ui.floatingStatusPanel.style.bottom = "auto";
   }
 
   function setFloatingStatusPanelVisible(visible) {
@@ -998,6 +1026,7 @@
 
   function showOverlay(eyebrow, title, text, buttonLabel, action) {
     clearHeldMoveKeys();
+    setMobileSidePanelOpen(false);
     overlayAction = action || null;
     ui.overlayEyebrow.textContent = eyebrow;
     ui.overlayTitle.textContent = title;
@@ -1029,9 +1058,43 @@
     return window.matchMedia("(max-width: 980px) and (orientation: landscape) and (pointer: coarse)").matches;
   }
 
+  function shouldShowMobileExploreHud(state) {
+    return isMobileLandscapeLayout() && !shouldUseCombatLayout(state || getGameState());
+  }
+
+  function setMobileSidePanelOpen(visible) {
+    const mobileEligible = shouldShowMobileExploreHud();
+    mobileHudState.sidePanelOpen = Boolean(visible && mobileEligible);
+    if (mobileHudState.sidePanelOpen && floatingHudState.open) {
+      setFloatingStatusPanelVisible(false);
+    }
+    document.body.classList.toggle("mobile-side-panel-open", mobileHudState.sidePanelOpen);
+    if (ui.sidePanel) {
+      ui.sidePanel.setAttribute("aria-hidden", mobileEligible ? (mobileHudState.sidePanelOpen ? "false" : "true") : (shouldUseCombatLayout(getGameState()) ? "true" : "false"));
+    }
+    if (ui.mobilePanelToggle) {
+      ui.mobilePanelToggle.setAttribute("aria-expanded", mobileHudState.sidePanelOpen ? "true" : "false");
+      ui.mobilePanelToggle.textContent = mobileHudState.sidePanelOpen ? "收起" : "远征";
+    }
+    if (ui.mobilePanelBackdrop) {
+      ui.mobilePanelBackdrop.classList.toggle("is-hidden", !mobileHudState.sidePanelOpen);
+      ui.mobilePanelBackdrop.setAttribute("aria-hidden", mobileHudState.sidePanelOpen ? "false" : "true");
+    }
+  }
+
   function syncResponsiveHudLayout() {
     if (!ui.canvasWrap || !ui.statusToggle || !ui.floatingStatusPanel) {
       return;
+    }
+    const mobileExploreVisible = shouldShowMobileExploreHud();
+    if (ui.mobileExploreHud) {
+      ui.mobileExploreHud.classList.toggle("is-hidden", !mobileExploreVisible);
+      ui.mobileExploreHud.setAttribute("aria-hidden", mobileExploreVisible ? "false" : "true");
+    }
+    if (!mobileExploreVisible) {
+      setMobileSidePanelOpen(false);
+    } else {
+      setMobileSidePanelOpen(mobileHudState.sidePanelOpen);
     }
     syncFloatingStatusHud();
   }
@@ -1046,14 +1109,16 @@
     document.body.classList.toggle("combat-mode", combatLayout);
     if (combatLayout) {
       setFloatingStatusPanelVisible(false);
+      setMobileSidePanelOpen(false);
     }
     if (ui.combatHudLayer) {
       ui.combatHudLayer.classList.toggle("is-hidden", !combatLayout);
       ui.combatHudLayer.setAttribute("aria-hidden", combatLayout ? "false" : "true");
     }
-    if (ui.sidePanel) {
+    if (ui.sidePanel && !isMobileLandscapeLayout()) {
       ui.sidePanel.setAttribute("aria-hidden", combatLayout ? "true" : "false");
     }
+    syncResponsiveHudLayout();
   }
 
   function syncJourneySignal(node, label, value) {
@@ -1229,6 +1294,21 @@
     ui.stageValue.textContent = hudView.stageText;
     ui.pos.textContent = hudView.positionText;
     ui.classSummary.textContent = hudView.classSummary;
+    if (ui.mobileClassValue) {
+      ui.mobileClassValue.textContent = hudView.classText;
+    }
+    if (ui.mobileStageValue) {
+      ui.mobileStageValue.textContent = hudView.stageText;
+    }
+    if (ui.mobilePosValue) {
+      ui.mobilePosValue.textContent = hudView.positionText;
+    }
+    if (ui.mobileGoldValue) {
+      ui.mobileGoldValue.textContent = "金币 " + hudView.goldText;
+    }
+    if (ui.mobileSpValue) {
+      ui.mobileSpValue.textContent = "技能点 " + hudView.skillPointText;
+    }
     if (ui.combatPlayerHp) {
       ui.combatPlayerHp.textContent = "HP " + hudView.hpText;
     }
@@ -2622,6 +2702,21 @@
     if (ui.btnOpenLog) {
       ui.btnOpenLog.addEventListener("click", showBattleLogOverlay);
     }
+    if (ui.mobilePanelToggle) {
+      ui.mobilePanelToggle.addEventListener("click", function onMobilePanelToggle() {
+        setMobileSidePanelOpen(!mobileHudState.sidePanelOpen);
+      });
+    }
+    if (ui.mobilePanelBackdrop) {
+      ui.mobilePanelBackdrop.addEventListener("click", function onMobileBackdrop() {
+        setMobileSidePanelOpen(false);
+      });
+    }
+    if (ui.mobileSideCloseButton) {
+      ui.mobileSideCloseButton.addEventListener("click", function onMobileSideClose() {
+        setMobileSidePanelOpen(false);
+      });
+    }
     if (ui.statusToggle) {
       ui.statusToggle.addEventListener("click", function onStatusToggle() {
         if (floatingHudState.moved) {
@@ -2692,6 +2787,9 @@
       const dragThreshold = 8;
 
       function startHudDrag(event) {
+        if (isMobileLandscapeLayout()) {
+          return;
+        }
         const rect = ui.statusToggle.getBoundingClientRect();
         floatingHudState.pointerId = event.pointerId;
         floatingHudState.dragging = false;
