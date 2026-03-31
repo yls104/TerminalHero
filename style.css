@@ -104,13 +104,12 @@ button,
 }
 
 .combat-top-strip {
-  display: grid;
-  width: min(100%, 920px);
+  display: flex;
+  width: min(100%, 980px);
   margin: 0 auto;
-  grid-template-columns: minmax(156px, 196px) minmax(176px, 220px) minmax(220px, 320px);
+  justify-content: space-between;
   gap: 8px;
   align-items: start;
-  justify-content: center;
 }
 
 .combat-hud-card {
@@ -151,22 +150,28 @@ button,
 }
 
 .player-combat-panel,
-.enemy-strip-card,
-.timeline-strip-card {
+.enemy-strip-card {
   display: grid;
   gap: 6px;
   padding: 8px 10px;
+  width: min(220px, calc(50% - 8px));
 }
 
 .combat-action-dock {
-  width: min(100%, 688px);
+  width: min(100%, 760px);
   margin: 0 auto;
-  padding: 8px 10px;
+  padding: 10px 12px 12px;
   border-color: rgba(216, 178, 108, 0.28);
   background:
     linear-gradient(180deg, rgba(24, 16, 26, 0.94), rgba(10, 8, 14, 0.9)),
     linear-gradient(135deg, rgba(216, 178, 108, 0.08), transparent 54%);
   box-shadow: 0 18px 32px rgba(0, 0, 0, 0.24);
+}
+
+.timeline-rail-panel {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 6px;
 }
 
 .mobile-explore-hud,
@@ -307,21 +312,6 @@ button,
   border-radius: 10px;
   background: #120f18;
   box-shadow: 0 18px 34px rgba(0, 0, 0, 0.32);
-}
-
-.combat-banner {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  z-index: 2;
-  font-size: 0.8rem;
-  color: #fee2e2;
-  background: rgba(153, 27, 27, 0.86);
-  border: 1px solid #dc2626;
-  border-radius: 6px;
-  padding: 4px 10px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
 
 .screen-flash {
@@ -576,7 +566,6 @@ body.combat-mode .canvas-wrap {
 
 body.combat-mode .hud-toggle,
 body.combat-mode .floating-status-panel,
-body.combat-mode .combat-banner,
 body.combat-mode .mobile-explore-hud,
 body.combat-mode .mobile-panel-backdrop {
   display: none !important;
@@ -853,22 +842,9 @@ body.mobile-side-panel-open .mobile-explore-hud {
   font-size: 0.58rem;
 }
 
-.combat-hud-layer .timeline-preview {
-  grid-template-columns: none;
-  gap: 6px;
-}
-
 .combat-hud-layer .timeline-chip {
   min-height: 34px;
   padding: 4px 8px;
-}
-
-.combat-hud-layer .timeline-status {
-  margin: 0;
-  font-size: 0.58rem;
-  color: #d7d1c6;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
 
 .combat-hud-layer .action-hint {
@@ -975,34 +951,32 @@ body.mobile-side-panel-open .mobile-explore-hud {
 }
 
 .timeline-status {
-  margin: 0 0 8px;
-  color: #d7d3cb;
-  font-size: 0.78rem;
-  line-height: 1.45;
+  display: none;
 }
 
 .timeline-preview {
   position: relative;
   display: flex;
   align-items: stretch;
-  gap: 6px;
-  padding: 2px 0;
+  gap: 4px;
+  width: 100%;
+  padding: 1px 0;
 }
 
 .timeline-preview::before {
   content: "";
   position: absolute;
-  left: 8px;
-  right: 8px;
+  left: 12px;
+  right: 12px;
   top: 50%;
-  height: 2px;
+  height: 1px;
   border-radius: 999px;
-  background: linear-gradient(90deg, rgba(34, 211, 238, 0.12), rgba(216, 178, 108, 0.28), rgba(248, 113, 113, 0.12));
+  background: linear-gradient(90deg, rgba(34, 211, 238, 0.18), rgba(216, 178, 108, 0.34), rgba(248, 113, 113, 0.18));
   transform: translateY(-50%);
 }
 
 .timeline-preview-empty {
-  min-height: 40px;
+  min-height: 28px;
 }
 
 .timeline-chip {
@@ -1010,46 +984,55 @@ body.mobile-side-panel-open .mobile-explore-hud {
   z-index: 1;
   flex: 1 1 0;
   display: grid;
-  justify-items: start;
-  gap: 1px;
-  padding: 6px 8px 5px;
-  border: 1px solid rgba(120, 200, 191, 0.16);
-  border-radius: 14px;
-  background: linear-gradient(180deg, rgba(14, 28, 34, 0.88), rgba(8, 15, 20, 0.9));
-  box-shadow: 0 8px 18px rgba(2, 6, 23, 0.14);
+  justify-items: center;
+  align-content: center;
+  gap: 0;
+  min-width: 0;
+  padding: 4px 6px 3px;
+  border: 1px solid rgba(120, 200, 191, 0.12);
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(11, 20, 26, 0.88), rgba(8, 13, 18, 0.92));
+  box-shadow: 0 8px 16px rgba(2, 6, 23, 0.14);
+  text-align: center;
 }
 
 .timeline-chip.is-current {
   border-color: rgba(216, 178, 108, 0.42);
-  background: linear-gradient(180deg, rgba(52, 41, 20, 0.94), rgba(24, 18, 10, 0.92));
-  box-shadow: 0 10px 22px rgba(44, 28, 9, 0.22);
+  background: linear-gradient(180deg, rgba(54, 40, 16, 0.96), rgba(27, 19, 8, 0.94));
+  box-shadow: 0 10px 20px rgba(44, 28, 9, 0.2);
 }
 
 .timeline-chip.is-player {
-  box-shadow: inset 0 0 0 1px rgba(34, 211, 238, 0.08), 0 8px 18px rgba(2, 6, 23, 0.14);
+  box-shadow: inset 0 0 0 1px rgba(34, 211, 238, 0.08), 0 8px 16px rgba(2, 6, 23, 0.14);
 }
 
 .timeline-chip.is-enemy {
-  box-shadow: inset 0 0 0 1px rgba(248, 113, 113, 0.08), 0 8px 18px rgba(2, 6, 23, 0.14);
+  box-shadow: inset 0 0 0 1px rgba(248, 113, 113, 0.08), 0 8px 16px rgba(2, 6, 23, 0.14);
 }
 
 .timeline-chip-order {
   color: #9fd7d0;
-  font-size: 0.5rem;
-  letter-spacing: 0.08em;
+  font-size: 0.42rem;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
+  opacity: 0.86;
 }
 
 .timeline-chip-name {
   color: #fcf7ef;
-  font-size: 0.72rem;
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 0.64rem;
   line-height: 1.05;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .timeline-chip-av {
   color: #b7c9c6;
-  font-size: 0.54rem;
+  font-size: 0.46rem;
   line-height: 1.05;
+  opacity: 0.84;
 }
 
 .virtual-joystick {
@@ -1412,10 +1395,6 @@ body.mobile-side-panel-open .mobile-explore-hud {
     order: 2;
   }
 
-  #timelinePanel {
-    order: 3;
-  }
-
   #logPanel {
     order: 4;
   }
@@ -1433,7 +1412,7 @@ body.mobile-side-panel-open .mobile-explore-hud {
 
   .combat-top-strip {
     width: min(100%, 100%);
-    grid-template-columns: minmax(92px, 112px) minmax(102px, 126px) minmax(0, 1fr);
+    justify-content: space-between;
     gap: 6px;
   }
 
@@ -1462,14 +1441,8 @@ body.mobile-side-panel-open .mobile-explore-hud {
     font-size: 0.46rem;
   }
 
-  .combat-hud-layer .timeline-preview {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 4px;
-  }
-
   .player-combat-panel,
   .enemy-strip-card,
-  .timeline-strip-card,
   .combat-action-dock {
     width: min(100%, 100%);
     padding: 5px 6px;
@@ -1482,7 +1455,6 @@ body.mobile-side-panel-open .mobile-explore-hud {
   .combat-strip-name,
   .combat-strip-value,
   .combat-strip-sub,
-  .combat-hud-layer .timeline-status,
   .combat-hud-layer .action-hint {
     font-size: 0.48rem;
   }
@@ -1491,8 +1463,7 @@ body.mobile-side-panel-open .mobile-explore-hud {
     font-size: 0.56rem;
   }
 
-  .action-hint,
-  .timeline-status {
+  .action-hint {
     padding: 3px 6px;
     font-size: 0.52rem;
     margin-bottom: 4px;
@@ -1704,7 +1675,7 @@ body.mobile-side-panel-open .mobile-explore-hud {
 
   .combat-top-strip {
     width: min(100%, 100%);
-    grid-template-columns: minmax(86px, 96px) minmax(96px, 106px) minmax(0, 1fr);
+    justify-content: space-between;
   }
 
   .side-panel {

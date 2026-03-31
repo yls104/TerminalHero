@@ -148,7 +148,6 @@
     enemyHpText: document.querySelector("#enemyHpText"),
     enemyHpBar: document.querySelector("#enemyHpBar"),
     battleLog: document.querySelector("#battleLog"),
-    combatBanner: document.querySelector("#combatBanner"),
     canvasWrap: document.querySelector(".canvas-wrap"),
     screenFlash: document.querySelector("#screenFlash"),
     sceneOverlay: document.querySelector("#sceneOverlay"),
@@ -1048,13 +1047,6 @@
     clearHeldMoveKeys();
   }
 
-  function setCombatBanner(visible, text) {
-    ui.combatBanner.classList.toggle("is-hidden", !visible);
-    if (text) {
-      ui.combatBanner.textContent = text;
-    }
-  }
-
   function isMobileLandscapeLayout() {
     return window.matchMedia("(max-width: 980px) and (orientation: landscape) and (pointer: coarse)").matches;
   }
@@ -1145,7 +1137,7 @@
 
   function updateSkillMenuVisibility() {
     ui.skillButtons.classList.toggle("is-hidden", !skillMenuOpen);
-    setActionButtonContent(ui.btnSkillMenu, skillMenuOpen ? "收起技能" : "技能", "打开二级技能菜单，查看所有节奏型技能");
+    setActionButtonContent(ui.btnSkillMenu, skillMenuOpen ? "收起技能" : "技能", skillMenuOpen ? "折叠技能列" : "展开技能列");
   }
 
   function setActionButtonContent(button, label, metaText) {
@@ -2450,7 +2442,6 @@
     const meta = getStageMeta(currentStageName);
     encounterPos = { x: x, y: y };
     setGameState(GAME_STATE.BOSS_INTRO);
-    setCombatBanner(true, "首领来袭");
     pulseFlash();
     shakeCanvas();
     showOverlay("警告", meta.bossLabel || "Boss 房", "真正的首领战现在开始。你可以选择直面首领，也可以先在区域里积累优势再来。", "迎战", function confirmBoss() {
@@ -2925,12 +2916,8 @@
           if (name === "playerHit") {
             shakeCanvas();
             pulseFlash();
-            setCombatBanner(true, "你受到攻击");
           } else if (name === "enemyHit") {
             pulseFlash();
-            setCombatBanner(true, "命中敌人");
-          } else if (name === "playerHeal") {
-            setCombatBanner(true, "技能生效");
           } else if (name === "combatStart") {
             pulseFlash();
           }
@@ -2942,11 +2929,9 @@
             setGameState(GAME_STATE.COMBAT);
             syncEnemyPanel(snapshot.enemy);
             setActionMenu(true, Boolean(snapshot.playerTurn), snapshot);
-            setCombatBanner(true, snapshot.insertWindow && snapshot.insertWindow.open ? "终结技插入" : (snapshot.playerTurn ? "你的回合" : "敌方回合"));
           } else {
             syncEnemyPanel(null);
             setActionMenu(false, false, null);
-            setCombatBanner(false, "");
             if (getGameState() !== GAME_STATE.GAME_OVER) {
               setGameState(GAME_STATE.EXPLORE);
             }
@@ -3011,7 +2996,6 @@
           } else if (result === "defeat") {
             setGameState(GAME_STATE.GAME_OVER);
             setActionMenu(false, false);
-            setCombatBanner(true, "战斗失败");
             showOverlay("挑战失败", "暂时倒下", "你倒下了，但城镇会永远欢迎下一次重开。", "重开", function reset() {
               hideOverlay();
               window.location.reload();
@@ -3067,7 +3051,6 @@
     setExploreControlsVisible(true);
     setActionMenu(false, false);
     syncEnemyPanel(null);
-    setCombatBanner(false, "");
     syncStatusPanel();
     window.addEventListener("keydown", handleMoveInput);
     window.addEventListener("keyup", handleMoveKeyUp);

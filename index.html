@@ -20,7 +20,6 @@
         <header class="panel-title">主视口</header>
         <div class="canvas-wrap">
           <canvas id="gameCanvas" width="640" height="480" aria-label="游戏画布"></canvas>
-          <div id="combatBanner" class="combat-banner is-hidden">战斗中</div>
           <button id="statusToggle" type="button" class="hud-toggle" aria-expanded="false" aria-controls="floatingStatusPanel">状态</button>
           <section id="floatingStatusPanel" class="floating-status-panel is-hidden" aria-hidden="true">
             <div class="panel-title-row">
@@ -105,14 +104,13 @@
                 </div>
                 <div class="meter"><div id="enemyHpBar" class="meter-fill enemy"></div></div>
               </section>
-
-              <section id="timelinePanel" class="panel-block combat-hud-card timeline-strip-card" aria-hidden="true">
-                <div id="timelineStatus" class="timeline-status">未进入战斗时，时间轴将在遭遇战开始后显示。</div>
-                <div id="timelinePreview" class="timeline-preview timeline-preview-empty"></div>
-              </section>
             </div>
 
             <section id="actionPanel" class="panel-block combat-hud-card combat-action-dock" aria-hidden="true">
+              <section id="timelinePanel" class="timeline-rail-panel" aria-hidden="true">
+                <div id="timelineStatus" class="timeline-status">未进入战斗时，时间轴将在遭遇战开始后显示。</div>
+                <div id="timelinePreview" class="timeline-preview timeline-preview-empty"></div>
+              </section>
               <div id="actionHint" class="action-hint">等待接敌</div>
               <div class="action-menu is-hidden" id="actionMenu" aria-hidden="true">
                 <button id="btnBasicAttack" type="button" class="action-attack">普通攻击</button>
