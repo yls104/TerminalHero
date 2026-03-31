@@ -1,24 +1,32 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
   <defs>
-    <linearGradient id="cape" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#1d4ed8"/>
-      <stop offset="100%" stop-color="#0f172a"/>
+    <linearGradient id="player-bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#10263a"/>
+      <stop offset="100%" stop-color="#090f19"/>
     </linearGradient>
-    <linearGradient id="armor" x1="0" y1="0" x2="0" y2="1">
+    <linearGradient id="player-cloak" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#2563eb"/>
+      <stop offset="100%" stop-color="#172554"/>
+    </linearGradient>
+    <linearGradient id="player-armor" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0%" stop-color="#f8fafc"/>
       <stop offset="100%" stop-color="#94a3b8"/>
     </linearGradient>
   </defs>
-  <rect width="64" height="64" rx="14" fill="#071b2f"/>
-  <path d="M16 54C18 41 24 31 32 31C40 31 46 41 48 54Z" fill="url(#cape)"/>
-  <path d="M28 10L32 6L36 10L40 16L24 16Z" fill="#facc15"/>
-  <circle cx="32" cy="20" r="9" fill="#f5d0a9"/>
-  <path d="M22 52L25 33H39L42 52Z" fill="url(#armor)"/>
-  <path d="M25 36L32 29L39 36" fill="#38bdf8"/>
-  <rect x="29.5" y="33" width="5" height="17" rx="2.5" fill="#cbd5e1"/>
-  <path d="M42 26L48 20L52 24L45 31Z" fill="#e2e8f0"/>
-  <path d="M45 31L55 41" stroke="#7dd3fc" stroke-width="4" stroke-linecap="round"/>
-  <circle cx="29" cy="20" r="1.7" fill="#0f172a"/>
-  <circle cx="35" cy="20" r="1.7" fill="#0f172a"/>
-  <path d="M29 24C30.5 25.5 33.5 25.5 35 24" stroke="#7c2d12" stroke-width="1.7" stroke-linecap="round"/>
+  <rect width="64" height="64" rx="14" fill="url(#player-bg)"/>
+  <circle cx="32" cy="14" r="7" fill="#facc15" opacity="0.42"/>
+  <path d="M15 54C18 42 24 33 32 33C40 33 46 42 49 54Z" fill="url(#player-cloak)"/>
+  <path d="M24 51L27 29H37L40 51Z" fill="url(#player-armor)"/>
+  <path d="M24 30L32 23L40 30L36 35H28Z" fill="#dbeafe"/>
+  <path d="M28 9L32 5L36 9L41 17H23Z" fill="#facc15"/>
+  <circle cx="32" cy="20" r="8.5" fill="#f2c49d"/>
+  <path d="M27 21C28 18 30 16 32 16C34 16 36 18 37 21" stroke="#7c2d12" stroke-width="1.6" stroke-linecap="round" fill="none"/>
+  <circle cx="29" cy="20" r="1.4" fill="#111827"/>
+  <circle cx="35" cy="20" r="1.4" fill="#111827"/>
+  <path d="M29 25C30 26.2 34 26.2 35 25" stroke="#7c2d12" stroke-width="1.5" stroke-linecap="round"/>
+  <path d="M42 24L49 18L53 22L46 30Z" fill="#dbeafe"/>
+  <path d="M45.5 29L55 40" stroke="#7dd3fc" stroke-width="4" stroke-linecap="round"/>
+  <path d="M20 30L16 37L19 48L24 43L23 33Z" fill="#1d4ed8" opacity="0.85"/>
+  <path d="M40 31L45 37L43 47L38 42L39 33Z" fill="#0f766e" opacity="0.72"/>
+  <path d="M26 54H38" stroke="#cbd5e1" stroke-width="2" stroke-linecap="round" opacity="0.6"/>
 </svg>

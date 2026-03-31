@@ -107,6 +107,9 @@
     classResourceLabel: document.querySelector("#classResourceLabel"),
     classResourceValue: document.querySelector("#classResourceValue"),
     classResourceBar: document.querySelector("#classResourceBar"),
+    routeValue: document.querySelector("#routeValue"),
+    pressureValue: document.querySelector("#pressureValue"),
+    rewardValue: document.querySelector("#rewardValue"),
     pos: document.querySelector("#posValue"),
     sidePanel: document.querySelector(".side-panel"),
     statusList: document.querySelector(".status-list"),
@@ -1028,6 +1031,16 @@
     syncFloatingStatusHud();
   }
 
+  function syncJourneySignal(node, label, value) {
+    if (!node) {
+      return;
+    }
+    const visible = Boolean(value);
+    node.classList.toggle("is-hidden", !visible);
+    node.setAttribute("aria-hidden", visible ? "false" : "true");
+    node.textContent = visible ? (label + "：" + value) : "";
+  }
+
   function setExploreControlsVisible(visible) {
     if (!ui.virtualJoystick) {
       return;
@@ -1056,7 +1069,13 @@
       return;
     }
     const timelineView = createCombatTimelineViewModel(snapshot);
-    ui.timelinePanel.classList.toggle("is-hidden", false);
+    ui.timelinePanel.classList.toggle("is-hidden", !timelineView.visible);
+    if (!timelineView.visible) {
+      ui.timelineStatus.textContent = timelineView.statusText;
+      ui.timelinePreview.classList.add("timeline-preview-empty");
+      ui.timelinePreview.innerHTML = "";
+      return;
+    }
     ui.timelineStatus.textContent = timelineView.statusText;
     ui.timelinePreview.classList.toggle("timeline-preview-empty", !timelineView.entries.length);
     ui.timelinePreview.innerHTML = timelineView.entries.map(function mapEntry(entry) {
@@ -1181,6 +1200,9 @@
     ui.stageValue.textContent = hudView.stageText;
     ui.pos.textContent = hudView.positionText;
     ui.classSummary.textContent = hudView.classSummary;
+    syncJourneySignal(ui.routeValue, "路线", currentStageName === "azure_town" ? "城镇枢纽" : currentStageContent.routeLabel);
+    syncJourneySignal(ui.pressureValue, "压力", currentStageName === "azure_town" ? "" : currentStageContent.pressureLabel);
+    syncJourneySignal(ui.rewardValue, "奖励", currentStageName === "azure_town" ? "构筑整备" : currentStageContent.rewardLabel);
     ui.hpBar.style.width = hudView.hpPercent + "%";
     ui.mpBar.style.width = hudView.mpPercent + "%";
     ui.expBar.style.width = hudView.expPercent + "%";

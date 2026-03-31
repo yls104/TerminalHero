@@ -84,7 +84,23 @@
 
       <aside class="side-panel card">
         <section id="resourcePanel" class="panel-block">
-          <header class="panel-title small">资源</header>
+          <header class="panel-title small">远征摘要</header>
+          <div class="adventure-summary">
+            <div class="adventure-heading">
+              <div class="adventure-heading-main">
+                <span class="section-kicker">当前构筑</span>
+                <strong id="classValue" class="adventure-class">职业：-</strong>
+                <span id="stageValue" class="adventure-stage">区域：城镇</span>
+              </div>
+              <span id="posValue" class="position-pill">坐标：(1, 1)</span>
+            </div>
+            <div class="journey-signals">
+              <span id="routeValue" class="signal-chip route-chip is-hidden" aria-hidden="true">路线：-</span>
+              <span id="pressureValue" class="signal-chip pressure-chip is-hidden" aria-hidden="true">压力：-</span>
+              <span id="rewardValue" class="signal-chip reward-chip is-hidden" aria-hidden="true">奖励：-</span>
+            </div>
+            <div id="classSummary" class="class-summary">尚未选择职业。</div>
+          </div>
           <div class="resource-strip">
             <div class="resource-pill">
               <span>金币</span>
@@ -103,12 +119,31 @@
               <strong id="renownValue">0</strong>
             </div>
           </div>
-          <button id="btnDetailStats" type="button" class="detail-button">构筑详情</button>
-          <button id="btnSaveMenu" type="button" class="detail-button">存档管理</button>
+          <div class="utility-actions">
+            <button id="btnDetailStats" type="button" class="detail-button">构筑详情</button>
+            <button id="btnSaveMenu" type="button" class="detail-button">存档管理</button>
+          </div>
+        </section>
+
+        <section class="panel-block enemy-panel is-hidden" id="enemyPanel" aria-hidden="true">
+          <header class="panel-title small">敌情简报</header>
+          <div class="status-item">
+            <div class="status-head">
+              <span id="enemyName">-</span>
+              <strong id="enemyHpText">0 / 0</strong>
+            </div>
+            <div class="meter"><div id="enemyHpBar" class="meter-fill enemy"></div></div>
+          </div>
+        </section>
+
+        <section id="timelinePanel" class="panel-block">
+          <header class="panel-title small">战斗节奏</header>
+          <div id="timelineStatus" class="timeline-status">未进入战斗，时间轴将在遭遇战开始后显示。</div>
+          <div id="timelinePreview" class="timeline-preview timeline-preview-empty"></div>
         </section>
 
         <section id="actionPanel" class="panel-block">
-          <header class="panel-title small">行动菜单</header>
+          <header class="panel-title small">战斗指令</header>
           <div id="actionHint" class="action-hint">进入战斗后，这里会提示当前时间轴节奏与插入窗口。</div>
           <div class="action-menu is-hidden" id="actionMenu" aria-hidden="true">
             <button id="btnBasicAttack" type="button">普通攻击</button>
@@ -119,37 +154,10 @@
           </div>
         </section>
 
-        <section id="timelinePanel" class="panel-block">
-          <header class="panel-title small">行动序列</header>
-          <div id="timelineStatus" class="timeline-status">未进入战斗，时间轴将在遭遇战开始后显示。</div>
-          <div id="timelinePreview" class="timeline-preview timeline-preview-empty"></div>
-        </section>
-
-        <section id="classPanel" class="panel-block">
-          <header class="panel-title small">职业信息</header>
-          <div class="class-meta">
-            <span id="classValue">职业：-</span>
-            <span id="stageValue">区域：城镇</span>
-            <span id="posValue">坐标：(1, 1)</span>
-          </div>
-          <div id="classSummary" class="class-summary">尚未选择职业。</div>
-        </section>
-
-        <section class="panel-block enemy-panel is-hidden" id="enemyPanel" aria-hidden="true">
-          <header class="panel-title small">敌方信息</header>
-          <div class="status-item">
-            <div class="status-head">
-              <span id="enemyName">-</span>
-              <strong id="enemyHpText">0 / 0</strong>
-            </div>
-            <div class="meter"><div id="enemyHpBar" class="meter-fill enemy"></div></div>
-          </div>
-        </section>
-
         <section id="logPanel" class="panel-block">
           <div class="panel-title-row">
-            <header class="panel-title small">战斗日志</header>
-            <button id="btnOpenLog" type="button" class="mini-button">展开</button>
+            <header class="panel-title small">行军记录</header>
+            <button id="btnOpenLog" type="button" class="mini-button">完整日志</button>
           </div>
           <div id="battleLog" class="battle-log">
             <p>系统：冒险已经开始，当前处于探索状态。</p>
