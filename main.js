@@ -1186,16 +1186,16 @@
       return;
     }
     if (!snapshot || !snapshot.inCombat) {
-      ui.actionHint.textContent = "进入战斗后，这里会提示当前时间轴节奏与插入窗口。";
+      ui.actionHint.textContent = "等待接敌";
       return;
     }
     if (snapshot.insertWindow && snapshot.insertWindow.open) {
-      ui.actionHint.textContent = "终结技插入窗口已打开。你可以抢在敌人行动前改写顺序。";
+      ui.actionHint.textContent = "终结可插入";
       return;
     }
     ui.actionHint.textContent = snapshot.playerTurn
-      ? "当前轮到你行动。优先考虑延迟更短、能提前自身或延后敌人的技能。"
-      : "当前是敌方行动段。先观察时间轴，再准备下一个抢轴窗口。";
+      ? "你的回合"
+      : "敌方逼近";
   }
 
   function getPrimaryUltimateSkill() {
@@ -1226,6 +1226,7 @@
     }
 
     ui.btnUltimate.dataset.skillId = skill.id;
+    ui.btnUltimate.classList.add("action-ultimate");
     setActionButtonContent(ui.btnUltimate, skill.name, createCombatMenuTimingViewModel({ skill: skill, snapshot: snapshot }).metaText);
     ui.btnUltimate.title = skill.name + "：" + (skill.description || "等待插入窗口或己方行动时使用。");
     ui.btnUltimate.disabled = !canUseNow;
@@ -1243,8 +1244,8 @@
       skillMenuOpen = false;
     }
     setActionButtonContent(ui.btnBasicAttack, "普通攻击", createCombatMenuTimingViewModel({ skill: getResolvedSkill("attack"), snapshot: snapshot }).metaText);
-    setActionButtonContent(ui.btnSkillMenu, skillMenuOpen ? "收起技能" : "技能", "打开二级技能菜单，查看所有节奏型技能");
-    setActionButtonContent(ui.btnFlee, "撤退", "放弃当前战斗并保住本轮资源");
+    setActionButtonContent(ui.btnSkillMenu, skillMenuOpen ? "收起技能" : "技能", skillMenuOpen ? "折叠技能列" : "展开技能列");
+    setActionButtonContent(ui.btnFlee, "撤退", "脱离战斗");
     ui.btnBasicAttack.disabled = !enabled;
     ui.btnSkillMenu.disabled = !enabled;
     ui.btnFlee.disabled = !enabled;
@@ -2047,13 +2048,14 @@
       button.dataset.skillId = skill.id;
       const parts = ["消耗 " + skill.cost + " 法力"];
       if (skill.resourceCost && player.classResource && player.classResource.label) {
-        parts.push("消耗 " + skill.resourceCost + " " + player.classResource.shortLabel);
+        parts.push("耗 " + skill.resourceCost + player.classResource.shortLabel);
       } else if (skill.resourceGain && player.classResource && player.classResource.label) {
-        parts.push("生成 " + skill.resourceGain + " " + player.classResource.shortLabel);
+        parts.push("生 " + skill.resourceGain + player.classResource.shortLabel);
       }
+      parts.push(timingView.metaText);
+      button.classList.add("action-skill");
       button.innerHTML = "<span class=\"action-button-main\">" + skill.name + "</span>"
-        + "<span class=\"action-button-meta\">" + parts.join(" / ") + "</span>"
-        + "<span class=\"action-button-meta\">" + timingView.metaText + "</span>";
+        + "<span class=\"action-button-meta\">" + parts.filter(Boolean).join(" · ") + "</span>";
       button.title = skill.description;
       button.addEventListener("click", function onSkillClick() {
         onActionButton(skill.id);

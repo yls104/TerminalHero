@@ -183,10 +183,10 @@
     const queuePreview = Array.isArray(timeline.queuePreview) ? timeline.queuePreview.slice(0, 5) : [];
     const statusText = data.inCombat
       ? (data.insertWindow && data.insertWindow.open
-        ? "敌方即将行动，你可以插入终结技改写节奏。"
+        ? "终结可插入"
         : data.playerTurn
-          ? "当前轮到你行动，延迟更短的技能更容易更快回到行动位。"
-          : "敌方正在逼近行动位，观察下一个窗口并准备抢轴。")
+          ? "你的回合"
+          : "敌方逼近")
       : "未进入战斗，时间轴将在遭遇战开始后显示。";
 
     return {
@@ -197,8 +197,8 @@
         return {
           key: entry.unitId + "-" + index,
           label: entry.side === "player" ? "你" : entry.label,
-          badge: isCurrent ? "当前行动" : "第 " + (index + 1) + " 位",
-          meta: "速度 " + entry.speed + " / AV " + entry.currentAv + " / 基准 " + entry.baseAv,
+          badge: isCurrent ? "当前" : "序 " + (index + 1),
+          meta: "速度 " + entry.speed + " · AV " + entry.currentAv,
           sideClass: entry.side === "player" ? "is-player" : "is-enemy",
           isCurrent: isCurrent,
         };
@@ -216,27 +216,27 @@
       parts.push("延迟 " + skill.baseDelay);
     }
     if (skill.advanceSelf) {
-      parts.push("自身提前 " + skill.advanceSelf);
+      parts.push("抢轴 +" + skill.advanceSelf);
     }
     if (skill.delayTarget) {
-      parts.push("目标延后 " + skill.delayTarget);
+      parts.push("压制 +" + skill.delayTarget);
     }
     if (skill.ultimateChargeGain) {
       parts.push("终结 +" + skill.ultimateChargeGain);
     }
     if (skill.actionType === "ultimate" && typeof skill.ultimateChargeCost === "number") {
       const currentCharge = snapshot.ultimate ? snapshot.ultimate.current || 0 : 0;
-      parts.push("终结 -" + skill.ultimateChargeCost + "（当前 " + currentCharge + "）");
+      parts.push("耗 " + skill.ultimateChargeCost + "/" + currentCharge);
       if (snapshot.insertWindow && snapshot.insertWindow.open) {
         parts.push("可插入");
       }
     }
     if (!parts.length) {
-      parts.push("稳定推进");
+      parts.push("稳");
     }
 
     return {
-      metaText: parts.join(" / "),
+      metaText: parts.join(" · "),
     };
   }
 

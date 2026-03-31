@@ -159,9 +159,14 @@ button,
 }
 
 .combat-action-dock {
-  width: min(100%, 760px);
+  width: min(100%, 688px);
   margin: 0 auto;
-  padding: 10px 12px;
+  padding: 8px 10px;
+  border-color: rgba(216, 178, 108, 0.28);
+  background:
+    linear-gradient(180deg, rgba(24, 16, 26, 0.94), rgba(10, 8, 14, 0.9)),
+    linear-gradient(135deg, rgba(216, 178, 108, 0.08), transparent 54%);
+  box-shadow: 0 18px 32px rgba(0, 0, 0, 0.24);
 }
 
 .mobile-explore-hud,
@@ -834,19 +839,18 @@ body.mobile-side-panel-open .mobile-explore-hud {
 }
 
 .combat-hud-layer .action-menu button {
-  min-height: 54px;
-  padding: 10px 10px 9px;
-  border-radius: 10px;
-  background: linear-gradient(180deg, rgba(39, 58, 121, 0.98), rgba(17, 33, 84, 0.98));
-  box-shadow: 0 10px 24px rgba(7, 10, 24, 0.22);
+  min-height: 46px;
+  padding: 8px 9px 7px;
+  border-radius: 12px;
+  box-shadow: 0 12px 22px rgba(7, 10, 24, 0.18);
 }
 
 .combat-hud-layer .action-button-main {
-  font-size: 0.82rem;
+  font-size: 0.8rem;
 }
 
 .combat-hud-layer .action-button-meta {
-  font-size: 0.64rem;
+  font-size: 0.58rem;
 }
 
 .combat-hud-layer .timeline-preview {
@@ -855,8 +859,8 @@ body.mobile-side-panel-open .mobile-explore-hud {
 }
 
 .combat-hud-layer .timeline-chip {
-  min-height: 44px;
-  padding: 6px 7px;
+  min-height: 38px;
+  padding: 5px 7px;
 }
 
 .combat-hud-layer .timeline-chip-head {
@@ -864,31 +868,38 @@ body.mobile-side-panel-open .mobile-explore-hud {
 }
 
 .combat-hud-layer .timeline-chip-meta {
-  font-size: 0.56rem;
+  font-size: 0.52rem;
 }
 
 .combat-hud-layer .timeline-status {
   margin: 0;
-  font-size: 0.66rem;
-  color: #cde8e4;
+  font-size: 0.58rem;
+  color: #d7d1c6;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .combat-hud-layer .action-hint {
-  margin: 0 0 8px;
-  padding: 6px 10px;
-  font-size: 0.68rem;
-  background: rgba(12, 36, 39, 0.48);
+  margin: 0 auto 6px;
+  padding: 4px 10px;
+  min-height: 24px;
+  width: fit-content;
+  max-width: 100%;
+  font-size: 0.58rem;
+  border-color: rgba(216, 178, 108, 0.18);
+  background: rgba(32, 23, 20, 0.6);
 }
 
 .action-hint {
   margin: 0 0 8px;
-  padding: 10px 12px;
+  padding: 6px 10px;
   border: 1px solid rgba(120, 200, 191, 0.14);
-  border-radius: 10px;
+  border-radius: 999px;
   background: rgba(12, 36, 39, 0.34);
-  color: #d8d4cd;
-  font-size: 0.76rem;
-  line-height: 1.45;
+  color: #f2dfbf;
+  font-size: 0.68rem;
+  line-height: 1.2;
+  text-align: center;
 }
 
 .skill-buttons {
@@ -907,30 +918,49 @@ body.mobile-side-panel-open .mobile-explore-hud {
 
 .action-menu button {
   display: grid;
-  gap: 3px;
+  gap: 2px;
   align-items: start;
   text-align: left;
-  border: 1px solid #1d4ed8;
-  border-radius: 8px;
-  background: #1e3a8a;
-  color: #dbeafe;
-  padding: 10px 12px;
+  border: 1px solid rgba(51, 65, 85, 0.86);
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(31, 41, 55, 0.94), rgba(15, 23, 42, 0.96));
+  color: #e5eefc;
+  padding: 8px 10px;
   min-height: 44px;
   font-family: inherit;
   cursor: pointer;
-  transition: transform 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
+  transition: transform 0.16s ease, box-shadow 0.16s ease, background 0.16s ease, border-color 0.16s ease;
 }
 
 .action-menu button:hover:not(:disabled) {
   transform: translateY(-1px);
-  background: #1d4ed8;
-  box-shadow: 0 10px 18px rgba(29, 78, 216, 0.25);
+  box-shadow: 0 10px 18px rgba(15, 23, 42, 0.28);
 }
 
 .action-menu button.is-insert-window:not(:disabled) {
   border-color: #f59e0b;
   background: linear-gradient(180deg, #9a3412, #7c2d12);
   box-shadow: 0 0 0 1px rgba(251, 191, 36, 0.18), 0 10px 22px rgba(124, 45, 18, 0.28);
+}
+
+.action-menu button.action-attack {
+  border-color: rgba(239, 68, 68, 0.42);
+  background: linear-gradient(180deg, rgba(127, 29, 29, 0.95), rgba(69, 10, 10, 0.96));
+}
+
+.action-menu button.action-skill {
+  border-color: rgba(56, 189, 248, 0.36);
+  background: linear-gradient(180deg, rgba(18, 66, 109, 0.95), rgba(11, 36, 74, 0.96));
+}
+
+.action-menu button.action-ultimate {
+  border-color: rgba(245, 158, 11, 0.42);
+  background: linear-gradient(180deg, rgba(146, 64, 14, 0.95), rgba(120, 53, 15, 0.96));
+}
+
+.action-menu button.action-flee {
+  border-color: rgba(148, 163, 184, 0.34);
+  background: linear-gradient(180deg, rgba(51, 65, 85, 0.94), rgba(30, 41, 59, 0.96));
 }
 
 .action-menu button:disabled {
@@ -942,13 +972,14 @@ body.mobile-side-panel-open .mobile-explore-hud {
   display: block;
   font-size: 0.88rem;
   font-weight: 700;
+  letter-spacing: 0.02em;
 }
 
 .action-button-meta {
   display: block;
-  color: #bfdbfe;
-  font-size: 0.7rem;
-  line-height: 1.35;
+  color: rgba(225, 236, 255, 0.82);
+  font-size: 0.66rem;
+  line-height: 1.2;
 }
 
 .timeline-status {
@@ -969,11 +1000,11 @@ body.mobile-side-panel-open .mobile-explore-hud {
 
 .timeline-chip {
   display: grid;
-  gap: 3px;
-  padding: 8px 10px;
+  gap: 2px;
+  padding: 7px 9px;
   border: 1px solid rgba(120, 200, 191, 0.18);
   border-radius: 10px;
-  background: rgba(12, 29, 34, 0.66);
+  background: rgba(12, 29, 34, 0.58);
 }
 
 .timeline-chip.is-current {
@@ -993,15 +1024,15 @@ body.mobile-side-panel-open .mobile-explore-hud {
 .timeline-chip-head {
   display: flex;
   justify-content: space-between;
-  gap: 8px;
+  gap: 6px;
   color: #fcf7ef;
-  font-size: 0.78rem;
+  font-size: 0.72rem;
 }
 
 .timeline-chip-meta {
   color: #b7c9c6;
-  font-size: 0.68rem;
-  line-height: 1.35;
+  font-size: 0.6rem;
+  line-height: 1.15;
 }
 
 .timeline-chip-badge {
@@ -1406,17 +1437,17 @@ body.mobile-side-panel-open .mobile-explore-hud {
 
   .combat-hud-layer .action-menu button,
   .combat-hud-layer .timeline-chip {
-    min-height: 34px;
-    padding: 5px 6px;
+    min-height: 32px;
+    padding: 4px 5px;
   }
 
   .combat-hud-layer .action-button-main {
-    font-size: 0.62rem;
+    font-size: 0.6rem;
   }
 
   .combat-hud-layer .action-button-meta,
   .combat-hud-layer .timeline-chip-meta {
-    font-size: 0.5rem;
+    font-size: 0.46rem;
   }
 
   .combat-hud-layer .timeline-preview {
@@ -1428,7 +1459,8 @@ body.mobile-side-panel-open .mobile-explore-hud {
   .enemy-strip-card,
   .timeline-strip-card,
   .combat-action-dock {
-    padding: 6px;
+    width: min(100%, 100%);
+    padding: 5px 6px;
   }
 
   .combat-strip-label {
@@ -1440,7 +1472,7 @@ body.mobile-side-panel-open .mobile-explore-hud {
   .combat-strip-sub,
   .combat-hud-layer .timeline-status,
   .combat-hud-layer .action-hint {
-    font-size: 0.54rem;
+    font-size: 0.48rem;
   }
 
   .combat-hud-layer .timeline-chip-head {
@@ -1449,25 +1481,25 @@ body.mobile-side-panel-open .mobile-explore-hud {
 
   .action-hint,
   .timeline-status {
-    padding: 4px 6px;
-    font-size: 0.58rem;
+    padding: 3px 6px;
+    font-size: 0.52rem;
     margin-bottom: 4px;
   }
 
   .action-menu button {
-    min-height: 32px;
-    padding: 5px 7px;
-    font-size: 0.62rem;
+    min-height: 30px;
+    padding: 4px 6px;
+    font-size: 0.58rem;
     gap: 2px;
   }
 
   .action-button-main {
-    font-size: 0.66rem;
+    font-size: 0.6rem;
   }
 
   .action-button-meta,
   .timeline-chip-meta {
-    font-size: 0.52rem;
+    font-size: 0.46rem;
   }
 
   .timeline-preview {
@@ -1655,7 +1687,7 @@ body.mobile-side-panel-open .mobile-explore-hud {
 
   .combat-hud-layer .action-menu button,
   .combat-hud-layer .timeline-chip {
-    min-height: 30px;
+    min-height: 28px;
   }
 
   .combat-top-strip {
