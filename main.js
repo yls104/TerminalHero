@@ -2416,6 +2416,7 @@
       "守门人",
       "选择章节路线",
       "每次进入关卡都会重新生成地图、精英和事件节点。清光小怪与精英后，Boss 传送门才会开启；章节开放还会受到城镇声望推进影响。"
+        + "<p class=\"overlay-inline-note\">Boss 传送门会直接显现，你可以随时进入首领房。</p>"
         + renderStageSelectionBriefing()
         + showChoiceButtons(choices),
       "留下",
@@ -2452,7 +2453,7 @@
     setCombatBanner(true, "首领来袭");
     pulseFlash();
     shakeCanvas();
-    showOverlay("警告", meta.bossLabel || "Boss 房", "你已经清空当前关卡的小怪，真正的首领战现在开始。", "迎战", function confirmBoss() {
+    showOverlay("警告", meta.bossLabel || "Boss 房", "真正的首领战现在开始。你可以选择直面首领，也可以先在区域里积累优势再来。", "迎战", function confirmBoss() {
       hideOverlay();
       bossIntroTimeout = window.setTimeout(function startBoss() {
         if (combatController) {

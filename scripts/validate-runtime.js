@@ -126,6 +126,54 @@ function createBrowserContext() {
   return vm.createContext(context);
 }
 
+function collectReachableKeys(mapData, start, wallTile) {
+  const visited = {};
+  const queue = [{ x: start.x, y: start.y }];
+  visited[start.x + "," + start.y] = true;
+
+  while (queue.length) {
+    const current = queue.shift();
+    [
+      { x: current.x + 1, y: current.y },
+      { x: current.x - 1, y: current.y },
+      { x: current.x, y: current.y + 1 },
+      { x: current.x, y: current.y - 1 },
+    ].forEach(function each(next) {
+      const row = mapData[next.y];
+      const key = next.x + "," + next.y;
+      if (!row || visited[key] || row[next.x] === wallTile) {
+        return;
+      }
+      visited[key] = true;
+      queue.push(next);
+    });
+  }
+
+  return visited;
+}
+
+function validateStageGeneration(stageApi, tileMap) {
+  const fieldStages = ["verdant_grove", "sunken_archive", "ember_hollow"];
+  fieldStages.forEach(function eachStage(stageId) {
+    for (let index = 0; index < 24; index += 1) {
+      const stage = stageApi.createStageInstance(stageId, {});
+      const reachable = collectReachableKeys(stage.map, stage.start, tileMap.WALL);
+
+      assert(stage.portalPos, stageId + " 缺少 Boss 传送门位置");
+      assert(stage.map[stage.portalPos.y][stage.portalPos.x] === tileMap.PORTAL, stageId + " 的 Boss 传送门未直接显示");
+      assert(reachable[stage.portalPos.x + "," + stage.portalPos.y], stageId + " 的 Boss 传送门不可达");
+
+      Object.keys(stage.encounters || {}).forEach(function eachEncounter(position) {
+        assert(reachable[position], stageId + " 出现不可达的敌人刷点：" + position);
+      });
+
+      Object.keys(stage.events || {}).forEach(function eachEvent(position) {
+        assert(reachable[position], stageId + " 出现不可达的事件节点：" + position);
+      });
+    }
+  });
+}
+
 function validateDataAndViewModels() {
   const context = createBrowserContext();
   loadScriptIntoContext(context, "combat-io.js");
@@ -142,6 +190,7 @@ function validateDataAndViewModels() {
   const viewApi = context.window.GameViewModels;
   const saveApi = context.window.GameSaveSystem;
   const timelineApi = context.window.CombatTimeline;
+  const tileMap = context.window.GameMap.TILE;
   assert(combatApi && typeof combatApi.createCombatController === "function", "combat.js 必须暴露 createCombatController");
 
   assert(stageApi && typeof stageApi.createStageProgress === "function", "stage-data.js 未暴露 createStageProgress");
@@ -150,6 +199,8 @@ function validateDataAndViewModels() {
   assert(viewApi && typeof viewApi.createCombatTimelineViewModel === "function", "view-models.js 未暴露 createCombatTimelineViewModel");
   assert(viewApi && typeof viewApi.createCombatMenuTimingViewModel === "function", "view-models.js 未暴露 createCombatMenuTimingViewModel");
   assert(Array.isArray(stageApi.CHAPTERS) && stageApi.CHAPTERS.length >= 3, "章节配置未正确暴露");
+
+  validateStageGeneration(stageApi, tileMap);
 
   const attackSkill = entitiesApi.getResolvedSkill("attack");
   assert(typeof attackSkill.baseDelay === "number", "技能解析未补齐 baseDelay");

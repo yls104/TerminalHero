@@ -43,7 +43,7 @@
       label: "青藤密林",
       bossLabel: "狼王巢穴",
       description: "地形会在林地中随机生长，敌人偏向突袭与中毒。",
-      bossDescription: "只有扫清林地里的小怪，狼王巢穴才会开放。",
+      bossDescription: "狼王巢穴的传送门会直接显现，你可以随时决定先清场还是直面首领。",
       assetTheme: "verdant_grove",
       layoutProfile: "grove_clearings",
       routeLabel: "开阔林间与多岔清剿",
@@ -64,7 +64,7 @@
       label: "沉没书库",
       bossLabel: "封印藏室",
       description: "断墙和走廊会随机重组，敌人偏向法术骚扰与拖节奏。",
-      bossDescription: "清掉书库守卫后，通往封印藏室的法阵才会出现。",
+      bossDescription: "通往封印藏室的法阵会直接显现，你可以先闯首领，也可以先处理守卫。",
       assetTheme: "sunken_archive",
       layoutProfile: "archive_corridors",
       routeLabel: "回廊接房间 / 视野压迫",
@@ -85,7 +85,7 @@
       label: "余烬裂谷",
       bossLabel: "熔核祭坛",
       description: "炽热地脉会在每次进入时改变路线，怪物伤害更高更凶。",
-      bossDescription: "只有扫平裂谷里的余烬军团，熔核祭坛的大门才会开启。",
+      bossDescription: "熔核祭坛的大门会直接开启，你可以自由决定何时挑战暴君。",
       assetTheme: "ember_hollow",
       layoutProfile: "ember_chokepoints",
       routeLabel: "主脉冲锋 / 狭路决战",
@@ -1091,6 +1091,42 @@
     return Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
   }
 
+  function isGenerationWalkable(mapData, x, y) {
+    return Boolean(mapData[y]) && mapData[y][x] !== TILE.WALL;
+  }
+
+  function collectReachableFloorCells(mapData, start) {
+    const visited = {};
+    const queue = [{ x: start.x, y: start.y }];
+    const reachable = [];
+    visited[positionKey(start.x, start.y)] = true;
+
+    while (queue.length) {
+      const current = queue.shift();
+      const directions = [
+        { x: current.x + 1, y: current.y },
+        { x: current.x - 1, y: current.y },
+        { x: current.x, y: current.y + 1 },
+        { x: current.x, y: current.y - 1 },
+      ];
+
+      if (mapData[current.y] && mapData[current.y][current.x] === TILE.FLOOR) {
+        reachable.push({ x: current.x, y: current.y });
+      }
+
+      directions.forEach(function eachDirection(next) {
+        const key = positionKey(next.x, next.y);
+        if (visited[key] || !isGenerationWalkable(mapData, next.x, next.y)) {
+          return;
+        }
+        visited[key] = true;
+        queue.push(next);
+      });
+    }
+
+    return reachable;
+  }
+
   function chooseDistantFloor(cells, start, blocked) {
     const blockedKeys = blocked || {};
     const candidates = cells
@@ -1150,7 +1186,7 @@
     const mapData = layout.map;
     const start = layout.start;
 
-    const floors = collectFloorCells(mapData);
+    const floors = collectReachableFloorCells(mapData, start);
     const blocked = {};
     blocked[positionKey(start.x, start.y)] = true;
 
@@ -1162,12 +1198,13 @@
 
     const portalPos = chooseDistantFloor(floors, start, blocked);
     if (portalPos) {
+      mapData[portalPos.y][portalPos.x] = TILE.PORTAL;
       blocked[positionKey(portalPos.x, portalPos.y)] = true;
     }
 
     const encounterPool = {};
     const eventNodes = {};
-    const spawnCount = Math.min(randInt(meta.enemyCount[0], meta.enemyCount[1]), floors.length - 3);
+    const spawnCount = Math.max(0, Math.min(randInt(meta.enemyCount[0], meta.enemyCount[1]), floors.length - 3));
     const enemySpawns = chooseEnemySpawns(floors, start, spawnCount, blocked);
     enemySpawns.forEach(function spawnEnemy(cell) {
       mapData[cell.y][cell.x] = TILE.ENEMY;
