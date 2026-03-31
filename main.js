@@ -602,6 +602,7 @@
     updateSkillMenuVisibility();
     renderSkillButtons();
     setGameState(GAME_STATE.EXPLORE);
+    ensureFieldPortalVisible();
     syncStatusPanel();
     return { ok: true };
   }
@@ -1175,8 +1176,9 @@
         classes.push("is-current");
       }
       return "<div class=\"" + classes.join(" ") + "\">"
-        + "<div class=\"timeline-chip-head\"><strong>" + entry.label + "</strong><span class=\"timeline-chip-badge\">" + entry.badge + "</span></div>"
-        + "<div class=\"timeline-chip-meta\">" + entry.meta + "</div>"
+        + "<span class=\"timeline-chip-order\">" + entry.badge + "</span>"
+        + "<strong class=\"timeline-chip-name\" title=\"" + entry.meta + "\">" + entry.label + "</strong>"
+        + "<span class=\"timeline-chip-av\">" + entry.avText + "</span>"
         + "</div>";
     }).join("");
   }
@@ -1595,9 +1597,13 @@
 
     movementState.active = false;
     clearHeldMoveKeys();
+    ensureFieldPortalVisible();
     syncStatusPanel();
     if (stageName !== "azure_town" && currentStageMode === "field") {
       appendLog("区域简报：" + [currentStageContent.routeLabel, currentStageContent.pressureLabel, currentStageContent.rewardLabel].filter(Boolean).join(" / ") + "。");
+      if (currentPortalPos) {
+        appendLog("Boss 传送门已显现，你可以随时进入首领房。");
+      }
     }
   }
 
@@ -1615,6 +1621,15 @@
 
   function countRemainingHostiles() {
     return countTiles(TILE.ENEMY) + countTiles(TILE.ELITE);
+  }
+
+  function ensureFieldPortalVisible() {
+    if (currentStageName === "azure_town" || currentStageMode !== "field" || !currentPortalPos) {
+      return;
+    }
+    if (currentMap[currentPortalPos.y] && currentMap[currentPortalPos.y][currentPortalPos.x] !== TILE.PORTAL) {
+      currentMap[currentPortalPos.y][currentPortalPos.x] = TILE.PORTAL;
+    }
   }
 
   function showChoiceButtons(choices) {

@@ -198,6 +198,7 @@
           key: entry.unitId + "-" + index,
           label: entry.side === "player" ? "你" : entry.label,
           badge: isCurrent ? "当前" : "序 " + (index + 1),
+          avText: "AV " + entry.currentAv,
           meta: "速度 " + entry.speed + " · AV " + entry.currentAv,
           sideClass: entry.side === "player" ? "is-player" : "is-enemy",
           isCurrent: isCurrent,
