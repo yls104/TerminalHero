@@ -62,6 +62,37 @@
               </div>
             </div>
           </section>
+          <div id="combatHudLayer" class="combat-hud-layer is-hidden" aria-hidden="true">
+            <section id="actionPanel" class="panel-block combat-hud-card">
+              <header class="panel-title small">战斗指令</header>
+              <div id="actionHint" class="action-hint">进入战斗后，这里会提示当前时间轴节奏与插入窗口。</div>
+              <div class="action-menu is-hidden" id="actionMenu" aria-hidden="true">
+                <button id="btnBasicAttack" type="button">普通攻击</button>
+                <button id="btnSkillMenu" type="button">技能</button>
+                <div id="skillButtons" class="skill-buttons is-hidden"></div>
+                <button id="btnUltimate" type="button">终结技</button>
+                <button id="btnFlee" type="button">撤退</button>
+              </div>
+            </section>
+            <div class="combat-info-row">
+              <section class="panel-block enemy-panel is-hidden combat-hud-card" id="enemyPanel" aria-hidden="true">
+                <header class="panel-title small">敌情简报</header>
+                <div class="status-item">
+                  <div class="status-head">
+                    <span id="enemyName">-</span>
+                    <strong id="enemyHpText">0 / 0</strong>
+                  </div>
+                  <div class="meter"><div id="enemyHpBar" class="meter-fill enemy"></div></div>
+                </div>
+              </section>
+
+              <section id="timelinePanel" class="panel-block combat-hud-card">
+                <header class="panel-title small">战斗节奏</header>
+                <div id="timelineStatus" class="timeline-status">未进入战斗，时间轴将在遭遇战开始后显示。</div>
+                <div id="timelinePreview" class="timeline-preview timeline-preview-empty"></div>
+              </section>
+            </div>
+          </div>
           <div id="screenFlash" class="screen-flash is-hidden" aria-hidden="true"></div>
           <div id="sceneOverlay" class="scene-overlay is-hidden" aria-hidden="true">
             <div class="scene-overlay-card">
@@ -122,35 +153,6 @@
           <div class="utility-actions">
             <button id="btnDetailStats" type="button" class="detail-button">构筑详情</button>
             <button id="btnSaveMenu" type="button" class="detail-button">存档管理</button>
-          </div>
-        </section>
-
-        <section class="panel-block enemy-panel is-hidden" id="enemyPanel" aria-hidden="true">
-          <header class="panel-title small">敌情简报</header>
-          <div class="status-item">
-            <div class="status-head">
-              <span id="enemyName">-</span>
-              <strong id="enemyHpText">0 / 0</strong>
-            </div>
-            <div class="meter"><div id="enemyHpBar" class="meter-fill enemy"></div></div>
-          </div>
-        </section>
-
-        <section id="timelinePanel" class="panel-block">
-          <header class="panel-title small">战斗节奏</header>
-          <div id="timelineStatus" class="timeline-status">未进入战斗，时间轴将在遭遇战开始后显示。</div>
-          <div id="timelinePreview" class="timeline-preview timeline-preview-empty"></div>
-        </section>
-
-        <section id="actionPanel" class="panel-block">
-          <header class="panel-title small">战斗指令</header>
-          <div id="actionHint" class="action-hint">进入战斗后，这里会提示当前时间轴节奏与插入窗口。</div>
-          <div class="action-menu is-hidden" id="actionMenu" aria-hidden="true">
-            <button id="btnBasicAttack" type="button">普通攻击</button>
-            <button id="btnSkillMenu" type="button">技能</button>
-            <div id="skillButtons" class="skill-buttons is-hidden"></div>
-            <button id="btnUltimate" type="button">终结技</button>
-            <button id="btnFlee" type="button">撤退</button>
           </div>
         </section>
 

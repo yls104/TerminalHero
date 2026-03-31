@@ -93,6 +93,29 @@ button,
     linear-gradient(180deg, rgba(23, 18, 28, 0.78), rgba(8, 6, 12, 0.95));
 }
 
+.combat-hud-layer {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  right: 12px;
+  z-index: 6;
+  display: grid;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.combat-info-row {
+  display: grid;
+  grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+  gap: 8px;
+}
+
+.combat-hud-card {
+  pointer-events: auto;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.28);
+}
+
 .floating-status-panel {
   position: absolute;
   top: 14px;
@@ -424,6 +447,24 @@ button,
   box-shadow: inset 0 1px 0 rgba(255, 244, 223, 0.03);
 }
 
+body.combat-mode .layout {
+  grid-template-columns: minmax(0, 1fr);
+  max-width: 1100px;
+}
+
+body.combat-mode .side-panel {
+  display: none;
+}
+
+body.combat-mode .game-area > .panel-title,
+body.combat-mode .hint {
+  display: none;
+}
+
+body.combat-mode .canvas-wrap {
+  min-height: min(78dvh, 820px);
+}
+
 .adventure-summary {
   display: grid;
   gap: 10px;
@@ -663,6 +704,68 @@ button,
 .action-menu {
   display: grid;
   gap: 8px;
+}
+
+.combat-hud-layer #actionPanel .panel-title,
+.combat-hud-layer .action-hint,
+.combat-hud-layer #timelinePanel .panel-title,
+.combat-hud-layer .timeline-status,
+.combat-hud-layer #enemyPanel .panel-title {
+  display: none;
+}
+
+.combat-hud-layer .action-menu {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.combat-hud-layer .skill-buttons {
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 0;
+}
+
+.combat-hud-layer .action-menu button {
+  min-height: 58px;
+  padding: 10px 10px 9px;
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(39, 58, 121, 0.98), rgba(17, 33, 84, 0.98));
+  box-shadow: 0 10px 24px rgba(7, 10, 24, 0.22);
+}
+
+.combat-hud-layer .action-button-main {
+  font-size: 0.82rem;
+}
+
+.combat-hud-layer .action-button-meta {
+  font-size: 0.64rem;
+}
+
+.combat-hud-layer #enemyPanel .status-item,
+.combat-hud-layer #timelinePanel {
+  min-height: 0;
+}
+
+.combat-hud-layer #enemyPanel .status-item {
+  background: rgba(56, 21, 27, 0.72);
+}
+
+.combat-hud-layer .timeline-preview {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.combat-hud-layer .timeline-chip {
+  min-height: 58px;
+  padding: 8px 8px 7px;
+}
+
+.combat-hud-layer .timeline-chip-head {
+  font-size: 0.72rem;
+}
+
+.combat-hud-layer .timeline-chip-meta {
+  font-size: 0.6rem;
 }
 
 .action-hint {
@@ -1045,6 +1148,15 @@ button,
     overflow: hidden;
   }
 
+  body.combat-mode .layout {
+    grid-template-columns: 1fr;
+    max-width: none;
+  }
+
+  body.combat-mode .game-area {
+    padding: 4px;
+  }
+
   .side-panel > .panel-title {
     display: none;
   }
@@ -1127,6 +1239,52 @@ button,
     gap: 4px;
     flex: 0 0 auto;
     align-content: start;
+  }
+
+  .combat-hud-layer {
+    top: 6px;
+    left: 6px;
+    right: 6px;
+    gap: 6px;
+  }
+
+  .combat-info-row {
+    grid-template-columns: minmax(108px, 128px) minmax(0, 1fr);
+    gap: 6px;
+  }
+
+  .combat-hud-layer .action-menu {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 4px;
+  }
+
+  .combat-hud-layer .skill-buttons {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 4px;
+  }
+
+  .combat-hud-layer .action-menu button,
+  .combat-hud-layer .timeline-chip {
+    min-height: 34px;
+    padding: 5px 6px;
+  }
+
+  .combat-hud-layer .action-button-main {
+    font-size: 0.62rem;
+  }
+
+  .combat-hud-layer .action-button-meta,
+  .combat-hud-layer .timeline-chip-meta {
+    font-size: 0.5rem;
+  }
+
+  .combat-hud-layer .timeline-preview {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 4px;
+  }
+
+  .combat-hud-layer .timeline-chip-head {
+    font-size: 0.56rem;
   }
 
   .action-hint,
@@ -1337,6 +1495,11 @@ button,
 
   .scene-overlay-card {
     max-height: min(88dvh, 286px);
+  }
+
+  .combat-hud-layer .action-menu button,
+  .combat-hud-layer .timeline-chip {
+    min-height: 30px;
   }
 
   .side-panel {

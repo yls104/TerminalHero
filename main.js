@@ -118,6 +118,7 @@
     mobileHudDock: document.querySelector("#mobileHudDock"),
     statusToggle: document.querySelector("#statusToggle"),
     floatingStatusPanel: document.querySelector("#floatingStatusPanel"),
+    combatHudLayer: document.querySelector("#combatHudLayer"),
     btnCloseStatusPanel: document.querySelector("#btnCloseStatusPanel"),
     hpBar: document.querySelector("#hpBar"),
     mpBar: document.querySelector("#mpBar"),
@@ -1029,6 +1030,23 @@
       return;
     }
     syncFloatingStatusHud();
+  }
+
+  function shouldUseCombatLayout(state) {
+    return state === GAME_STATE.COMBAT || state === GAME_STATE.BOSS_INTRO || state === GAME_STATE.GAME_OVER;
+  }
+
+  function syncCombatLayout(state) {
+    const layoutState = state || getGameState();
+    const combatLayout = shouldUseCombatLayout(layoutState);
+    document.body.classList.toggle("combat-mode", combatLayout);
+    if (ui.combatHudLayer) {
+      ui.combatHudLayer.classList.toggle("is-hidden", !combatLayout);
+      ui.combatHudLayer.setAttribute("aria-hidden", combatLayout ? "false" : "true");
+    }
+    if (ui.sidePanel) {
+      ui.sidePanel.setAttribute("aria-hidden", combatLayout ? "true" : "false");
+    }
   }
 
   function syncJourneySignal(node, label, value) {
@@ -2750,6 +2768,7 @@
     } else {
       setExploreControlsVisible(false);
     }
+    syncCombatLayout(nextState);
   });
 
   if (typeof gameStateStore.subscribeInvalid === "function") {
@@ -2904,6 +2923,7 @@
     bindStaticButtons();
     bindTouchControls();
     syncResponsiveHudLayout();
+    syncCombatLayout(getGameState());
     setFloatingStatusPanelVisible(false);
     loadStage("azure_town");
     renderSkillButtons();
