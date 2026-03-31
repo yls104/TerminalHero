@@ -95,25 +95,73 @@ button,
 
 .combat-hud-layer {
   position: absolute;
-  top: 12px;
-  left: 12px;
-  right: 12px;
+  inset: 10px;
   z-index: 6;
-  display: grid;
-  gap: 8px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
   pointer-events: none;
 }
 
-.combat-info-row {
+.combat-top-strip {
   display: grid;
-  grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+  width: min(100%, 920px);
+  margin: 0 auto;
+  grid-template-columns: minmax(156px, 196px) minmax(176px, 220px) minmax(220px, 320px);
   gap: 8px;
+  align-items: start;
+  justify-content: center;
 }
 
 .combat-hud-card {
   pointer-events: auto;
   backdrop-filter: blur(10px);
   box-shadow: 0 14px 28px rgba(0, 0, 0, 0.28);
+}
+
+.combat-strip-label {
+  color: #d8b26c;
+  font-size: 0.66rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.combat-strip-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.combat-strip-name {
+  color: #fff4df;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.combat-strip-sub {
+  color: #b9aa9a;
+  font-size: 0.72rem;
+}
+
+.combat-strip-value {
+  color: #ebf8f6;
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+
+.player-combat-panel,
+.enemy-strip-card,
+.timeline-strip-card {
+  display: grid;
+  gap: 6px;
+  padding: 8px 10px;
+}
+
+.combat-action-dock {
+  width: min(100%, 760px);
+  margin: 0 auto;
+  padding: 10px 12px;
 }
 
 .floating-status-panel {
@@ -224,32 +272,6 @@ button,
   box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
   padding: 22px 20px;
   text-align: center;
-}
-
-.overlay-close-button {
-  position: sticky;
-  top: 0;
-  margin-left: auto;
-  margin-bottom: 10px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid rgba(148, 163, 184, 0.32);
-  border-radius: 999px;
-  background: rgba(2, 6, 23, 0.88);
-  color: #e2e8f0;
-  min-height: 32px;
-  padding: 4px 12px;
-  font-size: 0.72rem;
-  font-family: inherit;
-  cursor: pointer;
-  z-index: 1;
-}
-
-.overlay-close-button:hover,
-.overlay-close-button:focus-visible {
-  border-color: rgba(34, 211, 238, 0.62);
-  color: #f8fafc;
 }
 
 .overlay-eyebrow {
@@ -463,6 +485,12 @@ body.combat-mode .hint {
 
 body.combat-mode .canvas-wrap {
   min-height: min(78dvh, 820px);
+}
+
+body.combat-mode .hud-toggle,
+body.combat-mode .floating-status-panel,
+body.combat-mode .combat-banner {
+  display: none !important;
 }
 
 .adventure-summary {
@@ -706,14 +734,6 @@ body.combat-mode .canvas-wrap {
   gap: 8px;
 }
 
-.combat-hud-layer #actionPanel .panel-title,
-.combat-hud-layer .action-hint,
-.combat-hud-layer #timelinePanel .panel-title,
-.combat-hud-layer .timeline-status,
-.combat-hud-layer #enemyPanel .panel-title {
-  display: none;
-}
-
 .combat-hud-layer .action-menu {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
@@ -726,7 +746,7 @@ body.combat-mode .canvas-wrap {
 }
 
 .combat-hud-layer .action-menu button {
-  min-height: 58px;
+  min-height: 54px;
   padding: 10px 10px 9px;
   border-radius: 10px;
   background: linear-gradient(180deg, rgba(39, 58, 121, 0.98), rgba(17, 33, 84, 0.98));
@@ -741,31 +761,35 @@ body.combat-mode .canvas-wrap {
   font-size: 0.64rem;
 }
 
-.combat-hud-layer #enemyPanel .status-item,
-.combat-hud-layer #timelinePanel {
-  min-height: 0;
-}
-
-.combat-hud-layer #enemyPanel .status-item {
-  background: rgba(56, 21, 27, 0.72);
-}
-
 .combat-hud-layer .timeline-preview {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 6px;
 }
 
 .combat-hud-layer .timeline-chip {
-  min-height: 58px;
-  padding: 8px 8px 7px;
+  min-height: 44px;
+  padding: 6px 7px;
 }
 
 .combat-hud-layer .timeline-chip-head {
-  font-size: 0.72rem;
+  font-size: 0.68rem;
 }
 
 .combat-hud-layer .timeline-chip-meta {
-  font-size: 0.6rem;
+  font-size: 0.56rem;
+}
+
+.combat-hud-layer .timeline-status {
+  margin: 0;
+  font-size: 0.66rem;
+  color: #cde8e4;
+}
+
+.combat-hud-layer .action-hint {
+  margin: 0 0 8px;
+  padding: 6px 10px;
+  font-size: 0.68rem;
+  background: rgba(12, 36, 39, 0.48);
 }
 
 .action-hint {
@@ -1242,14 +1266,13 @@ body.combat-mode .canvas-wrap {
   }
 
   .combat-hud-layer {
-    top: 6px;
-    left: 6px;
-    right: 6px;
+    inset: 6px;
     gap: 6px;
   }
 
-  .combat-info-row {
-    grid-template-columns: minmax(108px, 128px) minmax(0, 1fr);
+  .combat-top-strip {
+    width: min(100%, 100%);
+    grid-template-columns: minmax(92px, 112px) minmax(102px, 126px) minmax(0, 1fr);
     gap: 6px;
   }
 
@@ -1281,6 +1304,25 @@ body.combat-mode .canvas-wrap {
   .combat-hud-layer .timeline-preview {
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 4px;
+  }
+
+  .player-combat-panel,
+  .enemy-strip-card,
+  .timeline-strip-card,
+  .combat-action-dock {
+    padding: 6px;
+  }
+
+  .combat-strip-label {
+    font-size: 0.48rem;
+  }
+
+  .combat-strip-name,
+  .combat-strip-value,
+  .combat-strip-sub,
+  .combat-hud-layer .timeline-status,
+  .combat-hud-layer .action-hint {
+    font-size: 0.54rem;
   }
 
   .combat-hud-layer .timeline-chip-head {
@@ -1500,6 +1542,11 @@ body.combat-mode .canvas-wrap {
   .combat-hud-layer .action-menu button,
   .combat-hud-layer .timeline-chip {
     min-height: 30px;
+  }
+
+  .combat-top-strip {
+    width: min(100%, 100%);
+    grid-template-columns: minmax(86px, 96px) minmax(96px, 106px) minmax(0, 1fr);
   }
 
   .side-panel {

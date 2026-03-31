@@ -62,9 +62,41 @@
               </div>
             </div>
           </section>
+
           <div id="combatHudLayer" class="combat-hud-layer is-hidden" aria-hidden="true">
-            <section id="actionPanel" class="panel-block combat-hud-card">
-              <header class="panel-title small">战斗指令</header>
+            <div class="combat-top-strip">
+              <section id="playerCombatPanel" class="panel-block combat-hud-card player-combat-panel">
+                <div class="combat-strip-label">我方</div>
+                <div class="combat-strip-main">
+                  <span class="combat-strip-name">冒险者</span>
+                  <span id="combatPlayerHp" class="combat-strip-value">HP 100 / 100</span>
+                </div>
+                <div class="combat-strip-main">
+                  <span class="combat-strip-sub">法力</span>
+                  <span id="combatPlayerMp" class="combat-strip-value">MP 20 / 20</span>
+                </div>
+                <div id="combatPlayerResourceRow" class="combat-strip-main is-hidden" aria-hidden="true">
+                  <span id="combatPlayerResourceLabel" class="combat-strip-sub">资源</span>
+                  <span id="combatPlayerResourceValue" class="combat-strip-value">0 / 0</span>
+                </div>
+              </section>
+
+              <section class="panel-block enemy-panel is-hidden combat-hud-card enemy-strip-card" id="enemyPanel" aria-hidden="true">
+                <div class="combat-strip-label">敌情</div>
+                <div class="combat-strip-main">
+                  <span id="enemyName" class="combat-strip-name">-</span>
+                  <strong id="enemyHpText" class="combat-strip-value">0 / 0</strong>
+                </div>
+                <div class="meter"><div id="enemyHpBar" class="meter-fill enemy"></div></div>
+              </section>
+
+              <section id="timelinePanel" class="panel-block combat-hud-card timeline-strip-card" aria-hidden="true">
+                <div id="timelineStatus" class="timeline-status">未进入战斗时，时间轴将在遭遇战开始后显示。</div>
+                <div id="timelinePreview" class="timeline-preview timeline-preview-empty"></div>
+              </section>
+            </div>
+
+            <section id="actionPanel" class="panel-block combat-hud-card combat-action-dock" aria-hidden="true">
               <div id="actionHint" class="action-hint">进入战斗后，这里会提示当前时间轴节奏与插入窗口。</div>
               <div class="action-menu is-hidden" id="actionMenu" aria-hidden="true">
                 <button id="btnBasicAttack" type="button">普通攻击</button>
@@ -74,29 +106,11 @@
                 <button id="btnFlee" type="button">撤退</button>
               </div>
             </section>
-            <div class="combat-info-row">
-              <section class="panel-block enemy-panel is-hidden combat-hud-card" id="enemyPanel" aria-hidden="true">
-                <header class="panel-title small">敌情简报</header>
-                <div class="status-item">
-                  <div class="status-head">
-                    <span id="enemyName">-</span>
-                    <strong id="enemyHpText">0 / 0</strong>
-                  </div>
-                  <div class="meter"><div id="enemyHpBar" class="meter-fill enemy"></div></div>
-                </div>
-              </section>
-
-              <section id="timelinePanel" class="panel-block combat-hud-card">
-                <header class="panel-title small">战斗节奏</header>
-                <div id="timelineStatus" class="timeline-status">未进入战斗，时间轴将在遭遇战开始后显示。</div>
-                <div id="timelinePreview" class="timeline-preview timeline-preview-empty"></div>
-              </section>
-            </div>
           </div>
+
           <div id="screenFlash" class="screen-flash is-hidden" aria-hidden="true"></div>
           <div id="sceneOverlay" class="scene-overlay is-hidden" aria-hidden="true">
             <div class="scene-overlay-card">
-              <button id="overlayCloseButton" type="button" class="overlay-close-button" aria-label="关闭浮层">关闭</button>
               <p id="overlayEyebrow" class="overlay-eyebrow">终端勇者</p>
               <h2 id="overlayTitle" class="overlay-title">胜利</h2>
               <p id="overlayText" class="overlay-text">阶段结果展示</p>
@@ -104,6 +118,7 @@
             </div>
           </div>
         </div>
+
         <div id="virtualJoystick" class="virtual-joystick is-hidden" aria-hidden="true">
           <div id="joystickBase" class="joystick-base" aria-label="虚拟摇杆">
             <div id="joystickKnob" class="joystick-knob"></div>

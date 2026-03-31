@@ -146,11 +146,15 @@
     overlayEyebrow: document.querySelector("#overlayEyebrow"),
     overlayTitle: document.querySelector("#overlayTitle"),
     overlayText: document.querySelector("#overlayText"),
-    overlayCloseButton: document.querySelector("#overlayCloseButton"),
     overlayButton: document.querySelector("#overlayButton"),
     btnDetailStats: document.querySelector("#btnDetailStats"),
     btnSaveMenu: document.querySelector("#btnSaveMenu"),
     btnOpenLog: document.querySelector("#btnOpenLog"),
+    combatPlayerHp: document.querySelector("#combatPlayerHp"),
+    combatPlayerMp: document.querySelector("#combatPlayerMp"),
+    combatPlayerResourceRow: document.querySelector("#combatPlayerResourceRow"),
+    combatPlayerResourceLabel: document.querySelector("#combatPlayerResourceLabel"),
+    combatPlayerResourceValue: document.querySelector("#combatPlayerResourceValue"),
     virtualJoystick: document.querySelector("#virtualJoystick"),
     joystickBase: document.querySelector("#joystickBase"),
     joystickKnob: document.querySelector("#joystickKnob"),
@@ -1040,6 +1044,9 @@
     const layoutState = state || getGameState();
     const combatLayout = shouldUseCombatLayout(layoutState);
     document.body.classList.toggle("combat-mode", combatLayout);
+    if (combatLayout) {
+      setFloatingStatusPanelVisible(false);
+    }
     if (ui.combatHudLayer) {
       ui.combatHudLayer.classList.toggle("is-hidden", !combatLayout);
       ui.combatHudLayer.setAttribute("aria-hidden", combatLayout ? "false" : "true");
@@ -1088,6 +1095,7 @@
     }
     const timelineView = createCombatTimelineViewModel(snapshot);
     ui.timelinePanel.classList.toggle("is-hidden", !timelineView.visible);
+    ui.timelinePanel.setAttribute("aria-hidden", timelineView.visible ? "false" : "true");
     if (!timelineView.visible) {
       ui.timelineStatus.textContent = timelineView.statusText;
       ui.timelinePreview.classList.add("timeline-preview-empty");
@@ -1162,6 +1170,7 @@
   function setActionMenu(visible, enabled, snapshot) {
     if (ui.actionPanel) {
       ui.actionPanel.classList.toggle("is-hidden", !visible);
+      ui.actionPanel.setAttribute("aria-hidden", visible ? "false" : "true");
     }
     ui.actionMenu.classList.toggle("is-hidden", !visible);
     ui.actionMenu.setAttribute("aria-hidden", visible ? "false" : "true");
@@ -1187,9 +1196,11 @@
     const enemyView = createEnemyViewModel(enemy);
     if (!enemyView.visible) {
       ui.enemyPanel.classList.add("is-hidden");
+      ui.enemyPanel.setAttribute("aria-hidden", "true");
       return;
     }
     ui.enemyPanel.classList.remove("is-hidden");
+    ui.enemyPanel.setAttribute("aria-hidden", "false");
     ui.enemyName.textContent = enemyView.name;
     ui.enemyHpText.textContent = enemyView.hpText;
     ui.enemyHpBar.style.width = enemyView.hpPercent + "%";
@@ -1218,6 +1229,18 @@
     ui.stageValue.textContent = hudView.stageText;
     ui.pos.textContent = hudView.positionText;
     ui.classSummary.textContent = hudView.classSummary;
+    if (ui.combatPlayerHp) {
+      ui.combatPlayerHp.textContent = "HP " + hudView.hpText;
+    }
+    if (ui.combatPlayerMp) {
+      ui.combatPlayerMp.textContent = "MP " + hudView.mpText;
+    }
+    if (ui.combatPlayerResourceRow && ui.combatPlayerResourceLabel && ui.combatPlayerResourceValue) {
+      ui.combatPlayerResourceRow.classList.toggle("is-hidden", !hudView.classResourceVisible);
+      ui.combatPlayerResourceRow.setAttribute("aria-hidden", hudView.classResourceVisible ? "false" : "true");
+      ui.combatPlayerResourceLabel.textContent = hudView.classResourceLabel;
+      ui.combatPlayerResourceValue.textContent = hudView.classResourceText;
+    }
     syncJourneySignal(ui.routeValue, "路线", currentStageName === "azure_town" ? "城镇枢纽" : currentStageContent.routeLabel);
     syncJourneySignal(ui.pressureValue, "压力", currentStageName === "azure_town" ? "" : currentStageContent.pressureLabel);
     syncJourneySignal(ui.rewardValue, "奖励", currentStageName === "azure_town" ? "构筑整备" : currentStageContent.rewardLabel);
@@ -2072,7 +2095,7 @@
       }).join("")
       + "</div>";
 
-    showOverlay("职业导师", "城镇建设", "把多轮冒险带回来的沉淀投入城镇，才能让后续远征越打越顺。" + detailsHtml + showChoiceButtons(choices), "离开", hideOverlay);
+    showOverlay("职业导师", "城镇建设", "把多轮冒险带回来的沉淀投入城镇，才能让后续远征越打越顺。" + detailsHtml + showChoiceButtons(choices), "返回导师", hideOverlay);
     bindOverlayChoices(choices);
   }
 
@@ -2142,7 +2165,7 @@
       { label: "强化法力（消耗 1 技能点）", onClick: function spendMp() { handleSpendSkillPoint("maxMp", "法力上限提升。"); } },
     ];
 
-    showOverlay("职业导师", "分配成长", "导师会帮你重选职业、分配属性成长，或者沿着职业专精继续深化这套 build。" + showChoiceButtons(choices), "离开", hideOverlay);
+    showOverlay("职业导师", "分配成长", "导师会帮你重选职业、分配属性成长，或者沿着职业专精继续深化这套 build。" + showChoiceButtons(choices), "返回城镇", hideOverlay);
     bindOverlayChoices(choices);
   }
 
@@ -2250,7 +2273,7 @@
       { label: "查看构筑详情", onClick: showDetailStatsOverlay },
     ];
 
-    showOverlay("补给商人", "军备整备", "想让 build 长成型，就要同时看装备词条、成长方向和当前强化资源。" + showChoiceButtons(choices), "离开", hideOverlay);
+    showOverlay("补给商人", "军备整备", "想让 build 长成型，就要同时看装备词条、成长方向和当前强化资源。" + showChoiceButtons(choices), "返回城镇", hideOverlay);
     bindOverlayChoices(choices);
   }
 
@@ -2590,9 +2613,6 @@
         hideOverlay();
       }
     });
-    if (ui.overlayCloseButton) {
-      ui.overlayCloseButton.addEventListener("click", hideOverlay);
-    }
     if (ui.btnDetailStats) {
       ui.btnDetailStats.addEventListener("click", showDetailStatsOverlay);
     }
