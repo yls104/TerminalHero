@@ -219,6 +219,9 @@ function validateDataAndViewModels() {
   const attackSkill = entitiesApi.getResolvedSkill("attack");
   const slashSkill = entitiesApi.getResolvedSkill("slash");
   const executionSealSkill = entitiesApi.getResolvedSkill("execution_seal");
+  assert(entitiesApi.classes.warrior && entitiesApi.classes.warrior.selectable !== false, "战士应保持为当前可选职业");
+  assert(entitiesApi.classes.mage && entitiesApi.classes.mage.selectable === false, "法师应在职业重构阶段被禁用");
+  assert(entitiesApi.classes.rogue && entitiesApi.classes.rogue.refactorLabel === "重构中", "其它职业应标记为重构中");
   assert(typeof attackSkill.baseDelay === "number", "技能解析未补齐 baseDelay");
   assert(typeof attackSkill.advanceSelf === "number", "技能解析未补齐 advanceSelf");
   assert(typeof attackSkill.delayTarget === "number", "技能解析未补齐 delayTarget");

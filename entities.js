@@ -95,6 +95,10 @@ const classes = {
   warrior: {
     id: "warrior",
     name: "战士",
+    selectable: true,
+    refactorStatus: "active",
+    refactorLabel: "重构试行",
+    refactorSummary: "当前职业系统重构从战士开始，优先验证压制、失衡、处决与资源窗口的统一承接。",
     description: "高生命高爆发，适合硬碰硬。",
     buildNote: "通过压制值堆高重击窗口，适合走爆发终结路线。",
     statBonus: { maxHp: 28, maxMp: -4, attack: 5, defense: 3, speed: -1 },
@@ -105,6 +109,10 @@ const classes = {
   mage: {
     id: "mage",
     name: "法师",
+    selectable: false,
+    refactorStatus: "refactoring",
+    refactorLabel: "重构中",
+    refactorSummary: "法师将围绕慢轴高收益、反蓄力与终结插入重做，暂时关闭选择入口。",
     description: "法力充足，技能爆发很强，但比较脆。",
     buildNote: "通过过载层数把回蓝和高耗法术串成完整爆发循环。",
     statBonus: { maxHp: -10, maxMp: 20, attack: 1, defense: -1, speed: 0 },
@@ -115,6 +123,10 @@ const classes = {
   ranger: {
     id: "ranger",
     name: "游侠",
+    selectable: false,
+    refactorStatus: "refactoring",
+    refactorLabel: "重构中",
+    refactorSummary: "游侠将围绕抢轴、持续压制与拉扯收割重做，暂时关闭选择入口。",
     description: "节奏灵活，擅长持续输出与消耗。",
     buildNote: "围绕专注值安排挂毒、拉扯与箭雨收割，适合长期压制。",
     statBonus: { maxHp: 4, maxMp: 6, attack: 3, defense: 0, speed: 2 },
@@ -125,6 +137,10 @@ const classes = {
   cleric: {
     id: "cleric",
     name: "牧师",
+    selectable: false,
+    refactorStatus: "refactoring",
+    refactorLabel: "重构中",
+    refactorSummary: "牧师将围绕恢复转收益、稳态推进与审判收尾重做，暂时关闭选择入口。",
     description: "回复能力最稳，容错极高。",
     buildNote: "通过恢复与庇护积攒审判印记，再用圣裁打出稳定收尾。",
     statBonus: { maxHp: 10, maxMp: 14, attack: 0, defense: 1, speed: 0 },
@@ -135,6 +151,10 @@ const classes = {
   rogue: {
     id: "rogue",
     name: "盗贼",
+    selectable: false,
+    refactorStatus: "refactoring",
+    refactorLabel: "重构中",
+    refactorSummary: "盗贼将围绕多动、斩杀阈值与连续行动重做，暂时关闭选择入口。",
     description: "高速度高爆发，适合先手压制。",
     buildNote: "围绕连击点与先手收益设计斩杀节奏，适合抓窗口爆发。",
     statBonus: { maxHp: -4, maxMp: 4, attack: 4, defense: 0, speed: 4 },
@@ -145,6 +165,10 @@ const classes = {
   paladin: {
     id: "paladin",
     name: "圣骑士",
+    selectable: false,
+    refactorStatus: "refactoring",
+    refactorLabel: "重构中",
+    refactorSummary: "圣骑士将围绕稳态防反、失衡处决与誓能循环重做，暂时关闭选择入口。",
     description: "半坦半奶，适合稳定推进 Boss 战。",
     buildNote: "通过神圣充能在稳态推进中酝酿防反爆发，适合 Boss 战。",
     statBonus: { maxHp: 20, maxMp: 8, attack: 3, defense: 4, speed: -1 },
@@ -155,6 +179,10 @@ const classes = {
   druid: {
     id: "druid",
     name: "德鲁伊",
+    selectable: false,
+    refactorStatus: "refactoring",
+    refactorLabel: "重构中",
+    refactorSummary: "德鲁伊将围绕状态轮转、资源转化与节奏拉扯重做，暂时关闭选择入口。",
     description: "持续恢复和防守兼备，擅长拉长战线。",
     buildNote: "利用自然印记维持持续恢复与护甲，再在窗口中转化收益。",
     statBonus: { maxHp: 12, maxMp: 12, attack: 1, defense: 2, speed: 1 },
@@ -696,6 +724,9 @@ function refreshBuildSnapshot() {
 function applyClassToPlayer(classId) {
   const classDef = classes[classId];
   if (!classDef) {
+    return false;
+  }
+  if (classDef.selectable === false) {
     return false;
   }
   resetPlayerToTemplate();

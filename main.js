@@ -1795,7 +1795,10 @@
 
   function showChoiceButtons(choices) {
     const buttonsHtml = choices.map(function mapChoice(choice, index) {
-      return "<button type=\"button\" class=\"overlay-button overlay-choice\" data-choice-index=\"" + index + "\">" + choice.label + "</button>";
+      const buttonClass = "overlay-button overlay-choice" + (choice.disabled ? " is-disabled" : "");
+      const disabledAttr = choice.disabled ? " disabled aria-disabled=\"true\"" : "";
+      const metaHtml = choice.meta ? "<span class=\"overlay-choice-meta\">" + choice.meta + "</span>" : "";
+      return "<button type=\"button\" class=\"" + buttonClass + "\" data-choice-index=\"" + index + "\"" + disabledAttr + ">" + choice.label + metaHtml + "</button>";
     }).join("");
     return "<div class=\"class-pick-list\">" + buttonsHtml + "</div>";
   }
@@ -1803,6 +1806,9 @@
   function bindOverlayChoices(choices) {
     Array.from(document.querySelectorAll(".overlay-choice")).forEach(function bindChoice(button) {
       button.addEventListener("click", function onChoice() {
+        if (button.disabled) {
+          return;
+        }
         const choice = choices[Number(button.dataset.choiceIndex)];
         if (choice && choice.onClick) {
           choice.onClick();
@@ -2243,10 +2249,17 @@
 
   function showClassSelectionOverlay() {
     const choices = Object.keys(classes).map(function mapClass(classId) {
+      const classDef = classes[classId];
       return {
-        label: classes[classId].name,
+        label: classDef.name + (classDef.refactorLabel ? "（" + classDef.refactorLabel + "）" : ""),
+        meta: classDef.refactorSummary || classDef.description || "",
+        disabled: classDef.selectable === false,
         onClick: function choose() {
-          applyClassToPlayer(classId);
+          const applied = applyClassToPlayer(classId);
+          if (!applied) {
+            showNotice("蔚蓝城镇", "暂不可选", (classDef.refactorSummary || (classDef.name + " 当前正在重构。")) + " 目前请先体验战士重构版。", "返回职业列表", showClassSelectionOverlay);
+            return;
+          }
           applyTownUpgradeBonusesToPlayer();
           renderSkillButtons();
           syncStatusPanel();
@@ -2257,7 +2270,7 @@
       };
     });
 
-    showOverlay("蔚蓝城镇", "选择职业", "先选一个职业，马上开始这轮远征。" + showChoiceButtons(choices), "关闭", hideOverlay);
+    showOverlay("蔚蓝城镇", "选择职业", "职业系统已进入重构阶段，当前优先开放战士重构试行版。其余职业会在完成与新战斗系统的适配后逐步恢复选择。" + showChoiceButtons(choices), "关闭", hideOverlay);
     bindOverlayChoices(choices);
   }
 
