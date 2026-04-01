@@ -25,6 +25,11 @@
     return clamp(Math.round(power * 2 + delayBonus + advanceBonus + ultimateBonus), 1, 12);
   }
 
+  function formatPercentRatio(value) {
+    const ratio = Math.max(0, Number(value) || 0);
+    return Math.round(ratio * 100) + "%";
+  }
+
   function createHudViewModel(input) {
     const data = input || {};
     const player = data.player || {};
@@ -319,6 +324,8 @@
     const skill = data.skill || {};
     const snapshot = data.snapshot || {};
     const parts = [];
+    const basePoiseDamage = inferPoiseDamage(skill);
+    const chargingPoiseDamage = basePoiseDamage + Math.max(0, Number(skill.poiseBonusVsCharging || 0));
 
     if (typeof skill.baseDelay === "number") {
       parts.push("延迟 " + skill.baseDelay);
@@ -329,11 +336,17 @@
     if (skill.delayTarget) {
       parts.push("压制 +" + skill.delayTarget);
     }
-    if (inferPoiseDamage(skill)) {
-      parts.push("韧性 -" + inferPoiseDamage(skill));
+    if (basePoiseDamage) {
+      parts.push("韧性 -" + basePoiseDamage);
     }
-    if (snapshot.enemyPressure && snapshot.enemyPressure.chargeLevel > 0 && inferPoiseDamage(skill) > 0) {
-      parts.push(inferPoiseDamage(skill) >= (snapshot.enemyPressure.poiseCurrent || 0) ? "可打断" : "可压制");
+    if (skill.bonusVsChargingRatio) {
+      parts.push("蓄力特攻 +" + formatPercentRatio(skill.bonusVsChargingRatio));
+    }
+    if (skill.breakBonusDamageRatio || skill.bonusVsBrokenRatio) {
+      parts.push("处决 +" + formatPercentRatio((Number(skill.breakBonusDamageRatio) || 0) + (Number(skill.bonusVsBrokenRatio) || 0)));
+    }
+    if (snapshot.enemyPressure && snapshot.enemyPressure.chargeLevel > 0 && chargingPoiseDamage > 0) {
+      parts.push(chargingPoiseDamage >= (snapshot.enemyPressure.poiseCurrent || 0) ? "可打断" : "可压制");
     }
     if (skill.ultimateChargeGain) {
       parts.push("终结 +" + skill.ultimateChargeGain);

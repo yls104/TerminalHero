@@ -343,6 +343,12 @@ function testPressureAxisFoundation(context, apis) {
   });
   assert(slashTimingView.metaText.includes("韧性 -"), "技能菜单未展示韧性削减信息");
 
+  const ultimateTimingView = viewApi.createCombatMenuTimingViewModel({
+    skill: entitiesApi.getResolvedUltimateSkills()[0],
+    snapshot: beforeBreak,
+  });
+  assert(ultimateTimingView.metaText.includes("处决 +"), "终结技菜单未展示处决收益信息");
+
   const primaryUltimate = entitiesApi.getResolvedUltimateSkills()[0];
   const usedUltimate = combatController.playerAction("ultimate:" + primaryUltimate.id);
   assert(usedUltimate, "压制轴专项测试中未能成功施放终结技");
@@ -418,7 +424,7 @@ function testChargeInterruptFlow(context, apis) {
       assetKey: "enemy",
       encounterType: "normal",
       dropTableId: "field_default",
-      poiseMax: 2,
+      poiseMax: 6,
     },
   });
   assert(started, "蓄力打断专项测试未能成功启动");
@@ -446,14 +452,15 @@ function testChargeInterruptFlow(context, apis) {
   });
   assert(enemyView.chargeText.indexOf("可打断") !== -1, "敌情面板未提示蓄力动作可打断");
 
-  const attackTimingView = viewApi.createCombatMenuTimingViewModel({
-    skill: entitiesApi.getResolvedSkill("attack"),
+  const slashTimingView = viewApi.createCombatMenuTimingViewModel({
+    skill: entitiesApi.getResolvedSkill("slash"),
     snapshot: chargedState,
   });
-  assert(attackTimingView.metaText.indexOf("可打断") !== -1, "技能按钮未在蓄力阶段提示可打断");
+  assert(slashTimingView.metaText.indexOf("蓄力特攻") !== -1, "技能按钮未展示对蓄力目标的额外收益");
+  assert(slashTimingView.metaText.indexOf("可打断") !== -1, "技能按钮未在蓄力阶段提示可打断");
 
-  const usedAttack = combatController.playerAction("attack");
-  assert(usedAttack, "玩家未能在蓄力阶段出手");
+  const usedSlash = combatController.playerAction("slash");
+  assert(usedSlash, "玩家未能在蓄力阶段出手");
 
   const afterInterrupt = combatController.getState();
   assert(afterInterrupt.enemyPressure && afterInterrupt.enemyPressure.executionReady, "打断后敌方未进入失衡窗口");

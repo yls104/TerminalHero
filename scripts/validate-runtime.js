@@ -217,9 +217,13 @@ function validateDataAndViewModels() {
   validateStageGeneration(stageApi, tileMap);
 
   const attackSkill = entitiesApi.getResolvedSkill("attack");
+  const slashSkill = entitiesApi.getResolvedSkill("slash");
+  const executionSealSkill = entitiesApi.getResolvedSkill("execution_seal");
   assert(typeof attackSkill.baseDelay === "number", "技能解析未补齐 baseDelay");
   assert(typeof attackSkill.advanceSelf === "number", "技能解析未补齐 advanceSelf");
   assert(typeof attackSkill.delayTarget === "number", "技能解析未补齐 delayTarget");
+  assert(slashSkill.bonusVsChargingRatio > 0, "裂风斩未接入对蓄力目标的额外收益");
+  assert(executionSealSkill.bonusVsBrokenRatio > 0, "处决印记未接入失衡处决收益");
 
   const timeline = timelineApi.createTimelineState({
     actors: [
@@ -251,6 +255,22 @@ function validateDataAndViewModels() {
     },
   });
   assert(menuTimingView.metaText.includes("延迟"), "战斗菜单节奏视图模型未展示延迟信息");
+  const chargeTimingView = viewApi.createCombatMenuTimingViewModel({
+    skill: slashSkill,
+    snapshot: {
+      enemyPressure: {
+        chargeLevel: 1,
+        poiseCurrent: 6,
+      },
+    },
+  });
+  assert(chargeTimingView.metaText.includes("蓄力特攻"), "技能菜单未展示蓄力特攻信息");
+  assert(chargeTimingView.metaText.includes("可打断"), "技能菜单未根据额外韧性收益提示可打断");
+  const executionTimingView = viewApi.createCombatMenuTimingViewModel({
+    skill: executionSealSkill,
+    snapshot: {},
+  });
+  assert(executionTimingView.metaText.includes("处决 +"), "技能菜单未展示处决收益信息");
   entitiesApi.applyClassToPlayer("warrior");
   entitiesApi.player.level = 3;
   entitiesApi.player.classResource.current = entitiesApi.player.classResource.max;

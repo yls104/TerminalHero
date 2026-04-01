@@ -247,6 +247,9 @@ function createCombatController(options) {
       delayTarget: Math.max(0, toNumber(timing.delayTarget, 0)),
       poiseDamage: inferPoiseDamage(timing),
       breakBonusDamageRatio: Math.max(0, toNumber(timing.breakBonusDamageRatio, timing.actionType === "ultimate" ? 0.28 : 0.18)),
+      bonusVsChargingRatio: Math.max(0, toNumber(timing.bonusVsChargingRatio, 0)),
+      bonusVsBrokenRatio: Math.max(0, toNumber(timing.bonusVsBrokenRatio, 0)),
+      poiseBonusVsCharging: Math.max(0, toNumber(timing.poiseBonusVsCharging, 0)),
       interruptCharge: timing.interruptCharge !== false && inferPoiseDamage(timing) > 0,
       grantsExecutionWindow: timing.grantsExecutionWindow !== false,
     };
@@ -564,25 +567,44 @@ function createCombatController(options) {
     return true;
   }
 
-  function getBreakDamageMultiplier(targetSide, actionContext) {
+  function getPressureDamageProfile(targetSide, actionContext) {
     const pressureState = getPressureStateForSide(targetSide);
-    if (!pressureState || !pressureState.executionReady) {
-      return 1;
+    const profile = {
+      multiplier: 1,
+      poiseBonus: 0,
+      broken: false,
+      charging: false,
+    };
+    if (!pressureState || !actionContext) {
+      return profile;
     }
-    return 1 + Math.max(0, toNumber(actionContext && actionContext.breakBonusDamageRatio, 0.18));
+    if (pressureState.executionReady) {
+      profile.broken = true;
+      profile.multiplier *= 1 + Math.max(0, toNumber(actionContext.breakBonusDamageRatio, 0.18));
+      profile.multiplier *= 1 + Math.max(0, toNumber(actionContext.bonusVsBrokenRatio, 0));
+    }
+    if (pressureState.chargeLevel > 0) {
+      profile.charging = true;
+      profile.multiplier *= 1 + Math.max(0, toNumber(actionContext.bonusVsChargingRatio, 0));
+      profile.poiseBonus += Math.max(0, toNumber(actionContext.poiseBonusVsCharging, 0));
+    }
+    return profile;
   }
 
   function resolveDamageAgainstSide(targetSide, rawDamage, actionContext) {
-    return Math.max(1, Math.round(rawDamage * getBreakDamageMultiplier(targetSide, actionContext)));
+    const profile = getPressureDamageProfile(targetSide, actionContext);
+    return Math.max(1, Math.round(rawDamage * profile.multiplier));
   }
 
   function applyPressureDamageToSide(targetSide, actionContext) {
-    if (!actionContext || !actionContext.poiseDamage) {
+    const profile = getPressureDamageProfile(targetSide, actionContext);
+    const totalPoiseDamage = Math.max(0, toNumber(actionContext && actionContext.poiseDamage, 0) + profile.poiseBonus);
+    if (!actionContext || !totalPoiseDamage) {
       return { applied: 0, broken: false };
     }
     const targetPressure = getPressureStateForSide(targetSide);
     const targetLabel = getUnitLabel(targetSide);
-    const outcome = applyPoiseDamage(targetPressure, actionContext.poiseDamage, {
+    const outcome = applyPoiseDamage(targetPressure, totalPoiseDamage, {
       sourceUnitId: actionContext.sourceUnitId,
     });
     if (outcome.broken) {
@@ -1189,16 +1211,27 @@ function createCombatController(options) {
     return false;
   }
 
-  function logPressureWindowHit(targetSide, multiplier) {
-    if (multiplier <= 1) {
+  function logPressureWindowHit(targetSide, profile) {
+    if (!profile || profile.multiplier <= 1) {
       return;
     }
-    log(getUnitLabel(targetSide) + " 处于失衡，承受了更重的打击。", {
-      type: "pressure_window",
-      source: targetSide === "enemy" ? "player" : "enemy",
-      emphasis: true,
-      turn: "pressure",
-    });
+    if (profile.broken) {
+      log(getUnitLabel(targetSide) + " 处于失衡，承受了更重的打击。", {
+        type: "pressure_window",
+        source: targetSide === "enemy" ? "player" : "enemy",
+        emphasis: true,
+        turn: "pressure",
+      });
+      return;
+    }
+    if (profile.charging) {
+      log(getUnitLabel(targetSide) + " 在蓄力破绽中吃下了更重的打击。", {
+        type: "pressure_charge_hit",
+        source: targetSide === "enemy" ? "player" : "enemy",
+        emphasis: true,
+        turn: "pressure",
+      });
+    }
   }
 
   function enterActiveTurn(initial) {
@@ -1384,10 +1417,10 @@ function createCombatController(options) {
       if (skill.bonusFirst && isPlayerTurn()) {
         power += skill.bonusFirst;
       }
-      const pressureMultiplier = getBreakDamageMultiplier("enemy", actionContext);
+      const pressureProfile = getPressureDamageProfile("enemy", actionContext);
       const rawDamage = resolveDamageAgainstSide("enemy", rollDamage(attackValue, power, currentEnemy.defense, rand), actionContext);
       const dealt = applyDamageToTarget(currentEnemy, enemyStatus, rawDamage);
-      logPressureWindowHit("enemy", pressureMultiplier);
+      logPressureWindowHit("enemy", pressureProfile);
       log((isUltimateAction ? "你插入施放了 " : "你使用了 ") + skill.name + "，对 " + currentEnemy.name + " 造成 " + dealt + " 点伤害。", {
         type: isUltimateAction ? "ultimate_action" : "player_action",
         source: "player",
@@ -1417,10 +1450,10 @@ function createCombatController(options) {
       log("你施放了 " + skill.name + "，恢复了法力。", { type: isUltimateAction ? "ultimate_action" : "player_action", source: "player", emphasis: isUltimateAction, turn: "player" });
       actionContext.targetUnitId = "player";
     } else if (skill.effect === "poison") {
-      const pressureMultiplier = getBreakDamageMultiplier("enemy", actionContext);
+      const pressureProfile = getPressureDamageProfile("enemy", actionContext);
       const rawDamage = resolveDamageAgainstSide("enemy", rollDamage(attackValue, skill.power || 1, currentEnemy.defense, rand), actionContext);
       const dealt = applyDamageToTarget(currentEnemy, enemyStatus, rawDamage);
-      logPressureWindowHit("enemy", pressureMultiplier);
+      logPressureWindowHit("enemy", pressureProfile);
       enemyStatus.poisonTurns = skill.poisonTurns || 2;
       enemyStatus.poisonDamage = skill.poisonDamage || 5;
       log("你使用了 " + skill.name + "，造成 " + dealt + " 点伤害并附加中毒。", {
