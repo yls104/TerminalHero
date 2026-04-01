@@ -52,7 +52,7 @@
       delayTarget: Math.max(0, toNumber(timing.delayTarget, 0)),
       poiseDamage: inferPoiseDamage(timing),
       breakBonusDamageRatio: Math.max(0, toNumber(timing.breakBonusDamageRatio, timing.actionType === "ultimate" ? 0.28 : 0.18)),
-      interruptCharge: Boolean(timing.interruptCharge),
+      interruptCharge: timing.interruptCharge !== false && inferPoiseDamage(timing) > 0,
       grantsExecutionWindow: timing.grantsExecutionWindow !== false,
     };
   }

@@ -102,11 +102,14 @@
             ? (pressure.stanceLabel || "蓄势") + " " + pressure.chargeLevel + "/" + (pressure.chargeMax || pressure.chargeLevel)
             : pressure.stanceLabel || "稳固"
         : "",
-      chargeText: pressure && pressure.chargeLevel > 0 && pressure.chargeLabel
-        ? pressure.chargeLabel + " " + pressure.chargeLevel + "/" + (pressure.chargeMax || pressure.chargeLevel)
+      chargeText: pressure && pressure.chargeLevel > 0
+        ? (pressure.chargeActionName || pressure.chargeLabel || "蓄力动作")
+          + (pressure.chargeInterruptible ? " · 可打断" : "")
         : "",
       intentVisible: Boolean(intent && intent.label),
-      intentLabel: intent && intent.pressure === "control"
+      intentLabel: intent && intent.pressure === "charge"
+        ? "蓄力预告"
+        : intent && intent.pressure === "control"
         ? "压制预告"
         : intent && intent.pressure === "burst"
           ? "爆发预告"
@@ -279,6 +282,16 @@
         actionHintText: "自身失衡 · 小心敌方重击",
       };
     }
+    if (data.inCombat && enemyPressure && enemyPressure.chargeLevel > 0) {
+      return {
+        visible: true,
+        summaryText: (enemyPressure.chargeActionName || enemyPressure.chargeLabel || "敌方蓄力")
+          + (enemyPressure.chargeInterruptible ? " · 可打断" : ""),
+        actionHintText: enemyPressure.chargeInterruptible
+          ? "敌方蓄力 · 快用压制打断"
+          : "敌方蓄力 · 小心下一拍重击",
+      };
+    }
     if (!data.inCombat || !intent) {
       return {
         visible: false,
@@ -289,7 +302,7 @@
       };
     }
 
-    const summary = [intent.label, intent.summary, intent.timingText].filter(Boolean).join(" · ");
+    const summary = [intent.label, intent.summary, intent.timingText, intent.interruptible ? "可打断" : ""].filter(Boolean).join(" · ");
     return {
       visible: true,
       summaryText: summary,
@@ -318,6 +331,9 @@
     }
     if (inferPoiseDamage(skill)) {
       parts.push("韧性 -" + inferPoiseDamage(skill));
+    }
+    if (snapshot.enemyPressure && snapshot.enemyPressure.chargeLevel > 0 && inferPoiseDamage(skill) > 0) {
+      parts.push(inferPoiseDamage(skill) >= (snapshot.enemyPressure.poiseCurrent || 0) ? "可打断" : "可压制");
     }
     if (skill.ultimateChargeGain) {
       parts.push("终结 +" + skill.ultimateChargeGain);

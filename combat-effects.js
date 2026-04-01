@@ -61,6 +61,8 @@
       chargeLevel: 0,
       chargeMax: clamp(toNumber(options && options.chargeMax, 2), 1, 9),
       chargeLabel: "",
+      chargeActionName: "",
+      chargeInterruptible: false,
       lastBreakSource: "",
     };
   }
@@ -107,8 +109,6 @@
       state.stanceLabel = "失衡";
       state.exposedTurns = Math.max(state.exposedTurns, 1);
       state.executionReady = true;
-      state.chargeLevel = 0;
-      state.chargeLabel = "";
       state.lastBreakSource = options && options.sourceUnitId ? options.sourceUnitId : "";
     }
     return {
@@ -133,6 +133,8 @@
         state.stanceLabel = "稳固";
         state.poiseCurrent = state.poiseMax;
         state.lastBreakSource = "";
+        state.chargeActionName = "";
+        state.chargeInterruptible = false;
         return { recovered: true, remaining: 0 };
       }
     }

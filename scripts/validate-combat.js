@@ -374,6 +374,101 @@ function testPressureAxisFoundation(context, apis) {
   }), "敌方从失衡恢复后未产出恢复日志");
 }
 
+function testChargeInterruptFlow(context, apis) {
+  const logs = [];
+  const entitiesApi = apis.entitiesApi;
+  const combatApi = apis.combatApi;
+  const viewApi = apis.viewApi;
+
+  entitiesApi.applyClassToPlayer("warrior");
+  entitiesApi.player.level = 3;
+  entitiesApi.player.hp = entitiesApi.player.maxHp;
+  entitiesApi.player.mp = entitiesApi.player.maxMp;
+  entitiesApi.player.classResource.current = entitiesApi.player.classResource.max;
+  entitiesApi.unlockClassSkillIfNeeded();
+
+  const combatController = combatApi.createCombatController({
+    player: entitiesApi.player,
+    skills: entitiesApi.skills,
+    resolveSkill: entitiesApi.getResolvedSkill,
+    getUltimateSkills: entitiesApi.getResolvedUltimateSkills,
+    onLog(entry) {
+      logs.push(entry);
+    },
+    onStatusSync: function noopStatus() {},
+    onEffect: function noopEffect() {},
+    onStateChange: function noopState() {},
+    onCombatEnd: function noopEnd() {},
+  });
+
+  const started = combatController.startCombat({
+    tile: 3,
+    playerUltimateCharge: 8,
+    enemyTemplate: {
+      id: "charge_dummy",
+      name: "蓄势试炼偶",
+      hp: 180,
+      attack: 10,
+      defense: 7,
+      speed: 18,
+      exp: 0,
+      gold: 0,
+      skills: [],
+      role: "charge_dummy",
+      assetKey: "enemy",
+      encounterType: "normal",
+      dropTableId: "field_default",
+      poiseMax: 2,
+    },
+  });
+  assert(started, "蓄力打断专项测试未能成功启动");
+
+  const initialState = combatController.getState();
+  assert(initialState.enemyIntent && initialState.enemyIntent.pressure === "charge", "敌方首个意图未进入蓄力预告");
+  assert(initialState.enemyIntent.interruptible, "敌方蓄力预告未标记为可打断");
+
+  const initialHint = viewApi.createCombatIntentViewModel(initialState);
+  assert(initialHint.actionHintText.indexOf("打断") !== -1, "战斗提示未在蓄力预告阶段提示可打断");
+
+  const drainedChargeStart = context.__drainTimers(2);
+  assert(drainedChargeStart > 0, "敌方蓄力动作未正常推进");
+
+  const chargedState = combatController.getState();
+  assert(chargedState.playerTurn, "敌方蓄力后未回到玩家回合");
+  assert(chargedState.enemyPressure && chargedState.enemyPressure.chargeLevel > 0, "敌方蓄力后未保留蓄力状态");
+  assert(chargedState.enemyPressure.chargeInterruptible, "敌方蓄力状态未标记为可打断");
+  assert(chargedState.enemyPressure.chargeActionName.indexOf("碎甲重锤") !== -1, "敌方蓄力状态未记录后续动作名称");
+
+  const enemyView = viewApi.createEnemyViewModel({
+    enemy: chargedState.enemy,
+    intent: chargedState.enemyIntent,
+    pressure: chargedState.enemyPressure,
+  });
+  assert(enemyView.chargeText.indexOf("可打断") !== -1, "敌情面板未提示蓄力动作可打断");
+
+  const attackTimingView = viewApi.createCombatMenuTimingViewModel({
+    skill: entitiesApi.getResolvedSkill("attack"),
+    snapshot: chargedState,
+  });
+  assert(attackTimingView.metaText.indexOf("可打断") !== -1, "技能按钮未在蓄力阶段提示可打断");
+
+  const usedAttack = combatController.playerAction("attack");
+  assert(usedAttack, "玩家未能在蓄力阶段出手");
+
+  const afterInterrupt = combatController.getState();
+  assert(afterInterrupt.enemyPressure && afterInterrupt.enemyPressure.executionReady, "打断后敌方未进入失衡窗口");
+  assert(!afterInterrupt.enemyPressure.chargeLevel, "打断后敌方蓄力状态未被清空");
+  assert(logs.some(function hasInterruptLog(entry) {
+    return entry && entry.type === "pressure_interrupt";
+  }), "打断成功后未产出专项日志");
+
+  const staggeredTimers = context.__drainTimers(3);
+  assert(staggeredTimers > 0, "打断后敌方失衡动作未推进");
+  assert(logs.some(function hasStaggerLog(entry) {
+    return entry && entry.type === "pressure_stagger";
+  }), "敌方失衡后未触发动作中断日志");
+}
+
 function validateSourceSyntax(relativePath) {
   const source = readFile(relativePath);
   try {
@@ -390,8 +485,9 @@ function main() {
   testTimelineInitializationAndSpeed(apis.timelineApi);
   testDelayAndAdvanceAffectTiming(apis.timelineApi);
   testPressureAxisFoundation(context, apis);
+  testChargeInterruptFlow(context, apis);
   testUltimateInsertFlow(context, apis);
-  console.log("战斗专项验证通过：时间轴、压制轴、速度收益、技能延迟、终结技插入与 UI 快照读取正常。");
+  console.log("战斗专项验证通过：时间轴、压制轴、蓄力打断、速度收益、技能延迟、终结技插入与 UI 快照读取正常。");
 }
 
 main();

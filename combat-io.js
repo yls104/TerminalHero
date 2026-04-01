@@ -66,6 +66,8 @@
       chargeLevel: state.chargeLevel || 0,
       chargeMax: state.chargeMax || 0,
       chargeLabel: state.chargeLabel || "",
+      chargeActionName: state.chargeActionName || "",
+      chargeInterruptible: Boolean(state.chargeInterruptible),
     };
   }
 
@@ -91,6 +93,7 @@
             pressure: data.enemyIntent.pressure || "neutral",
             timingText: data.enemyIntent.timingText || "",
             insertHint: data.enemyIntent.insertHint || "",
+            interruptible: Boolean(data.enemyIntent.interruptible),
           }
         : null,
       insertWindow: data.insertWindow

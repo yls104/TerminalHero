@@ -67,6 +67,8 @@ function createCombatController(options) {
         chargeLevel: 0,
         chargeMax: clamp(toNumber(config.chargeMax, 2), 1, 9),
         chargeLabel: "",
+        chargeActionName: "",
+        chargeInterruptible: false,
         lastBreakSource: "",
       };
     }
@@ -86,6 +88,8 @@ function createCombatController(options) {
       chargeLevel: 0,
       chargeMax: clamp(toNumber(config.chargeMax, 2), 1, 9),
       chargeLabel: "",
+      chargeActionName: "",
+      chargeInterruptible: false,
       lastBreakSource: "",
     };
   };
@@ -126,8 +130,6 @@ function createCombatController(options) {
       stateBag.stanceLabel = "失衡";
       stateBag.exposedTurns = Math.max(stateBag.exposedTurns, 1);
       stateBag.executionReady = true;
-      stateBag.chargeLevel = 0;
-      stateBag.chargeLabel = "";
       stateBag.lastBreakSource = options && options.sourceUnitId ? options.sourceUnitId : "";
     }
     return {
@@ -150,6 +152,8 @@ function createCombatController(options) {
         pressureState.stanceLabel = "稳固";
         pressureState.poiseCurrent = pressureState.poiseMax;
         pressureState.lastBreakSource = "";
+        pressureState.chargeActionName = "";
+        pressureState.chargeInterruptible = false;
         return { recovered: true, remaining: 0 };
       }
     }
@@ -243,7 +247,7 @@ function createCombatController(options) {
       delayTarget: Math.max(0, toNumber(timing.delayTarget, 0)),
       poiseDamage: inferPoiseDamage(timing),
       breakBonusDamageRatio: Math.max(0, toNumber(timing.breakBonusDamageRatio, timing.actionType === "ultimate" ? 0.28 : 0.18)),
-      interruptCharge: Boolean(timing.interruptCharge),
+      interruptCharge: timing.interruptCharge !== false && inferPoiseDamage(timing) > 0,
       grantsExecutionWindow: timing.grantsExecutionWindow !== false,
     };
   };
@@ -291,6 +295,7 @@ function createCombatController(options) {
   let timelineState = null;
   let pendingInsertWindow = null;
   let pendingEnemyIntent = null;
+  let pendingChargedEnemyAction = null;
   let playerUltimate = createUltimateRuntime();
   let playerStatus = createStatusRuntime();
   let enemyStatus = createStatusRuntime();
@@ -480,6 +485,8 @@ function createCombatController(options) {
     let chargeLevel = pressureState.chargeLevel || 0;
     let chargeMax = pressureState.chargeMax || 0;
     let chargeLabel = pressureState.chargeLabel || "";
+    let chargeActionName = pressureState.chargeActionName || "";
+    let chargeInterruptible = Boolean(pressureState.chargeInterruptible);
 
     if (!pressureState.executionReady && side === "enemy" && pendingEnemyIntent && pendingEnemyIntent.chargeLevel > 0) {
       stance = "charging";
@@ -487,6 +494,8 @@ function createCombatController(options) {
       chargeLevel = pendingEnemyIntent.chargeLevel;
       chargeMax = pendingEnemyIntent.chargeMax || Math.max(chargeLevel, chargeMax || 1);
       chargeLabel = pendingEnemyIntent.chargeLabel || "蓄势";
+      chargeActionName = pendingEnemyIntent.label || chargeActionName;
+      chargeInterruptible = Boolean(pendingEnemyIntent.interruptible);
     } else if (!pressureState.executionReady && statusBag && statusBag.guard > 0) {
       stance = "guarded";
       stanceLabel = "防守";
@@ -503,7 +512,56 @@ function createCombatController(options) {
       chargeLevel: chargeLevel,
       chargeMax: chargeMax,
       chargeLabel: chargeLabel,
+      chargeActionName: chargeActionName,
+      chargeInterruptible: chargeInterruptible,
     };
+  }
+
+  function clearEnemyCharge() {
+    pendingChargedEnemyAction = null;
+    if (!enemyPressure) {
+      return;
+    }
+    enemyPressure.chargeLevel = 0;
+    enemyPressure.chargeLabel = "";
+    enemyPressure.chargeActionName = "";
+    enemyPressure.chargeInterruptible = false;
+    enemyPressure.chargeMax = Math.max(enemyPressure.chargeMax || 1, 1);
+  }
+
+  function beginEnemyCharge(config) {
+    const data = config || {};
+    pendingChargedEnemyAction = data.intent || null;
+    enemyPressure.executionReady = false;
+    enemyPressure.exposedTurns = 0;
+    enemyPressure.chargeLevel = Math.max(1, toNumber(data.chargeLevel, 1));
+    enemyPressure.chargeMax = Math.max(enemyPressure.chargeLevel, toNumber(data.chargeMax, enemyPressure.chargeLevel));
+    enemyPressure.chargeLabel = data.chargeLabel || "蓄势";
+    enemyPressure.chargeActionName = data.actionName || (data.intent ? data.intent.label || "" : "");
+    enemyPressure.chargeInterruptible = data.interruptible !== false;
+    enemyPressure.stance = "charging";
+    enemyPressure.stanceLabel = enemyPressure.chargeLabel;
+  }
+
+  function interruptEnemyCharge(sourceActionContext) {
+    if (!pendingChargedEnemyAction || !enemyPressure || !timelineState || !timelineApi.getActor || !timelineApi.setActorState) {
+      return false;
+    }
+    const enemyActor = timelineApi.getActor(timelineState, "enemy");
+    if (enemyActor) {
+      timelineApi.setActorState(timelineState, "enemy", {
+        currentAv: enemyActor.currentAv + 18,
+      });
+    }
+    log(currentEnemy.name + " 的「" + (enemyPressure.chargeActionName || "蓄力") + "」被打断，行动被压后。", {
+      type: "pressure_interrupt",
+      source: sourceActionContext && sourceActionContext.sourceUnitId === "player" ? "player" : "enemy",
+      emphasis: true,
+      turn: "pressure",
+    });
+    clearEnemyIntent();
+    clearEnemyCharge();
+    return true;
   }
 
   function getBreakDamageMultiplier(targetSide, actionContext) {
@@ -534,6 +592,9 @@ function createCombatController(options) {
         emphasis: true,
         turn: "pressure",
       });
+      if (targetSide === "enemy" && actionContext.interruptCharge) {
+        interruptEnemyCharge(actionContext);
+      }
     }
     return outcome;
   }
@@ -701,6 +762,7 @@ function createCombatController(options) {
       chargeLevel: Math.max(0, toNumber(data.chargeLevel, 0)),
       chargeMax: Math.max(0, toNumber(data.chargeMax, 0)),
       chargeLabel: data.chargeLabel || "",
+      interruptible: Boolean(data.interruptible),
       actionContext: data.actionContext || null,
       execute: typeof data.execute === "function" ? data.execute : function noop() {},
     };
@@ -720,11 +782,16 @@ function createCombatController(options) {
       chargeLevel: pendingEnemyIntent.chargeLevel,
       chargeMax: pendingEnemyIntent.chargeMax,
       chargeLabel: pendingEnemyIntent.chargeLabel,
+      interruptible: Boolean(pendingEnemyIntent.interruptible),
     };
   }
 
   function planEnemyIntent() {
     const enemySpeed = getEffectiveSpeed(currentEnemy, enemyStatus);
+
+    if (pendingChargedEnemyAction) {
+      return pendingChargedEnemyAction;
+    }
 
     function enemyActionFrame(actionId, targetUnitId, timingLike) {
       const timingData = Object.assign({
@@ -741,6 +808,49 @@ function createCombatController(options) {
       });
     }
 
+    function createChargeIntent(config) {
+      const data = config || {};
+      const releaseIntent = createEnemyIntent({
+        id: data.releaseId,
+        label: data.releaseLabel,
+        summary: data.releaseSummary,
+        pressure: data.releasePressure || "burst",
+        timingText: data.releaseTimingText || "",
+        insertHint: data.releaseInsertHint || "",
+        actionContext: enemyActionFrame(data.releaseId, data.releaseTargetId || "player", data.releaseTimingLike || {}),
+        execute: function executeReleasedIntent() {
+          clearEnemyCharge();
+          enemyPressure.stance = "steady";
+          enemyPressure.stanceLabel = "稳固";
+          data.releaseExecute();
+        },
+      });
+      return createEnemyIntent({
+        id: data.chargeId,
+        label: data.chargeLabel,
+        summary: data.chargeSummary || ("正在蓄力「" + data.releaseLabel + "」，可被打断。"),
+        pressure: "charge",
+        timingText: data.chargeTimingText || "蓄力 1 拍",
+        insertHint: data.chargeInsertHint || "尽快击穿韧性，可打断该动作并压后敌方行动。",
+        chargeLevel: Math.max(1, toNumber(data.chargeLevel, 1)),
+        chargeMax: Math.max(1, toNumber(data.chargeMax, 1)),
+        chargeLabel: data.chargeStateLabel || data.chargeLabel || "蓄势",
+        interruptible: true,
+        actionContext: enemyActionFrame(data.chargeId, "enemy", data.chargeTimingLike || { baseDelay: 44, advanceSelf: 0, poiseDamage: 0, interruptCharge: false }),
+        execute: function executeChargeIntent() {
+          beginEnemyCharge({
+            intent: releaseIntent,
+            chargeLevel: data.chargeLevel || 1,
+            chargeMax: data.chargeMax || 1,
+            chargeLabel: data.chargeStateLabel || data.chargeLabel || "蓄势",
+            actionName: data.releaseLabel,
+            interruptible: true,
+          });
+          emitEnemySetupLog(data.chargeLog || (currentEnemy.name + " 开始蓄力「" + data.releaseLabel + "」，下一拍会释放重击。"));
+        },
+      });
+    }
+
     function emitEnemyHitLog(message, damage) {
       log(message, { type: "enemy_action", source: "enemy", turn: "enemy" });
       emitEffect("playerHit", { damage: damage, enemy: currentEnemy });
@@ -751,19 +861,45 @@ function createCombatController(options) {
       emitEffect("enemyHit", { damage: 0, enemy: currentEnemy });
     }
 
+    if (currentEnemy.role === "charge_dummy") {
+      return createChargeIntent({
+        chargeId: "dummy_charge_start",
+        chargeLabel: "蓄力姿态",
+        chargeStateLabel: "试炼蓄势",
+        chargeSummary: "正在蓄力「碎甲重锤」，可被打断。",
+        chargeTimingLike: { baseDelay: 42, poiseDamage: 0, interruptCharge: false },
+        chargeLog: currentEnemy.name + " 摆出沉重架势，正在蓄力「碎甲重锤」。",
+        releaseId: "dummy_charge_release",
+        releaseLabel: "碎甲重锤",
+        releaseSummary: "蓄力重击，若未被打断会造成高伤害",
+        releasePressure: "burst",
+        releaseTimingText: "高伤害 · 可打断",
+        releaseInsertHint: "若已击穿韧性，将直接打断这次重锤。",
+        releaseTimingLike: { baseDelay: 66, delayTarget: 10, power: 1.55, poiseDamage: 5 },
+        releaseExecute: function executeDummyRelease() {
+          const rawDamage = rollDamage(currentEnemy.attack, 1.55, player.defense, rand);
+          const dealt = applyDamageToTarget(player, playerStatus, rawDamage);
+          emitEnemyHitLog(currentEnemy.name + " 砸下碎甲重锤，造成 " + dealt + " 点伤害并把你压后。", dealt);
+        },
+      });
+    }
+
     if (currentEnemy.isBoss && currentEnemy.role === "pack_alpha" && Math.random() < 0.55) {
-      return createEnemyIntent({
-        id: "pack_alpha_howl",
-        label: "狼群号令",
-        summary: "高伤害并进入狂怒",
-        pressure: "burst",
-        timingText: "延迟 62",
-        insertHint: "若现在插入，可抢在下一波重击前出手。",
-        chargeLevel: 1,
-        chargeMax: 1,
-        chargeLabel: "狂怒蓄势",
-        actionContext: enemyActionFrame("pack_alpha_howl", "player", { baseDelay: 62 }),
-        execute: function executePackAlphaHowl() {
+      return createChargeIntent({
+        chargeId: "pack_alpha_howl_charge",
+        chargeLabel: "狼王号令",
+        chargeStateLabel: "狂怒蓄势",
+        chargeSummary: "正在蓄力「狼群号令」，若不打断将造成高伤害并进入狂怒。",
+        chargeTimingLike: { baseDelay: 46, poiseDamage: 0, interruptCharge: false },
+        chargeLog: currentEnemy.name + " 仰天长嚎，正在蓄力「狼群号令」。",
+        releaseId: "pack_alpha_howl",
+        releaseLabel: "狼群号令",
+        releaseSummary: "高伤害并进入狂怒",
+        releasePressure: "burst",
+        releaseTimingText: "高伤害 · 可打断",
+        releaseInsertHint: "若已击穿韧性，可直接打断狼王的咆哮节奏。",
+        releaseTimingLike: { baseDelay: 62, power: 1.35, poiseDamage: 5 },
+        releaseExecute: function executePackAlphaHowl() {
           const rawDamage = rollDamage(currentEnemy.attack, 1.35, player.defense, rand);
           const dealt = applyDamageToTarget(player, playerStatus, rawDamage);
           enemyStatus.attackBuffValue = 0.18;
@@ -773,18 +909,21 @@ function createCombatController(options) {
       });
     }
     if (currentEnemy.isBoss && currentEnemy.role === "arcane_warden" && Math.random() < 0.52) {
-      return createEnemyIntent({
-        id: "arcane_pulse",
-        label: "禁术震波",
-        summary: "中伤害并施加减速",
-        pressure: "control",
-        timingText: "压后 +12",
-        insertHint: "若现在插入，可避免被减速后再掉出节奏。",
-        chargeLevel: 1,
-        chargeMax: 1,
-        chargeLabel: "禁术蓄势",
-        actionContext: enemyActionFrame("arcane_pulse", "player", { baseDelay: 60, delayTarget: 12 }),
-        execute: function executeArcanePulse() {
+      return createChargeIntent({
+        chargeId: "arcane_pulse_charge",
+        chargeLabel: "禁术聚能",
+        chargeStateLabel: "禁术蓄势",
+        chargeSummary: "正在蓄力「禁术震波」，若不打断将造成减速压制。",
+        chargeTimingLike: { baseDelay: 46, poiseDamage: 0, interruptCharge: false },
+        chargeLog: currentEnemy.name + " 牵引封印残响，正在蓄力「禁术震波」。",
+        releaseId: "arcane_pulse",
+        releaseLabel: "禁术震波",
+        releaseSummary: "中伤害并施加减速",
+        releasePressure: "control",
+        releaseTimingText: "压后 +12 · 可打断",
+        releaseInsertHint: "若已击穿韧性，可直接阻断禁术震波。",
+        releaseTimingLike: { baseDelay: 60, delayTarget: 12, power: 1.45, poiseDamage: 4 },
+        releaseExecute: function executeArcanePulse() {
           const rawDamage = rollDamage(currentEnemy.attack, 1.45, player.defense, rand);
           const dealt = applyDamageToTarget(player, playerStatus, rawDamage);
           playerStatus.speedDownTurns = 1;
@@ -794,18 +933,21 @@ function createCombatController(options) {
       });
     }
     if (currentEnemy.isBoss && currentEnemy.role === "inferno_tyrant" && Math.random() < 0.58) {
-      return createEnemyIntent({
-        id: "inferno_breath",
-        label: "烈焰喷吐",
-        summary: "中伤害并附带灼烧",
-        pressure: "burst",
-        timingText: "压后 +6",
-        insertHint: "若现在插入，可先手压血，避免承受持续灼烧。",
-        chargeLevel: 1,
-        chargeMax: 1,
-        chargeLabel: "烈焰蓄势",
-        actionContext: enemyActionFrame("inferno_breath", "player", { baseDelay: 64, delayTarget: 6 }),
-        execute: function executeInfernoBreath() {
+      return createChargeIntent({
+        chargeId: "inferno_breath_charge",
+        chargeLabel: "熔炎鼓荡",
+        chargeStateLabel: "烈焰蓄势",
+        chargeSummary: "正在蓄力「烈焰喷吐」，若不打断将附带持续灼烧。",
+        chargeTimingLike: { baseDelay: 48, poiseDamage: 0, interruptCharge: false },
+        chargeLog: currentEnemy.name + " 深吸灼焰，正在蓄力「烈焰喷吐」。",
+        releaseId: "inferno_breath",
+        releaseLabel: "烈焰喷吐",
+        releaseSummary: "中伤害并附带灼烧",
+        releasePressure: "burst",
+        releaseTimingText: "压后 +6 · 可打断",
+        releaseInsertHint: "若已击穿韧性，可打断整段喷吐。",
+        releaseTimingLike: { baseDelay: 64, delayTarget: 6, power: 1.28, poiseDamage: 4 },
+        releaseExecute: function executeInfernoBreath() {
           const rawDamage = rollDamage(currentEnemy.attack, 1.28, player.defense, rand);
           const dealt = applyDamageToTarget(player, playerStatus, rawDamage);
           playerStatus.poisonTurns = 2;
@@ -923,22 +1065,27 @@ function createCombatController(options) {
       });
     }
     if (currentEnemy.role === "bulwark" && Math.random() < 0.3) {
-      return createEnemyIntent({
-        id: "bulwark_guard",
-        label: "收缩防线",
-        summary: "强化防势并准备下一击",
-        pressure: "guard",
-        timingText: "抢轴 +8",
-        insertHint: "若现在插入，可趁其架势建立前抢伤害。",
-        chargeLevel: 1,
-        chargeMax: 1,
-        chargeLabel: "防线成型",
-        actionContext: enemyActionFrame("bulwark_guard", "enemy", { baseDelay: 46, advanceSelf: 8 }),
-        execute: function executeBulwarkGuard() {
+      return createChargeIntent({
+        chargeId: "bulwark_guard_charge",
+        chargeLabel: "收缩防线",
+        chargeStateLabel: "防线成型",
+        chargeSummary: "正在架起防线并准备重击，可被打断。",
+        chargeTimingLike: { baseDelay: 40, advanceSelf: 6, poiseDamage: 0, interruptCharge: false },
+        chargeLog: currentEnemy.name + " 收缩防线，准备借防势发动重击。",
+        releaseId: "bulwark_guard",
+        releaseLabel: "壁垒反压",
+        releaseSummary: "强化防势后打出反压重击",
+        releasePressure: "guard",
+        releaseTimingText: "抢轴 +8 · 可打断",
+        releaseInsertHint: "若已击穿韧性，可阻止这次防守反压。",
+        releaseTimingLike: { baseDelay: 46, advanceSelf: 8, power: 1.18, poiseDamage: 4 },
+        releaseExecute: function executeBulwarkGuard() {
+          const rawDamage = rollDamage(currentEnemy.attack, 1.18, player.defense, rand);
+          const dealt = applyDamageToTarget(player, playerStatus, rawDamage);
           enemyStatus.guard = Math.max(enemyStatus.guard, 0.42);
           enemyStatus.attackBuffValue = Math.max(enemyStatus.attackBuffValue, 0.12);
           enemyStatus.attackBuffTurns = 1;
-          emitEnemySetupLog(currentEnemy.name + " 收缩防线，架起防势并准备下一次重击。");
+          emitEnemyHitLog(currentEnemy.name + " 借着壁垒反压，造成 " + dealt + " 点伤害并架起防势。", dealt);
         },
       });
     }
@@ -990,6 +1137,7 @@ function createCombatController(options) {
     });
     closeInsertWindow();
     clearEnemyIntent();
+    clearEnemyCharge();
     state = "idle";
     locked = false;
     roundCount = 0;
@@ -1087,6 +1235,19 @@ function createCombatController(options) {
       return;
     }
 
+    if (actor.side === "enemy" && enemyPressure && enemyPressure.executionReady) {
+      clearEnemyIntent();
+      closeInsertWindow();
+      locked = true;
+      emitSnapshot();
+      clearEnemyTimer();
+      enemyTurnTimer = setTimeout(function delayedStaggeredEnemyTurn() {
+        enemyTurnTimer = 0;
+        runEnemyTurn();
+      }, initial ? 220 : 260);
+      return;
+    }
+
     if (actor.side === "enemy" && !pendingEnemyIntent) {
       pendingEnemyIntent = planEnemyIntent();
     }
@@ -1148,6 +1309,7 @@ function createCombatController(options) {
       poiseMax: currentEnemy.poiseMax,
     });
     clearEnemyIntent();
+    clearEnemyCharge();
     if (typeof encounter.playerUltimateCharge === "number") {
       playerUltimate.current = clamp(encounter.playerUltimateCharge, 0, playerUltimate.max);
     }
@@ -1325,6 +1487,31 @@ function createCombatController(options) {
     }
 
     closeInsertWindow();
+    if (enemyPressure && enemyPressure.executionReady) {
+      clearEnemyIntent();
+      clearEnemyCharge();
+      log(currentEnemy.name + " 仍处于失衡，动作被打断并踉跄后退。", {
+        type: "pressure_stagger",
+        source: "player",
+        emphasis: true,
+        turn: "pressure",
+      });
+      advancePressureWindowForSide("enemy");
+      const staggerContext = createActionFrame({
+        sourceUnitId: "enemy",
+        targetUnitId: "enemy",
+        actionId: "stagger_recover",
+        actionType: "stagger",
+        timingLike: { baseDelay: 74, poiseDamage: 0, interruptCharge: false },
+        timelineApi: timelineApi,
+        sourceSpeed: getEffectiveSpeed(currentEnemy, enemyStatus),
+      });
+      emitStatus();
+      syncTimelineActors();
+      emitSnapshot();
+      finalizeAction(staggerContext);
+      return;
+    }
     const intent = pendingEnemyIntent || planEnemyIntent();
     clearEnemyIntent();
     intent.execute();
