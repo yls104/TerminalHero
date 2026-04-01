@@ -212,6 +212,14 @@ function testUltimateInsertFlow(context, apis) {
   assert(entitiesApi.getResolvedSkill("venom_cut").resourceGain === 2, "盗贼重构后淬毒刃应提供 2 点连击");
   assert(entitiesApi.getResolvedSkill("shadow_flurry").actionType === "ultimate", "盗贼重构后影袭乱舞应被识别为终结技");
 
+  entitiesApi.applyClassToPlayer("ranger");
+  entitiesApi.player.level = 3;
+  entitiesApi.player.classResource.current = entitiesApi.player.classResource.max;
+  entitiesApi.unlockClassSkillIfNeeded();
+  assert(entitiesApi.getResolvedSkill("aimed_shot").delayTarget >= 12, "游侠重构后瞄准射击应成为显式拖轴技能");
+  assert(entitiesApi.getResolvedSkill("poison_arrow").resourceGain === 2, "游侠重构后毒箭应提供 2 点专注");
+  assert(entitiesApi.getResolvedSkill("volley").actionType === "ultimate", "游侠重构后箭雨应被识别为终结技");
+
   const combatController = combatApi.createCombatController({
     player: entitiesApi.player,
     skills: entitiesApi.skills,

@@ -224,9 +224,11 @@ function validateDataAndViewModels() {
   assert(entitiesApi.classes.warrior && entitiesApi.classes.warrior.selectable !== false, "战士应保持为当前可选职业");
   assert(entitiesApi.classes.mage && entitiesApi.classes.mage.selectable === false, "法师应在职业重构阶段被禁用");
   assert(entitiesApi.classes.rogue && entitiesApi.classes.rogue.selectable !== false, "盗贼重构试行版应已恢复选择入口");
-  assert(entitiesApi.classes.ranger && entitiesApi.classes.ranger.refactorLabel === "重构中", "尚未重构的职业仍应标记为重构中");
+  assert(entitiesApi.classes.ranger && entitiesApi.classes.ranger.selectable !== false, "游侠重构试行版应已恢复选择入口");
+  assert(entitiesApi.classes.paladin && entitiesApi.classes.paladin.refactorLabel === "重构中", "尚未重构的职业仍应标记为重构中");
   assert(entitiesApi.classes.warrior.resourceConfig.max === 5, "战士压制值上限应提升到新版模板的 5 点");
   assert(entitiesApi.classes.rogue.resourceConfig.max === 6, "盗贼连击点上限应提升到新版模板的 6 点");
+  assert(entitiesApi.classes.ranger.resourceConfig.max === 5, "游侠专注值上限应提升到新版模板的 5 点");
   assert(typeof attackSkill.baseDelay === "number", "技能解析未补齐 baseDelay");
   assert(typeof attackSkill.advanceSelf === "number", "技能解析未补齐 advanceSelf");
   assert(typeof attackSkill.delayTarget === "number", "技能解析未补齐 delayTarget");
@@ -309,6 +311,15 @@ function validateDataAndViewModels() {
   assert(rogueUltimateSkills.some(function hasRogueUltimate(skill) { return skill.id === "shadow_flurry"; }), "盗贼终结技未在 3 级后正确解锁");
   assert(entitiesApi.player.buildSnapshot.combatFocuses.includes("起手抢轴"), "盗贼构筑快照未体现起手抢轴职责");
   assert(entitiesApi.player.buildSnapshot.combatFocuses.includes("斩杀处决"), "盗贼构筑快照未体现斩杀处决职责");
+
+  entitiesApi.applyClassToPlayer("ranger");
+  entitiesApi.player.level = 3;
+  entitiesApi.player.classResource.current = entitiesApi.player.classResource.max;
+  entitiesApi.unlockClassSkillIfNeeded();
+  const rangerUltimateSkills = entitiesApi.getResolvedUltimateSkills();
+  assert(rangerUltimateSkills.some(function hasRangerUltimate(skill) { return skill.id === "volley"; }), "游侠终结技未在 3 级后正确解锁");
+  assert(entitiesApi.player.buildSnapshot.combatFocuses.includes("起手拖轴"), "游侠构筑快照未体现起手拖轴职责");
+  assert(entitiesApi.player.buildSnapshot.combatFocuses.includes("收割处决"), "游侠构筑快照未体现收割处决职责");
 
   entitiesApi.applyClassToPlayer("warrior");
   entitiesApi.player.level = 3;
