@@ -77,6 +77,11 @@
             </div>
           </div>
           <button id="mobilePanelBackdrop" type="button" class="mobile-panel-backdrop is-hidden" aria-hidden="true" tabindex="-1"></button>
+          <div id="explorePrompt" class="explore-prompt" aria-live="polite">
+            <span class="explore-prompt-tag">当前目标</span>
+            <strong id="explorePromptMain" class="explore-prompt-main">先选职业，再开始远征</strong>
+            <span id="explorePromptSub" class="explore-prompt-sub">WASD / 方向键移动，手机横屏可拖动摇杆。</span>
+          </div>
 
           <div id="combatHudLayer" class="combat-hud-layer is-hidden" aria-hidden="true">
             <div class="combat-top-strip">
@@ -139,7 +144,6 @@
           </div>
           <p class="joystick-label">拖动摇杆移动</p>
         </div>
-        <p class="hint">桌面可用 WASD / 方向键。手机横屏可拖动左下角虚拟摇杆连续移动，先清小怪，再穿过传送门挑战首领。</p>
       </section>
 
       <aside id="sidePanel" class="side-panel card">
@@ -183,15 +187,15 @@
             </div>
           </div>
           <div class="utility-actions">
-            <button id="btnDetailStats" type="button" class="detail-button">构筑详情</button>
-            <button id="btnSaveMenu" type="button" class="detail-button">存档管理</button>
+            <button id="btnDetailStats" type="button" class="detail-button">构筑</button>
+            <button id="btnSaveMenu" type="button" class="detail-button">存档</button>
           </div>
         </section>
 
         <section id="logPanel" class="panel-block">
           <div class="panel-title-row">
-            <header class="panel-title small">行军记录</header>
-            <button id="btnOpenLog" type="button" class="mini-button">完整日志</button>
+            <header class="panel-title small">近期记录</header>
+            <button id="btnOpenLog" type="button" class="mini-button">展开</button>
           </div>
           <div id="battleLog" class="battle-log">
             <p>系统：冒险已经开始，当前处于探索状态。</p>

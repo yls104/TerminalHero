@@ -120,6 +120,9 @@
     mobileSpValue: document.querySelector("#mobileSpValue"),
     mobilePanelToggle: document.querySelector("#mobilePanelToggle"),
     mobilePanelBackdrop: document.querySelector("#mobilePanelBackdrop"),
+    explorePrompt: document.querySelector("#explorePrompt"),
+    explorePromptMain: document.querySelector("#explorePromptMain"),
+    explorePromptSub: document.querySelector("#explorePromptSub"),
     mobileSideCloseButton: document.querySelector("#mobileSideCloseButton"),
     statusList: document.querySelector(".status-list"),
     resourcePanel: document.querySelector("#resourcePanel"),
@@ -880,6 +883,59 @@
     return baseDescription + (extraNotes.length ? " " + extraNotes.join("；") + "。" : "");
   }
 
+  function createExplorePromptViewModel() {
+    if (!player.className) {
+      return {
+        main: "先选职业，再开始远征",
+        sub: "靠近导师确认本轮流派，然后再出城。",
+      };
+    }
+    if (currentStageName === "azure_town") {
+      return {
+        main: "穿过传送门，选择下一章节",
+        sub: "先挑路线，再进入区域推进。",
+      };
+    }
+    if (currentStageMode === "boss") {
+      return {
+        main: "首领房已就绪，靠近首领开战",
+        sub: "先补状态，再决定什么时候接敌。",
+      };
+    }
+    if (currentStageMode === "field") {
+      const remainingHostiles = countRemainingHostiles();
+      if (remainingHostiles > 0) {
+        return {
+          main: "继续推进地图，收集本轮收益",
+          sub: "还剩 " + remainingHostiles + " 个敌对节点，也可直接进门挑战首领。",
+        };
+      }
+      return {
+        main: "传送门已就绪，准备挑战首领",
+        sub: "清图收益已经拿到，现在可以直接穿门决战。",
+      };
+    }
+    return {
+      main: "WASD / 方向键移动",
+      sub: "手机横屏可拖动摇杆连续移动。",
+    };
+  }
+
+  function syncExplorePrompt() {
+    if (!ui.explorePrompt || !ui.explorePromptMain || !ui.explorePromptSub) {
+      return;
+    }
+    const visible = !shouldUseCombatLayout(getGameState());
+    ui.explorePrompt.classList.toggle("is-hidden", !visible);
+    ui.explorePrompt.setAttribute("aria-hidden", visible ? "false" : "true");
+    if (!visible) {
+      return;
+    }
+    const viewModel = createExplorePromptViewModel();
+    ui.explorePromptMain.textContent = viewModel.main;
+    ui.explorePromptSub.textContent = viewModel.sub;
+  }
+
   function appendLog(message) {
     if (!ui.battleLog) {
       return;
@@ -936,7 +992,7 @@
   }
 
   function showBattleLogOverlay() {
-    showOverlay("战斗日志", "查看近期记录", "移动端横屏默认只保留两行紧凑视图，完整记录可以在这里查看。" + renderLogHistoryHtml(), "关闭", hideOverlay);
+    showOverlay("近期记录", "查看完整日志", "侧栏默认只保留最近两条动态，完整记录集中放在这里。" + renderLogHistoryHtml(), "关闭", hideOverlay);
   }
 
   function syncFloatingStatusHud() {
@@ -993,7 +1049,7 @@
     ui.floatingStatusPanel.classList.toggle("is-hidden", !visible);
     ui.floatingStatusPanel.setAttribute("aria-hidden", visible ? "false" : "true");
     ui.statusToggle.setAttribute("aria-expanded", visible ? "true" : "false");
-    ui.statusToggle.textContent = visible ? "收起状态" : "状态";
+    ui.statusToggle.textContent = visible ? "收起" : "状态";
     syncFloatingStatusHud();
     window.requestAnimationFrame(syncFloatingStatusHud);
   }
@@ -1112,6 +1168,7 @@
       ui.sidePanel.setAttribute("aria-hidden", combatLayout ? "true" : "false");
     }
     syncResponsiveHudLayout();
+    syncExplorePrompt();
   }
 
   function syncJourneySignal(node, label, value) {
@@ -1137,7 +1194,7 @@
 
   function updateSkillMenuVisibility() {
     ui.skillButtons.classList.toggle("is-hidden", !skillMenuOpen);
-    setActionButtonContent(ui.btnSkillMenu, skillMenuOpen ? "收起技能" : "技能", skillMenuOpen ? "折叠技能列" : "展开技能列");
+    setActionButtonContent(ui.btnSkillMenu, skillMenuOpen ? "收起技能" : "技能", skillMenuOpen ? "收起" : "展开");
   }
 
   function setActionButtonContent(button, label, metaText) {
@@ -1238,7 +1295,7 @@
       skillMenuOpen = false;
     }
     setActionButtonContent(ui.btnBasicAttack, "普通攻击", createCombatMenuTimingViewModel({ skill: getResolvedSkill("attack"), snapshot: snapshot }).metaText);
-    setActionButtonContent(ui.btnSkillMenu, skillMenuOpen ? "收起技能" : "技能", skillMenuOpen ? "折叠技能列" : "展开技能列");
+    setActionButtonContent(ui.btnSkillMenu, skillMenuOpen ? "收起技能" : "技能", skillMenuOpen ? "收起" : "展开");
     setActionButtonContent(ui.btnFlee, "撤退", "脱离战斗");
     ui.btnBasicAttack.disabled = !enabled;
     ui.btnSkillMenu.disabled = !enabled;
@@ -1330,6 +1387,7 @@
       ui.classResourceBar.style.width = hudView.classResourcePercent + "%";
       ui.classResourceBar.className = "meter-fill " + (hudView.classResourceColorClass || "resource-neutral");
     }
+    syncExplorePrompt();
 
     Array.from(ui.skillButtons.querySelectorAll("button")).forEach(function updateButton(button) {
       const skill = getResolvedSkill(button.dataset.skillId);
@@ -2088,7 +2146,7 @@
       };
     });
 
-    showOverlay("蔚蓝城镇", "选择职业", "不同职业拥有完全不同的技能构筑与战斗节奏。" + showChoiceButtons(choices), "关闭", hideOverlay);
+    showOverlay("蔚蓝城镇", "选择职业", "先选一个职业，马上开始这轮远征。" + showChoiceButtons(choices), "关闭", hideOverlay);
     bindOverlayChoices(choices);
   }
 
@@ -2223,8 +2281,8 @@
     ];
 
     showOverlay(
-      "冒险继续",
-      "检测到本地存档",
+      "继续冒险",
+      "检测到上次进度",
       "<div class=\"detail-stats\"><p><strong>最近存档：</strong>" + formatSaveTime(metadata.savedAt) + "</p><p><strong>摘要：</strong>" + (metadata.summary || "可继续当前进度") + "</p></div>" + showChoiceButtons(choices),
       "关闭",
       hideOverlay
