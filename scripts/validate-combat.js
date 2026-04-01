@@ -94,6 +94,8 @@ function loadApis(context) {
   [
     "combat-io.js",
     "combat-timeline.js",
+    "combat-effects.js",
+    "combat-actions.js",
     "entities.js",
     "combat.js",
     "view-models.js",

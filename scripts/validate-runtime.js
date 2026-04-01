@@ -178,6 +178,8 @@ function validateDataAndViewModels() {
   const context = createBrowserContext();
   loadScriptIntoContext(context, "combat-io.js");
   loadScriptIntoContext(context, "combat-timeline.js");
+  loadScriptIntoContext(context, "combat-effects.js");
+  loadScriptIntoContext(context, "combat-actions.js");
   loadScriptIntoContext(context, "entities.js");
   loadScriptIntoContext(context, "combat.js");
   loadScriptIntoContext(context, "stage-data.js");
@@ -331,6 +333,8 @@ function main() {
     "main.js",
     "combat-io.js",
     "combat-timeline.js",
+    "combat-effects.js",
+    "combat-actions.js",
     "combat.js",
     "entities.js",
     "stage-data.js",

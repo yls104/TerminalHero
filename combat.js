@@ -12,6 +12,8 @@ function createCombatController(options) {
   };
   const ioApi = window.CombatIO || {};
   const timelineApi = window.CombatTimeline || {};
+  const effectsApi = window.CombatEffects || {};
+  const actionsApi = window.CombatActions || {};
   const normalizeCombatLogEntry = ioApi.normalizeCombatLogEntry || function fallbackNormalize(input, meta) {
     return {
       text: typeof input === "string" ? input : String((input && input.text) || ""),
@@ -31,20 +33,7 @@ function createCombatController(options) {
       skillId: String(input || ""),
     };
   };
-
-  let currentEnemy = null;
-  let state = "idle";
-  let locked = false;
-  let sourceTile = 0;
-  let roundCount = 0;
-  let enemyTurnTimer = 0;
-  let timelineState = null;
-  let pendingInsertWindow = null;
-  let playerUltimate = createUltimateState();
-  let playerStatus = createStatusBag();
-  let enemyStatus = createStatusBag();
-
-  function createStatusBag() {
+  const createStatusRuntime = effectsApi.createStatusBag || function fallbackStatusBag() {
     return {
       guard: 0,
       poisonTurns: 0,
@@ -56,14 +45,151 @@ function createCombatController(options) {
       speedDownTurns: 0,
       speedDownValue: 0,
     };
-  }
-
-  function createUltimateState() {
+  };
+  const createUltimateRuntime = effectsApi.createUltimateState || function fallbackUltimateState() {
     return {
       current: 0,
       max: 8,
     };
-  }
+  };
+  const getEffectiveAttack = effectsApi.effectiveAttack || function fallbackEffectiveAttack(unit, statusBag) {
+    const buff = statusBag.attackBuffTurns > 0 ? statusBag.attackBuffValue : 0;
+    return unit.attack * (1 + buff);
+  };
+  const getEffectiveSpeed = effectsApi.effectiveSpeed || function fallbackEffectiveSpeed(unit, statusBag) {
+    const slow = statusBag.speedDownTurns > 0 ? statusBag.speedDownValue : 0;
+    return Math.max(1, unit.speed - slow);
+  };
+  const rollDamage = effectsApi.damageByFormula || function fallbackDamage(attackerAttack, power, defenderDefense, randomFn) {
+    const base = Math.max(1, attackerAttack * power - defenderDefense);
+    const swing = typeof randomFn === "function" ? randomFn(0.92, 1.08) : rand(0.92, 1.08);
+    return Math.max(1, Math.round(base * swing));
+  };
+  const applyDamageToTarget = effectsApi.applyDamage || function fallbackApplyDamage(target, statusBag, rawDamage) {
+    const finalDamage = Math.max(1, Math.round(rawDamage * (1 - statusBag.guard)));
+    target.hp = clamp(target.hp - finalDamage, 0, target.maxHp);
+    return finalDamage;
+  };
+  const tickStatusEffects = effectsApi.tickStatus || function fallbackTickStatus(input) {
+    const statusBag = input.statusBag;
+    const unit = input.unit;
+    const label = input.label;
+    const statusLog = input.log;
+    if (statusBag.poisonTurns > 0) {
+      unit.hp = clamp(unit.hp - statusBag.poisonDamage, 0, unit.maxHp);
+      statusBag.poisonTurns -= 1;
+      statusLog(label + " 因中毒损失 " + statusBag.poisonDamage + " 点生命。", { type: "status", source: "system", turn: "tick" });
+    }
+    if (statusBag.regenTurns > 0) {
+      unit.hp = clamp(unit.hp + statusBag.regenValue, 0, unit.maxHp);
+      statusBag.regenTurns -= 1;
+      statusLog(label + " 受到持续恢复，回了 " + statusBag.regenValue + " 点生命。", { type: "status", source: "system", turn: "tick" });
+    }
+    if (statusBag.attackBuffTurns > 0) {
+      statusBag.attackBuffTurns -= 1;
+      if (statusBag.attackBuffTurns === 0) {
+        statusBag.attackBuffValue = 0;
+      }
+    }
+    if (statusBag.speedDownTurns > 0) {
+      statusBag.speedDownTurns -= 1;
+      if (statusBag.speedDownTurns === 0) {
+        statusBag.speedDownValue = 0;
+      }
+    }
+    if (statusBag.guard > 0) {
+      statusBag.guard = 0;
+    }
+  };
+  const gainCharge = effectsApi.gainCharge || function fallbackGainCharge(pool, amount) {
+    const delta = Math.max(0, toNumber(amount, 0));
+    if (!delta) {
+      return 0;
+    }
+    const previous = pool.current;
+    pool.current = clamp(pool.current + delta, 0, pool.max);
+    return pool.current - previous;
+  };
+  const spendCharge = effectsApi.spendCharge || function fallbackSpendCharge(pool, amount) {
+    const cost = Math.max(0, toNumber(amount, 0));
+    if (!cost) {
+      return true;
+    }
+    if (pool.current < cost) {
+      return false;
+    }
+    pool.current -= cost;
+    return true;
+  };
+  const resolveActionTiming = actionsApi.resolveActionDelay || function fallbackResolveActionDelay(input) {
+    const config = input || {};
+    const baseAv = timelineApi.computeBaseAv ? timelineApi.computeBaseAv(config.sourceSpeed || 1) : 52;
+    const skillBaseDelay = toNumber(config.skillLike && config.skillLike.baseDelay, 52);
+    return clamp(baseAv + (skillBaseDelay - 52), 18, 999);
+  };
+  const createActionFrame = actionsApi.createActionContext || function fallbackActionContext(input) {
+    const config = input || {};
+    const timing = config.timingLike || {};
+    return {
+      actionId: config.actionId || "",
+      actionType: config.actionType || "skill",
+      sourceUnitId: config.sourceUnitId || "",
+      targetUnitId: config.targetUnitId || "",
+      baseDelay: resolveActionTiming({
+        sourceSpeed: config.sourceSpeed,
+        skillLike: timing,
+        timelineApi: timelineApi,
+      }),
+      advanceSelf: Math.max(0, toNumber(timing.advanceSelf, 0)),
+      delayTarget: Math.max(0, toNumber(timing.delayTarget, 0)),
+    };
+  };
+  const createInsertWindowSpec = actionsApi.createInsertWindow || function fallbackInsertWindow(input) {
+    const actor = input.actor;
+    const availableSkills = input.availableSkills || [];
+    if (!actor || actor.side !== "enemy" || !availableSkills.length) {
+      return null;
+    }
+    return {
+      open: true,
+      sourceUnitId: "player",
+      allowedActionIds: availableSkills.map(function mapSkill(skill) { return skill.id; }),
+      reason: input.reason || "enemy_turn",
+    };
+  };
+  const canUseInsertWindowAction = actionsApi.canUseInsertWindow || function fallbackCanUseInsert(insertWindow, skillId) {
+    return Boolean(insertWindow && insertWindow.open && insertWindow.allowedActionIds.indexOf(skillId) !== -1);
+  };
+  const createTimelineChangeLogs = actionsApi.createTimelineChangeLogs || function fallbackTimelineChangeLogs(actionContext, getLabel) {
+    const entries = [];
+    const sourceLabel = getLabel(actionContext.sourceUnitId);
+    const targetLabel = actionContext.targetUnitId ? getLabel(actionContext.targetUnitId) : "";
+    if (actionContext.advanceSelf > 0) {
+      entries.push({
+        text: sourceLabel + " 借势抢回了 " + actionContext.advanceSelf + " 点行动值。",
+        meta: { type: "timeline", source: "system", turn: "timeline" },
+      });
+    }
+    if (actionContext.delayTarget > 0 && targetLabel) {
+      entries.push({
+        text: targetLabel + " 的行动被压后了 " + actionContext.delayTarget + " 点。",
+        meta: { type: "timeline", source: "system", turn: "timeline" },
+      });
+    }
+    return entries;
+  };
+
+  let currentEnemy = null;
+  let state = "idle";
+  let locked = false;
+  let sourceTile = 0;
+  let roundCount = 0;
+  let enemyTurnTimer = 0;
+  let timelineState = null;
+  let pendingInsertWindow = null;
+  let playerUltimate = createUltimateRuntime();
+  let playerStatus = createStatusRuntime();
+  let enemyStatus = createStatusRuntime();
 
   function clamp(value, min, max) {
     return Math.max(min, Math.min(max, value));
@@ -106,22 +232,6 @@ function createCombatController(options) {
       clearTimeout(enemyTurnTimer);
       enemyTurnTimer = 0;
     }
-  }
-
-  function effectiveAttack(unit, statusBag) {
-    const buff = statusBag.attackBuffTurns > 0 ? statusBag.attackBuffValue : 0;
-    return unit.attack * (1 + buff);
-  }
-
-  function effectiveSpeed(unit, statusBag) {
-    const slow = statusBag.speedDownTurns > 0 ? statusBag.speedDownValue : 0;
-    return Math.max(1, unit.speed - slow);
-  }
-
-  function damageByFormula(attackerAttack, power, defenderDefense) {
-    const base = Math.max(1, attackerAttack * power - defenderDefense);
-    const swing = rand(0.92, 1.08);
-    return Math.max(1, Math.round(base * swing));
   }
 
   function hasClassResource() {
@@ -256,7 +366,7 @@ function createCombatController(options) {
       label: player.name,
       hp: player.hp,
       maxHp: player.maxHp,
-      speed: effectiveSpeed(player, playerStatus),
+      speed: getEffectiveSpeed(player, playerStatus),
       canAct: player.hp > 0,
     });
     if (currentEnemy) {
@@ -264,7 +374,7 @@ function createCombatController(options) {
         label: currentEnemy.name,
         hp: currentEnemy.hp,
         maxHp: currentEnemy.maxHp,
-        speed: effectiveSpeed(currentEnemy, enemyStatus),
+        speed: getEffectiveSpeed(currentEnemy, enemyStatus),
         canAct: currentEnemy.hp > 0,
       });
     }
@@ -327,34 +437,6 @@ function createCombatController(options) {
     emitState(snapshotState());
   }
 
-  function tickStatus(statusBag, unit, label) {
-    if (statusBag.poisonTurns > 0) {
-      unit.hp = clamp(unit.hp - statusBag.poisonDamage, 0, unit.maxHp);
-      statusBag.poisonTurns -= 1;
-      log(label + " 因中毒损失 " + statusBag.poisonDamage + " 点生命。", { type: "status", source: "system", turn: "tick" });
-    }
-    if (statusBag.regenTurns > 0) {
-      unit.hp = clamp(unit.hp + statusBag.regenValue, 0, unit.maxHp);
-      statusBag.regenTurns -= 1;
-      log(label + " 受到持续恢复，回了 " + statusBag.regenValue + " 点生命。", { type: "status", source: "system", turn: "tick" });
-    }
-    if (statusBag.attackBuffTurns > 0) {
-      statusBag.attackBuffTurns -= 1;
-      if (statusBag.attackBuffTurns === 0) {
-        statusBag.attackBuffValue = 0;
-      }
-    }
-    if (statusBag.speedDownTurns > 0) {
-      statusBag.speedDownTurns -= 1;
-      if (statusBag.speedDownTurns === 0) {
-        statusBag.speedDownValue = 0;
-      }
-    }
-    if (statusBag.guard > 0) {
-      statusBag.guard = 0;
-    }
-  }
-
   function gainExpAndMaybeLevelUp(expValue) {
     player.exp += expValue;
     log("获得经验 " + expValue + " 点。", { type: "reward", source: "system", turn: "end" });
@@ -377,20 +459,8 @@ function createCombatController(options) {
     emitStatus();
   }
 
-  function applyDamage(target, statusBag, rawDamage) {
-    const finalDamage = Math.max(1, Math.round(rawDamage * (1 - statusBag.guard)));
-    target.hp = clamp(target.hp - finalDamage, 0, target.maxHp);
-    return finalDamage;
-  }
-
   function gainUltimateCharge(amount, sourceLabel) {
-    const delta = Math.max(0, toNumber(amount, 0));
-    if (!delta) {
-      return 0;
-    }
-    const previous = playerUltimate.current;
-    playerUltimate.current = clamp(playerUltimate.current + delta, 0, playerUltimate.max);
-    const gained = playerUltimate.current - previous;
+    const gained = gainCharge(playerUltimate, amount);
     if (gained > 0) {
       log((sourceLabel || "战斗节奏") + " 为你积累了 " + gained + " 点终结充能。", { type: "ultimate_gain", source: "player", turn: "timeline" });
     }
@@ -398,64 +468,18 @@ function createCombatController(options) {
   }
 
   function spendUltimateCharge(amount) {
-    const cost = Math.max(0, toNumber(amount, 0));
-    if (!cost) {
-      return true;
-    }
-    if (playerUltimate.current < cost) {
-      return false;
-    }
-    playerUltimate.current -= cost;
-    return true;
-  }
-
-  function resolveActionDelay(unit, skillLike) {
-    const baseAv = timelineApi.computeBaseAv ? timelineApi.computeBaseAv(effectiveSpeed(unit, unit === player ? playerStatus : enemyStatus)) : 52;
-    const skillBaseDelay = toNumber(skillLike && skillLike.baseDelay, 52);
-    return clamp(baseAv + (skillBaseDelay - 52), 18, 999);
-  }
-
-  function createActionContext(sourceUnitId, targetUnitId, actionId, actionType, timingLike) {
-    const sourceUnit = sourceUnitId === "player" ? player : currentEnemy;
-    const timing = timingLike || {};
-    return {
-      actionId: actionId,
-      actionType: actionType || "skill",
-      sourceUnitId: sourceUnitId,
-      targetUnitId: targetUnitId || "",
-      baseDelay: resolveActionDelay(sourceUnit, timing),
-      advanceSelf: Math.max(0, toNumber(timing.advanceSelf, 0)),
-      delayTarget: Math.max(0, toNumber(timing.delayTarget, 0)),
-    };
-  }
-
-  function logTimelineChanges(actionContext) {
-    if (!actionContext) {
-      return;
-    }
-    const sourceLabel = getUnitLabel(actionContext.sourceUnitId === "player" ? "player" : "enemy");
-    const targetLabel = actionContext.targetUnitId ? getUnitLabel(actionContext.targetUnitId === "player" ? "player" : "enemy") : "";
-    if (actionContext.advanceSelf > 0) {
-      log(sourceLabel + " 借势抢回了 " + actionContext.advanceSelf + " 点行动值。", { type: "timeline", source: "system", turn: "timeline" });
-    }
-    if (actionContext.delayTarget > 0 && targetLabel) {
-      log(targetLabel + " 的行动被压后了 " + actionContext.delayTarget + " 点。", { type: "timeline", source: "system", turn: "timeline" });
-    }
+    return spendCharge(playerUltimate, amount);
   }
 
   function refreshInsertWindow(reason) {
     const actor = getCurrentTimelineActor();
     const availableSkills = getAffordableUltimateSkills();
-    if (actor && actor.side === "enemy" && availableSkills.length) {
-      pendingInsertWindow = {
-        open: true,
-        sourceUnitId: "player",
-        allowedActionIds: availableSkills.map(function mapSkill(skill) { return skill.id; }),
-        reason: reason || "enemy_turn",
-      };
-    } else {
-      pendingInsertWindow = null;
-    }
+    pendingInsertWindow = createInsertWindowSpec({
+      actor: actor,
+      availableSkills: availableSkills,
+      sourceUnitId: "player",
+      reason: reason || "enemy_turn",
+    });
   }
 
   function closeInsertWindow() {
@@ -481,7 +505,7 @@ function createCombatController(options) {
     locked = false;
     roundCount = 0;
     timelineState = null;
-    playerUltimate = createUltimateState();
+    playerUltimate = createUltimateRuntime();
     emitSnapshot();
     if (config.onCombatEnd) {
       config.onCombatEnd(payload);
@@ -496,7 +520,11 @@ function createCombatController(options) {
     }
     closeInsertWindow();
     syncTimelineActors();
-    logTimelineChanges(actionContext);
+    createTimelineChangeLogs(actionContext, function resolveLabel(unitId) {
+      return getUnitLabel(unitId === "player" ? "player" : "enemy");
+    }).forEach(function eachEntry(entry) {
+      log(entry.text, entry.meta);
+    });
     timelineApi.resolveAction(timelineState, actionContext);
     roundCount = timelineState.roundIndex || roundCount;
     emitSnapshot();
@@ -535,7 +563,12 @@ function createCombatController(options) {
     const unit = getUnitForSide(actor.side);
     const label = getUnitLabel(actor.side);
 
-    tickStatus(statusBag, unit, label);
+    tickStatusEffects({
+      statusBag: statusBag,
+      unit: unit,
+      label: label,
+      log: log,
+    });
     emitStatus();
     syncTimelineActors();
 
@@ -595,9 +628,9 @@ function createCombatController(options) {
     const encounter = typeof input === "object" && input !== null ? input : { tile: input };
     sourceTile = encounter.tile;
     currentEnemy = cloneEnemyTemplate(encounter.enemyTemplate || getEnemyTemplate(encounter.tile, player.level));
-    playerStatus = createStatusBag();
-    enemyStatus = createStatusBag();
-    playerUltimate = createUltimateState();
+    playerStatus = createStatusRuntime();
+    enemyStatus = createStatusRuntime();
+    playerUltimate = createUltimateRuntime();
     if (typeof encounter.playerUltimateCharge === "number") {
       playerUltimate.current = clamp(encounter.playerUltimateCharge, 0, playerUltimate.max);
     }
@@ -608,8 +641,8 @@ function createCombatController(options) {
     clearEnemyTimer();
     timelineState = timelineApi.createTimelineState({
       actors: [
-        { unitId: "player", side: "player", label: player.name, hp: player.hp, maxHp: player.maxHp, speed: effectiveSpeed(player, playerStatus) },
-        { unitId: "enemy", side: "enemy", label: currentEnemy.name, hp: currentEnemy.hp, maxHp: currentEnemy.maxHp, speed: effectiveSpeed(currentEnemy, enemyStatus) },
+        { unitId: "player", side: "player", label: player.name, hp: player.hp, maxHp: player.maxHp, speed: getEffectiveSpeed(player, playerStatus) },
+        { unitId: "enemy", side: "enemy", label: currentEnemy.name, hp: currentEnemy.hp, maxHp: currentEnemy.maxHp, speed: getEffectiveSpeed(currentEnemy, enemyStatus) },
       ],
     });
 
@@ -630,10 +663,7 @@ function createCombatController(options) {
     const skill = resolveSkill(skillId);
     const isUltimateAction = (actionMode || (skill && skill.actionType)) === "ultimate";
     const playerCanActNormally = isPlayerTurn() && !locked;
-    const canUseInsertWindow = isUltimateAction
-      && pendingInsertWindow
-      && pendingInsertWindow.open
-      && pendingInsertWindow.allowedActionIds.indexOf(skillId) !== -1;
+    const canUseInsertWindow = isUltimateAction && canUseInsertWindowAction(pendingInsertWindow, skillId);
     if (!skill || state !== "combat" || (!playerCanActNormally && !canUseInsertWindow)) {
       return false;
     }
@@ -659,16 +689,24 @@ function createCombatController(options) {
     clearEnemyTimer();
     closeInsertWindow();
     player.mp = clamp(player.mp - skill.cost, 0, player.maxMp);
-    const attackValue = effectiveAttack(player, playerStatus);
-    const actionContext = createActionContext("player", "enemy", skill.id, skill.actionType || "skill", skill);
+    const attackValue = getEffectiveAttack(player, playerStatus);
+    const actionContext = createActionFrame({
+      sourceUnitId: "player",
+      targetUnitId: "enemy",
+      actionId: skill.id,
+      actionType: skill.actionType || "skill",
+      timingLike: skill,
+      timelineApi: timelineApi,
+      sourceSpeed: getEffectiveSpeed(player, playerStatus),
+    });
 
     if (skill.effect === "damage") {
       let power = skill.power;
       if (skill.bonusFirst && isPlayerTurn()) {
         power += skill.bonusFirst;
       }
-      const rawDamage = damageByFormula(attackValue, power, currentEnemy.defense);
-      const dealt = applyDamage(currentEnemy, enemyStatus, rawDamage);
+      const rawDamage = rollDamage(attackValue, power, currentEnemy.defense, rand);
+      const dealt = applyDamageToTarget(currentEnemy, enemyStatus, rawDamage);
       log((isUltimateAction ? "你插入施放了 " : "你使用了 ") + skill.name + "，对 " + currentEnemy.name + " 造成 " + dealt + " 点伤害。", {
         type: isUltimateAction ? "ultimate_action" : "player_action",
         source: "player",
@@ -697,8 +735,8 @@ function createCombatController(options) {
       log("你施放了 " + skill.name + "，恢复了法力。", { type: isUltimateAction ? "ultimate_action" : "player_action", source: "player", emphasis: isUltimateAction, turn: "player" });
       actionContext.targetUnitId = "player";
     } else if (skill.effect === "poison") {
-      const rawDamage = damageByFormula(attackValue, skill.power || 1, currentEnemy.defense);
-      const dealt = applyDamage(currentEnemy, enemyStatus, rawDamage);
+      const rawDamage = rollDamage(attackValue, skill.power || 1, currentEnemy.defense, rand);
+      const dealt = applyDamageToTarget(currentEnemy, enemyStatus, rawDamage);
       enemyStatus.poisonTurns = skill.poisonTurns || 2;
       enemyStatus.poisonDamage = skill.poisonDamage || 5;
       log("你使用了 " + skill.name + "，造成 " + dealt + " 点伤害并附加中毒。", {
@@ -749,85 +787,165 @@ function createCombatController(options) {
 
   function enemySkillAction() {
     const role = currentEnemy.role || "basic";
-    let actionContext = createActionContext("enemy", "player", "enemy_attack", "skill", { baseDelay: 54 });
+    let actionContext = createActionFrame({
+      sourceUnitId: "enemy",
+      targetUnitId: "player",
+      actionId: "enemy_attack",
+      actionType: "skill",
+      timingLike: { baseDelay: 54 },
+      timelineApi: timelineApi,
+      sourceSpeed: getEffectiveSpeed(currentEnemy, enemyStatus),
+    });
 
     if (currentEnemy.isBoss && role === "pack_alpha" && Math.random() < 0.55) {
-      const rawDamage = damageByFormula(currentEnemy.attack, 1.35, player.defense);
-      const dealt = applyDamage(player, playerStatus, rawDamage);
+      const rawDamage = rollDamage(currentEnemy.attack, 1.35, player.defense, rand);
+      const dealt = applyDamageToTarget(player, playerStatus, rawDamage);
       enemyStatus.attackBuffValue = 0.18;
       enemyStatus.attackBuffTurns = 2;
       log(currentEnemy.name + " 号召狼群，造成 " + dealt + " 点伤害并进入狂怒状态。", { type: "enemy_action", source: "enemy", turn: "enemy" });
       emitEffect("playerHit", { damage: dealt, enemy: currentEnemy });
-      return createActionContext("enemy", "player", "pack_alpha_howl", "skill", { baseDelay: 62 });
+      return createActionFrame({
+        sourceUnitId: "enemy",
+        targetUnitId: "player",
+        actionId: "pack_alpha_howl",
+        actionType: "skill",
+        timingLike: { baseDelay: 62 },
+        timelineApi: timelineApi,
+        sourceSpeed: getEffectiveSpeed(currentEnemy, enemyStatus),
+      });
     }
     if (currentEnemy.isBoss && role === "arcane_warden" && Math.random() < 0.52) {
-      const rawDamage = damageByFormula(currentEnemy.attack, 1.45, player.defense);
-      const dealt = applyDamage(player, playerStatus, rawDamage);
+      const rawDamage = rollDamage(currentEnemy.attack, 1.45, player.defense, rand);
+      const dealt = applyDamageToTarget(player, playerStatus, rawDamage);
       playerStatus.speedDownTurns = 1;
       playerStatus.speedDownValue = 2;
       log(currentEnemy.name + " 释放禁术震波，造成 " + dealt + " 点伤害并使你减速。", { type: "enemy_action", source: "enemy", turn: "enemy" });
       emitEffect("playerHit", { damage: dealt, enemy: currentEnemy });
-      return createActionContext("enemy", "player", "arcane_pulse", "skill", { baseDelay: 60, delayTarget: 12 });
+      return createActionFrame({
+        sourceUnitId: "enemy",
+        targetUnitId: "player",
+        actionId: "arcane_pulse",
+        actionType: "skill",
+        timingLike: { baseDelay: 60, delayTarget: 12 },
+        timelineApi: timelineApi,
+        sourceSpeed: getEffectiveSpeed(currentEnemy, enemyStatus),
+      });
     }
     if (currentEnemy.isBoss && role === "inferno_tyrant" && Math.random() < 0.58) {
-      const rawDamage = damageByFormula(currentEnemy.attack, 1.28, player.defense);
-      const dealt = applyDamage(player, playerStatus, rawDamage);
+      const rawDamage = rollDamage(currentEnemy.attack, 1.28, player.defense, rand);
+      const dealt = applyDamageToTarget(player, playerStatus, rawDamage);
       playerStatus.poisonTurns = 2;
       playerStatus.poisonDamage = 7;
       log(currentEnemy.name + " 喷吐烈焰，造成 " + dealt + " 点伤害并附带灼烧。", { type: "enemy_action", source: "enemy", turn: "enemy" });
       emitEffect("playerHit", { damage: dealt, enemy: currentEnemy });
-      return createActionContext("enemy", "player", "inferno_breath", "skill", { baseDelay: 64, delayTarget: 6 });
+      return createActionFrame({
+        sourceUnitId: "enemy",
+        targetUnitId: "player",
+        actionId: "inferno_breath",
+        actionType: "skill",
+        timingLike: { baseDelay: 64, delayTarget: 6 },
+        timelineApi: timelineApi,
+        sourceSpeed: getEffectiveSpeed(currentEnemy, enemyStatus),
+      });
     }
     if (role === "poisoner" && Math.random() < 0.34) {
-      const rawDamage = damageByFormula(currentEnemy.attack, 0.9, player.defense);
-      const dealt = applyDamage(player, playerStatus, rawDamage);
+      const rawDamage = rollDamage(currentEnemy.attack, 0.9, player.defense, rand);
+      const dealt = applyDamageToTarget(player, playerStatus, rawDamage);
       playerStatus.poisonTurns = 2;
       playerStatus.poisonDamage = 4;
       log(currentEnemy.name + " 的毒咬造成 " + dealt + " 点伤害，并让你进入中毒状态。", { type: "enemy_action", source: "enemy", turn: "enemy" });
       emitEffect("playerHit", { damage: dealt, enemy: currentEnemy });
-      return createActionContext("enemy", "player", "poison_bite", "skill", { baseDelay: 56, delayTarget: 4 });
+      return createActionFrame({
+        sourceUnitId: "enemy",
+        targetUnitId: "player",
+        actionId: "poison_bite",
+        actionType: "skill",
+        timingLike: { baseDelay: 56, delayTarget: 4 },
+        timelineApi: timelineApi,
+        sourceSpeed: getEffectiveSpeed(currentEnemy, enemyStatus),
+      });
     }
     if (role === "caster" && Math.random() < 0.3) {
-      const rawDamage = damageByFormula(currentEnemy.attack, 1.22, player.defense);
-      const dealt = applyDamage(player, playerStatus, rawDamage);
+      const rawDamage = rollDamage(currentEnemy.attack, 1.22, player.defense, rand);
+      const dealt = applyDamageToTarget(player, playerStatus, rawDamage);
       playerStatus.speedDownTurns = 1;
       playerStatus.speedDownValue = 1;
       log(currentEnemy.name + " 释放奥术脉冲，造成 " + dealt + " 点伤害。", { type: "enemy_action", source: "enemy", turn: "enemy" });
       emitEffect("playerHit", { damage: dealt, enemy: currentEnemy });
-      return createActionContext("enemy", "player", "arcane_bolt", "skill", { baseDelay: 58, delayTarget: 6 });
+      return createActionFrame({
+        sourceUnitId: "enemy",
+        targetUnitId: "player",
+        actionId: "arcane_bolt",
+        actionType: "skill",
+        timingLike: { baseDelay: 58, delayTarget: 6 },
+        timelineApi: timelineApi,
+        sourceSpeed: getEffectiveSpeed(currentEnemy, enemyStatus),
+      });
     }
     if (role === "guardian" && Math.random() < 0.28) {
       enemyStatus.guard = Math.max(enemyStatus.guard, 0.35);
       log(currentEnemy.name + " 举盾固守，准备承伤。", { type: "enemy_action", source: "enemy", turn: "enemy" });
       emitEffect("enemyHit", { damage: 0, enemy: currentEnemy });
-      return createActionContext("enemy", "enemy", "guardian_guard", "skill", { baseDelay: 42, advanceSelf: 8 });
+      return createActionFrame({
+        sourceUnitId: "enemy",
+        targetUnitId: "enemy",
+        actionId: "guardian_guard",
+        actionType: "skill",
+        timingLike: { baseDelay: 42, advanceSelf: 8 },
+        timelineApi: timelineApi,
+        sourceSpeed: getEffectiveSpeed(currentEnemy, enemyStatus),
+      });
     }
     if (role === "berserker" && Math.random() < 0.32) {
-      const rawDamage = damageByFormula(currentEnemy.attack, 1.22, player.defense);
-      const dealt = applyDamage(player, playerStatus, rawDamage);
+      const rawDamage = rollDamage(currentEnemy.attack, 1.22, player.defense, rand);
+      const dealt = applyDamageToTarget(player, playerStatus, rawDamage);
       enemyStatus.attackBuffValue = 0.14;
       enemyStatus.attackBuffTurns = 1;
       log(currentEnemy.name + " 狂化突进，造成 " + dealt + " 点伤害，下一击会更重。", { type: "enemy_action", source: "enemy", turn: "enemy" });
       emitEffect("playerHit", { damage: dealt, enemy: currentEnemy });
-      return createActionContext("enemy", "player", "berserk_charge", "skill", { baseDelay: 60 });
+      return createActionFrame({
+        sourceUnitId: "enemy",
+        targetUnitId: "player",
+        actionId: "berserk_charge",
+        actionType: "skill",
+        timingLike: { baseDelay: 60 },
+        timelineApi: timelineApi,
+        sourceSpeed: getEffectiveSpeed(currentEnemy, enemyStatus),
+      });
     }
     if (role === "stalker" && Math.random() < 0.36) {
-      const rawDamage = damageByFormula(currentEnemy.attack, 1.16, player.defense);
-      const dealt = applyDamage(player, playerStatus, rawDamage);
+      const rawDamage = rollDamage(currentEnemy.attack, 1.16, player.defense, rand);
+      const dealt = applyDamageToTarget(player, playerStatus, rawDamage);
       playerStatus.poisonTurns = Math.max(playerStatus.poisonTurns, 1);
       playerStatus.poisonDamage = Math.max(playerStatus.poisonDamage, 5);
       log(currentEnemy.name + " 借着林影突袭，造成 " + dealt + " 点伤害并留下毒性创口。", { type: "enemy_action", source: "enemy", turn: "enemy" });
       emitEffect("playerHit", { damage: dealt, enemy: currentEnemy });
-      return createActionContext("enemy", "player", "stalker_strike", "skill", { baseDelay: 50, advanceSelf: 6, delayTarget: 4 });
+      return createActionFrame({
+        sourceUnitId: "enemy",
+        targetUnitId: "player",
+        actionId: "stalker_strike",
+        actionType: "skill",
+        timingLike: { baseDelay: 50, advanceSelf: 6, delayTarget: 4 },
+        timelineApi: timelineApi,
+        sourceSpeed: getEffectiveSpeed(currentEnemy, enemyStatus),
+      });
     }
     if (role === "mana_drain" && Math.random() < 0.34) {
-      const rawDamage = damageByFormula(currentEnemy.attack, 1.08, player.defense);
-      const dealt = applyDamage(player, playerStatus, rawDamage);
+      const rawDamage = rollDamage(currentEnemy.attack, 1.08, player.defense, rand);
+      const dealt = applyDamageToTarget(player, playerStatus, rawDamage);
       const drained = Math.min(player.mp, 6);
       player.mp = clamp(player.mp - drained, 0, player.maxMp);
       log(currentEnemy.name + " 抽离你的法力，造成 " + dealt + " 点伤害并吸走 " + drained + " 点法力。", { type: "enemy_action", source: "enemy", turn: "enemy" });
       emitEffect("playerHit", { damage: dealt, enemy: currentEnemy });
-      return createActionContext("enemy", "player", "mana_drain", "skill", { baseDelay: 58, delayTarget: 4 });
+      return createActionFrame({
+        sourceUnitId: "enemy",
+        targetUnitId: "player",
+        actionId: "mana_drain",
+        actionType: "skill",
+        timingLike: { baseDelay: 58, delayTarget: 4 },
+        timelineApi: timelineApi,
+        sourceSpeed: getEffectiveSpeed(currentEnemy, enemyStatus),
+      });
     }
     if (role === "bulwark" && Math.random() < 0.3) {
       enemyStatus.guard = Math.max(enemyStatus.guard, 0.42);
@@ -835,20 +953,36 @@ function createCombatController(options) {
       enemyStatus.attackBuffTurns = 1;
       log(currentEnemy.name + " 收缩防线，架起防势并准备下一次重击。", { type: "enemy_action", source: "enemy", turn: "enemy" });
       emitEffect("enemyHit", { damage: 0, enemy: currentEnemy });
-      return createActionContext("enemy", "enemy", "bulwark_guard", "skill", { baseDelay: 46, advanceSelf: 8 });
+      return createActionFrame({
+        sourceUnitId: "enemy",
+        targetUnitId: "enemy",
+        actionId: "bulwark_guard",
+        actionType: "skill",
+        timingLike: { baseDelay: 46, advanceSelf: 8 },
+        timelineApi: timelineApi,
+        sourceSpeed: getEffectiveSpeed(currentEnemy, enemyStatus),
+      });
     }
     if (role === "pyromancer" && Math.random() < 0.34) {
-      const rawDamage = damageByFormula(currentEnemy.attack, 1.14, player.defense);
-      const dealt = applyDamage(player, playerStatus, rawDamage);
+      const rawDamage = rollDamage(currentEnemy.attack, 1.14, player.defense, rand);
+      const dealt = applyDamageToTarget(player, playerStatus, rawDamage);
       playerStatus.poisonTurns = Math.max(playerStatus.poisonTurns, 2);
       playerStatus.poisonDamage = Math.max(playerStatus.poisonDamage, 6);
       log(currentEnemy.name + " 洒下灵火灰烬，造成 " + dealt + " 点伤害并附加灼烧。", { type: "enemy_action", source: "enemy", turn: "enemy" });
       emitEffect("playerHit", { damage: dealt, enemy: currentEnemy });
-      return createActionContext("enemy", "player", "ember_rain", "skill", { baseDelay: 60, delayTarget: 5 });
+      return createActionFrame({
+        sourceUnitId: "enemy",
+        targetUnitId: "player",
+        actionId: "ember_rain",
+        actionType: "skill",
+        timingLike: { baseDelay: 60, delayTarget: 5 },
+        timelineApi: timelineApi,
+        sourceSpeed: getEffectiveSpeed(currentEnemy, enemyStatus),
+      });
     }
 
-    const rawDamage = damageByFormula(effectiveAttack(currentEnemy, enemyStatus), 1, player.defense);
-    const dealt = applyDamage(player, playerStatus, rawDamage);
+    const rawDamage = rollDamage(getEffectiveAttack(currentEnemy, enemyStatus), 1, player.defense, rand);
+    const dealt = applyDamageToTarget(player, playerStatus, rawDamage);
     log(currentEnemy.name + " 使用普通攻击，造成 " + dealt + " 点伤害。", { type: "enemy_action", source: "enemy", turn: "enemy" });
     emitEffect("playerHit", { damage: dealt, enemy: currentEnemy });
     return actionContext;
@@ -885,7 +1019,7 @@ function createCombatController(options) {
       return false;
     }
     const baseRate = currentEnemy.isBoss ? 0.12 : 0.72;
-    const speedBonus = clamp((effectiveSpeed(player, playerStatus) - effectiveSpeed(currentEnemy, enemyStatus)) * 0.03, -0.15, 0.18);
+    const speedBonus = clamp((getEffectiveSpeed(player, playerStatus) - getEffectiveSpeed(currentEnemy, enemyStatus)) * 0.03, -0.15, 0.18);
     const finalRate = clamp(baseRate + speedBonus, 0.04, 0.94);
     if (Math.random() <= finalRate) {
       log("你成功撤离了战斗。", { type: "flee", source: "player", turn: "end" });
@@ -894,7 +1028,15 @@ function createCombatController(options) {
     }
     log("撤退失败，敌人堵住了去路。", { type: "flee_fail", source: "enemy", turn: "enemy" });
     locked = true;
-    finalizeAction(createActionContext("player", "enemy", "flee", "flee", { baseDelay: 72 }));
+    finalizeAction(createActionFrame({
+      sourceUnitId: "player",
+      targetUnitId: "enemy",
+      actionId: "flee",
+      actionType: "flee",
+      timingLike: { baseDelay: 72 },
+      timelineApi: timelineApi,
+      sourceSpeed: getEffectiveSpeed(player, playerStatus),
+    }));
     return false;
   }
 
