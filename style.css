@@ -55,7 +55,7 @@ button,
   margin: 0 auto;
   padding: 14px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(248px, 296px);
+  grid-template-columns: minmax(0, 1fr) minmax(272px, 328px);
   gap: 14px;
 }
 
@@ -105,10 +105,10 @@ button,
 
 .combat-top-strip {
   display: flex;
-  width: min(100%, 980px);
+  width: min(100%, 1020px);
   margin: 0 auto;
   justify-content: space-between;
-  gap: 8px;
+  gap: 10px;
   align-items: start;
 }
 
@@ -154,7 +154,14 @@ button,
   display: grid;
   gap: 6px;
   padding: 8px 10px;
-  width: min(220px, calc(50% - 8px));
+}
+
+.player-combat-panel {
+  width: min(224px, calc(38% - 8px));
+}
+
+.enemy-strip-card {
+  width: min(332px, calc(62% - 8px));
 }
 
 .enemy-intent-row {
@@ -180,6 +187,10 @@ button,
 
 .enemy-intent-summary {
   min-height: 18px;
+  padding: 7px 9px;
+  border: 1px solid rgba(248, 113, 113, 0.12);
+  border-radius: 10px;
+  background: rgba(51, 18, 24, 0.34);
   color: #fecdd3;
   font-size: 0.68rem;
   line-height: 1.35;
@@ -188,6 +199,10 @@ button,
 .enemy-poise-row {
   display: grid;
   gap: 4px;
+  padding: 7px 9px;
+  border: 1px solid rgba(250, 204, 21, 0.12);
+  border-radius: 10px;
+  background: rgba(58, 41, 10, 0.2);
 }
 
 .enemy-poise-head {
@@ -219,12 +234,13 @@ button,
 }
 
 .combat-action-dock {
-  width: min(100%, 760px);
+  width: min(100%, 720px);
   margin: 0 auto;
-  padding: 10px 12px 12px;
+  padding: 10px 12px 10px;
   border-color: rgba(216, 178, 108, 0.28);
   background:
-    linear-gradient(180deg, rgba(24, 16, 26, 0.94), rgba(10, 8, 14, 0.9)),
+    linear-gradient(180deg, rgba(26, 17, 24, 0.96), rgba(10, 8, 14, 0.9)),
+    radial-gradient(circle at top, rgba(216, 178, 108, 0.1), transparent 58%),
     linear-gradient(135deg, rgba(216, 178, 108, 0.08), transparent 54%);
   box-shadow: 0 18px 32px rgba(0, 0, 0, 0.24);
 }
@@ -232,7 +248,7 @@ button,
 .timeline-rail-panel {
   display: grid;
   gap: 4px;
-  margin-bottom: 6px;
+  margin-top: 2px;
 }
 
 .mobile-explore-hud,
@@ -526,7 +542,7 @@ button,
   padding: 14px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
   min-height: 0;
   justify-content: flex-start;
 }
@@ -540,6 +556,84 @@ button,
   text-overflow: ellipsis;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 3;
+}
+
+.campaign-card {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid rgba(120, 200, 191, 0.14);
+  border-radius: 12px;
+  background:
+    linear-gradient(180deg, rgba(15, 26, 33, 0.78), rgba(10, 13, 22, 0.9)),
+    linear-gradient(135deg, rgba(120, 200, 191, 0.08), transparent 60%);
+}
+
+.campaign-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.campaign-heading-main {
+  display: grid;
+  gap: 3px;
+}
+
+.campaign-kicker {
+  color: #8fcfc5;
+  font-size: 0.62rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.campaign-title {
+  color: #f8f2e8;
+  font-size: 0.88rem;
+  line-height: 1.2;
+}
+
+.campaign-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 4px 10px;
+  border: 1px solid rgba(216, 178, 108, 0.22);
+  border-radius: 999px;
+  background: rgba(49, 31, 17, 0.44);
+  color: #ffe4b0;
+  font-size: 0.68rem;
+  white-space: nowrap;
+}
+
+.campaign-summary {
+  margin: 0;
+  color: #cfd9d7;
+  font-size: 0.74rem;
+  line-height: 1.4;
+}
+
+.campaign-progress {
+  display: grid;
+  gap: 5px;
+}
+
+.campaign-progress-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.campaign-progress-label {
+  color: #99d8d0;
+  font-size: 0.66rem;
+}
+
+.campaign-progress-text {
+  color: #f2eadf;
+  font-size: 0.68rem;
 }
 
 .class-meta {
@@ -683,7 +777,7 @@ body.mobile-side-panel-open .mobile-explore-hud {
 
 .adventure-summary {
   display: grid;
-  gap: 10px;
+  gap: 12px;
   margin-bottom: 10px;
   padding: 12px;
   border: 1px solid rgba(216, 178, 108, 0.18);
@@ -772,7 +866,7 @@ body.mobile-side-panel-open .mobile-explore-hud {
 
 .utility-actions {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 6px;
 }
 
@@ -795,7 +889,14 @@ body.mobile-side-panel-open .mobile-explore-hud {
   border-color: rgba(216, 178, 108, 0.22);
 }
 
+#resourcePanel {
+  position: sticky;
+  top: 14px;
+}
+
 #logPanel {
+  display: grid;
+  gap: 8px;
   background:
     linear-gradient(180deg, rgba(28, 20, 31, 0.86), rgba(14, 10, 17, 0.84)),
     linear-gradient(135deg, rgba(216, 178, 108, 0.04), transparent 48%);
@@ -803,7 +904,7 @@ body.mobile-side-panel-open .mobile-explore-hud {
 
 .resource-strip {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 6px;
   margin-bottom: 10px;
 }
@@ -812,15 +913,35 @@ body.mobile-side-panel-open .mobile-explore-hud {
   border: 1px solid rgba(216, 178, 108, 0.14);
   border-radius: 12px;
   background: rgba(26, 18, 28, 0.82);
-  padding: 8px 6px;
+  padding: 8px 10px;
   display: grid;
   gap: 3px;
-  text-align: center;
+  text-align: left;
   font-size: 0.72rem;
 }
 
 .resource-pill span {
   color: #bbaea2;
+}
+
+.resource-pill strong {
+  color: #fff4df;
+  font-size: 0.94rem;
+  line-height: 1;
+}
+
+.resource-pill-run {
+  border-color: rgba(216, 178, 108, 0.2);
+  background:
+    linear-gradient(180deg, rgba(45, 28, 21, 0.88), rgba(26, 18, 28, 0.86)),
+    linear-gradient(135deg, rgba(216, 178, 108, 0.06), transparent 50%);
+}
+
+.resource-pill-meta {
+  border-color: rgba(120, 200, 191, 0.18);
+  background:
+    linear-gradient(180deg, rgba(16, 28, 34, 0.88), rgba(11, 17, 24, 0.9)),
+    linear-gradient(135deg, rgba(120, 200, 191, 0.06), transparent 54%);
 }
 
 .detail-button {
@@ -962,7 +1083,7 @@ body.mobile-side-panel-open .mobile-explore-hud {
 }
 
 .combat-hud-layer .action-hint {
-  margin: 0 auto 6px;
+  margin: 8px auto 6px;
   padding: 4px 10px;
   min-height: 24px;
   width: fit-content;
@@ -973,7 +1094,7 @@ body.mobile-side-panel-open .mobile-explore-hud {
 }
 
 .action-hint {
-  margin: 0 0 8px;
+  margin: 0;
   padding: 6px 10px;
   border: 1px solid rgba(120, 200, 191, 0.14);
   border-radius: 999px;
@@ -1100,13 +1221,13 @@ body.mobile-side-panel-open .mobile-explore-hud {
   display: grid;
   justify-items: center;
   align-content: center;
-  gap: 0;
+  gap: 1px;
   min-width: 0;
-  padding: 4px 6px 3px;
-  border: 1px solid rgba(120, 200, 191, 0.12);
+  padding: 4px 5px 3px;
+  border: 1px solid rgba(120, 200, 191, 0.1);
   border-radius: 999px;
-  background: linear-gradient(180deg, rgba(11, 20, 26, 0.88), rgba(8, 13, 18, 0.92));
-  box-shadow: 0 8px 16px rgba(2, 6, 23, 0.14);
+  background: linear-gradient(180deg, rgba(11, 20, 26, 0.82), rgba(8, 13, 18, 0.88));
+  box-shadow: 0 6px 12px rgba(2, 6, 23, 0.12);
   text-align: center;
 }
 
@@ -1127,7 +1248,7 @@ body.mobile-side-panel-open .mobile-explore-hud {
 .timeline-chip-order {
   color: #9fd7d0;
   font-size: 0.42rem;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   opacity: 0.86;
 }
@@ -1136,7 +1257,7 @@ body.mobile-side-panel-open .mobile-explore-hud {
   color: #fcf7ef;
   max-width: 100%;
   overflow: hidden;
-  font-size: 0.64rem;
+  font-size: 0.6rem;
   line-height: 1.05;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1144,9 +1265,29 @@ body.mobile-side-panel-open .mobile-explore-hud {
 
 .timeline-chip-av {
   color: #b7c9c6;
-  font-size: 0.46rem;
+  font-size: 0.42rem;
   line-height: 1.05;
   opacity: 0.84;
+}
+
+@media (max-width: 720px) {
+  .combat-top-strip {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .player-combat-panel,
+  .enemy-strip-card {
+    width: 100%;
+  }
+
+  .combat-hud-layer .action-menu {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .combat-hud-layer .skill-buttons {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .virtual-joystick {
@@ -1228,8 +1369,8 @@ body.mobile-side-panel-open .mobile-explore-hud {
   gap: 6px;
   border: 1px solid rgba(120, 200, 191, 0.14);
   border-radius: 10px;
-  min-height: 72px;
-  max-height: 96px;
+  min-height: 92px;
+  max-height: 122px;
   overflow-y: auto;
   padding: 6px;
   font-size: 0.78rem;
@@ -1256,7 +1397,7 @@ body.mobile-side-panel-open .mobile-explore-hud {
   border-color: rgba(216, 178, 108, 0.24);
 }
 
-.battle-log p:nth-last-child(n + 3) {
+.battle-log p:nth-last-child(n + 4) {
   display: none;
 }
 
@@ -1514,6 +1655,10 @@ body.mobile-side-panel-open .mobile-explore-hud {
     flex-direction: column;
   }
 
+  #resourcePanel {
+    position: static;
+  }
+
   #enemyPanel {
     order: 2;
   }
@@ -1535,12 +1680,13 @@ body.mobile-side-panel-open .mobile-explore-hud {
 
   .combat-top-strip {
     width: min(100%, 100%);
-    justify-content: space-between;
+    flex-direction: column;
+    justify-content: flex-start;
     gap: 6px;
   }
 
   .combat-hud-layer .action-menu {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 4px;
   }
 
@@ -1667,11 +1813,33 @@ body.mobile-side-panel-open .mobile-explore-hud {
   }
 
   .utility-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 4px;
+  }
+
+  .utility-actions #btnOpenLog {
+    grid-column: 1 / -1;
   }
 
   .detail-button {
     min-height: 24px;
+    font-size: 0.58rem;
+  }
+
+  .campaign-card {
+    gap: 6px;
+    padding: 7px;
+  }
+
+  .campaign-kicker,
+  .campaign-progress-label,
+  .campaign-progress-text {
+    font-size: 0.52rem;
+  }
+
+  .campaign-title,
+  .campaign-status,
+  .campaign-summary {
     font-size: 0.58rem;
   }
 

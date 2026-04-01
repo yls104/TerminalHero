@@ -129,6 +129,12 @@
     routeValue: document.querySelector("#routeValue"),
     pressureValue: document.querySelector("#pressureValue"),
     rewardValue: document.querySelector("#rewardValue"),
+    chapterValue: document.querySelector("#chapterValue"),
+    chapterStatusValue: document.querySelector("#chapterStatusValue"),
+    chapterSummaryValue: document.querySelector("#chapterSummaryValue"),
+    renownProgressLabel: document.querySelector("#renownProgressLabel"),
+    renownProgressText: document.querySelector("#renownProgressText"),
+    renownProgressBar: document.querySelector("#renownProgressBar"),
     pos: document.querySelector("#posValue"),
     sidePanel: document.querySelector(".side-panel"),
     mobileExploreHud: document.querySelector("#mobileExploreHud"),
@@ -948,6 +954,54 @@
     };
   }
 
+  function createCampaignViewModel() {
+    const unlockedChapterIds = getUnlockedChapterIds();
+    const totalChapters = CHAPTERS.length || 1;
+    const unlockedCount = unlockedChapterIds.length || 1;
+    const activeChapter = currentStageName !== "azure_town"
+      ? getChapterByStageId(currentStageName)
+      : CHAPTERS.find(function findActiveChapter(chapter) {
+          return chapter.id === progress.chapterProgress.currentChapterId;
+        }) || CHAPTERS[0] || null;
+    const nextLockedChapter = CHAPTERS.find(function findNextLocked(chapter) {
+      return unlockedChapterIds.indexOf(chapter.id) === -1;
+    }) || null;
+    const townRenown = progress.longTerm ? progress.longTerm.townRenown || 0 : 0;
+    const requiredRenown = nextLockedChapter ? Math.max(1, nextLockedChapter.requiredRenown || 1) : Math.max(1, townRenown || 1);
+    const chapterTitle = activeChapter ? activeChapter.label : "章节推进";
+    const chapterStatus = currentStageName === "azure_town"
+      ? (nextLockedChapter ? ("已开放 " + unlockedCount + " / " + totalChapters) : "全部章节已开放")
+      : currentStageMode === "boss"
+        ? "首领决战"
+        : isStageCleared(currentStageName)
+          ? "章节已通关"
+          : "区域推进中";
+    const stageSummary = currentStageName === "azure_town"
+      ? (nextLockedChapter ? ("继续积累城镇声望，解锁 " + nextLockedChapter.label + "。") : "所有章节都已开放，可以自由选择路线回刷。")
+      : [currentStageContent.routeLabel, currentStageContent.pressureLabel, currentStageContent.rewardLabel].filter(Boolean).join(" · ");
+    return {
+      chapterTitle: chapterTitle,
+      chapterStatus: chapterStatus,
+      chapterSummary: stageSummary || (activeChapter ? activeChapter.summary : "继续推进这轮远征。"),
+      renownLabel: nextLockedChapter ? "下一章声望" : "世界完成度",
+      renownText: nextLockedChapter ? (townRenown + " / " + requiredRenown) : (unlockedCount + " / " + totalChapters),
+      renownPercent: nextLockedChapter ? clamp((townRenown / requiredRenown) * 100, 0, 100) : 100,
+    };
+  }
+
+  function syncCampaignProgress() {
+    if (!ui.chapterValue || !ui.chapterStatusValue || !ui.chapterSummaryValue || !ui.renownProgressLabel || !ui.renownProgressText || !ui.renownProgressBar) {
+      return;
+    }
+    const viewModel = createCampaignViewModel();
+    ui.chapterValue.textContent = viewModel.chapterTitle;
+    ui.chapterStatusValue.textContent = viewModel.chapterStatus;
+    ui.chapterSummaryValue.textContent = viewModel.chapterSummary;
+    ui.renownProgressLabel.textContent = viewModel.renownLabel;
+    ui.renownProgressText.textContent = viewModel.renownText;
+    ui.renownProgressBar.style.width = viewModel.renownPercent + "%";
+  }
+
   function syncExplorePrompt() {
     if (!ui.explorePrompt || !ui.explorePromptMain || !ui.explorePromptSub) {
       return;
@@ -1019,7 +1073,7 @@
   }
 
   function showBattleLogOverlay() {
-    showOverlay("近期记录", "查看完整日志", "侧栏默认只保留最近两条动态，完整记录集中放在这里。" + renderLogHistoryHtml(), "关闭", hideOverlay);
+    showOverlay("近期记录", "查看完整日志", "侧栏默认只保留最近三条动态，完整记录集中放在这里。" + renderLogHistoryHtml(), "关闭", hideOverlay);
   }
 
   function syncFloatingStatusHud() {
@@ -1443,6 +1497,7 @@
       ui.classResourceBar.style.width = hudView.classResourcePercent + "%";
       ui.classResourceBar.className = "meter-fill " + (hudView.classResourceColorClass || "resource-neutral");
     }
+    syncCampaignProgress();
     syncExplorePrompt();
 
     Array.from(ui.skillButtons.querySelectorAll("button")).forEach(function updateButton(button) {
@@ -2521,8 +2576,8 @@
     showOverlay(
       "守门人",
       "选择章节路线",
-      "每次进入关卡都会重新生成地图、精英和事件节点。清光小怪与精英后，Boss 传送门才会开启；章节开放还会受到城镇声望推进影响。"
-        + "<p class=\"overlay-inline-note\">Boss 传送门会直接显现，你可以随时进入首领房。</p>"
+      "挑一条路线直接出发。每次进入章节都会重新生成地图、精英与事件，Boss 传送门会默认可见；后续章节是否开放则取决于城镇声望。"
+        + "<p class=\"overlay-inline-note\">想稳一点就先清图拿收益，想快一点也可以直接进门开 Boss。</p>"
         + renderStageSelectionBriefing()
         + showChoiceButtons(choices),
       "留下",

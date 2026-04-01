@@ -125,11 +125,6 @@
             </div>
 
             <section id="actionPanel" class="panel-block combat-hud-card combat-action-dock" aria-hidden="true">
-              <section id="timelinePanel" class="timeline-rail-panel" aria-hidden="true">
-                <div id="timelineStatus" class="timeline-status">未进入战斗时，时间轴将在遭遇战开始后显示。</div>
-                <div id="timelinePreview" class="timeline-preview timeline-preview-empty"></div>
-              </section>
-              <div id="actionHint" class="action-hint">等待接敌</div>
               <div class="action-menu is-hidden" id="actionMenu" aria-hidden="true">
                 <button id="btnBasicAttack" type="button" class="action-attack">普通攻击</button>
                 <button id="btnSkillMenu" type="button" class="action-skill">技能</button>
@@ -137,6 +132,11 @@
                 <button id="btnUltimate" type="button" class="action-ultimate">终结技</button>
                 <button id="btnFlee" type="button" class="action-flee">撤退</button>
               </div>
+              <div id="actionHint" class="action-hint">等待接敌</div>
+              <section id="timelinePanel" class="timeline-rail-panel" aria-hidden="true">
+                <div id="timelineStatus" class="timeline-status">未进入战斗时，时间轴将在遭遇战开始后显示。</div>
+                <div id="timelinePreview" class="timeline-preview timeline-preview-empty"></div>
+              </section>
             </section>
           </div>
 
@@ -180,21 +180,38 @@
               <span id="rewardValue" class="signal-chip reward-chip is-hidden" aria-hidden="true">奖励：-</span>
             </div>
             <div id="classSummary" class="class-summary">尚未选择职业。</div>
+            <div class="campaign-card">
+              <div class="campaign-head">
+                <div class="campaign-heading-main">
+                  <span class="campaign-kicker">世界推进</span>
+                  <strong id="chapterValue" class="campaign-title">第一章 · 蔚蓝城镇</strong>
+                </div>
+                <span id="chapterStatusValue" class="campaign-status">城镇整备中</span>
+              </div>
+              <p id="chapterSummaryValue" class="campaign-summary">从城镇出发，挑选章节并逐步推进世界。</p>
+              <div class="campaign-progress">
+                <div class="campaign-progress-head">
+                  <span id="renownProgressLabel" class="campaign-progress-label">下一章声望</span>
+                  <strong id="renownProgressText" class="campaign-progress-text">0 / 0</strong>
+                </div>
+                <div class="meter meter-thin"><div id="renownProgressBar" class="meter-fill exp"></div></div>
+              </div>
+            </div>
           </div>
           <div class="resource-strip">
-            <div class="resource-pill">
+            <div class="resource-pill resource-pill-run">
               <span>金币</span>
               <strong id="goldValue">0</strong>
             </div>
-            <div class="resource-pill">
+            <div class="resource-pill resource-pill-run">
               <span>技能点</span>
               <strong id="spValue">0</strong>
             </div>
-            <div class="resource-pill">
+            <div class="resource-pill resource-pill-meta">
               <span>传承印记</span>
               <strong id="legacyValue">0</strong>
             </div>
-            <div class="resource-pill">
+            <div class="resource-pill resource-pill-meta">
               <span>城镇声望</span>
               <strong id="renownValue">0</strong>
             </div>
@@ -202,13 +219,13 @@
           <div class="utility-actions">
             <button id="btnDetailStats" type="button" class="detail-button">构筑</button>
             <button id="btnSaveMenu" type="button" class="detail-button">存档</button>
+            <button id="btnOpenLog" type="button" class="detail-button">日志</button>
           </div>
         </section>
 
         <section id="logPanel" class="panel-block">
           <div class="panel-title-row">
             <header class="panel-title small">近期记录</header>
-            <button id="btnOpenLog" type="button" class="mini-button">展开</button>
           </div>
           <div id="battleLog" class="battle-log">
             <p>系统：冒险已经开始，当前处于探索状态。</p>

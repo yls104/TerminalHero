@@ -30,6 +30,14 @@
     return Math.round(ratio * 100) + "%";
   }
 
+  function compactTimelineLabel(label) {
+    const text = String(label || "");
+    if (text.length <= 4) {
+      return text;
+    }
+    return text.slice(0, 4);
+  }
+
   function createHudViewModel(input) {
     const data = input || {};
     const player = data.player || {};
@@ -259,10 +267,10 @@
         const isCurrent = entry.unitId === timeline.currentActorId;
         return {
           key: entry.unitId + "-" + index,
-          label: entry.side === "player" ? "你" : entry.label,
-          badge: isCurrent ? "当前" : "序 " + (index + 1),
-          avText: "AV " + entry.currentAv,
-          meta: "速度 " + entry.speed + " · AV " + entry.currentAv,
+          label: entry.side === "player" ? "你" : compactTimelineLabel(entry.label),
+          badge: isCurrent ? "当前" : "#" + (index + 1),
+          avText: "AV" + entry.currentAv,
+          meta: (entry.side === "player" ? "我方" : "敌方") + " · " + entry.label + " · 速度 " + entry.speed + " · AV " + entry.currentAv,
           sideClass: entry.side === "player" ? "is-player" : "is-enemy",
           isCurrent: isCurrent,
         };
