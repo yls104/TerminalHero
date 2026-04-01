@@ -240,6 +240,19 @@ function testUltimateInsertFlow(context, apis) {
   const primaryUltimate = entitiesApi.getResolvedUltimateSkills()[0];
   assert(beforeInsert.insertWindow && beforeInsert.insertWindow.open, "敌方回合前未打开终结技插入窗口");
   assert(beforeInsert.timeline && beforeInsert.timeline.queuePreview.length > 0, "战斗快照未携带时间轴预览");
+  assert(beforeInsert.enemyIntent && beforeInsert.enemyIntent.label, "敌方回合前未生成可读的敌方意图快照");
+
+  const enemyView = viewApi.createEnemyViewModel({
+    enemy: beforeInsert.enemy,
+    intent: beforeInsert.enemyIntent,
+  });
+  assert(enemyView.intentVisible, "敌方信息面板未承接敌方意图显示");
+  assert(enemyView.intentName === beforeInsert.enemyIntent.label, "敌方信息面板未展示敌方意图名称");
+  assert(enemyView.intentSummary.length > 0, "敌方信息面板未展示敌方意图摘要");
+
+  const combatIntentView = viewApi.createCombatIntentViewModel(beforeInsert);
+  assert(combatIntentView.visible, "战斗行动提示未承接敌方意图可见状态");
+  assert(combatIntentView.actionHintText.includes(beforeInsert.enemyIntent.label), "战斗行动提示未引用敌方意图名称");
 
   const timingView = viewApi.createCombatMenuTimingViewModel({
     skill: primaryUltimate,

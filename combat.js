@@ -187,6 +187,7 @@ function createCombatController(options) {
   let enemyTurnTimer = 0;
   let timelineState = null;
   let pendingInsertWindow = null;
+  let pendingEnemyIntent = null;
   let playerUltimate = createUltimateRuntime();
   let playerStatus = createStatusRuntime();
   let enemyStatus = createStatusRuntime();
@@ -427,6 +428,7 @@ function createCombatController(options) {
       round: timelineState ? timelineState.roundIndex : roundCount,
       pendingAction: currentActor ? currentActor.side : "",
       currentActorId: currentActor ? currentActor.unitId : "",
+      enemyIntent: getEnemyIntentSnapshot(),
       insertWindow: pendingInsertWindow,
       ultimate: getUltimateSnapshot(),
       timeline: timelineSnapshot,
@@ -489,6 +491,274 @@ function createCombatController(options) {
     }
   }
 
+  function clearEnemyIntent() {
+    pendingEnemyIntent = null;
+  }
+
+  function createEnemyIntent(config) {
+    const data = config || {};
+    return {
+      id: data.id || "",
+      label: data.label || "普通攻击",
+      summary: data.summary || "",
+      pressure: data.pressure || "neutral",
+      timingText: data.timingText || "",
+      insertHint: data.insertHint || "",
+      actionContext: data.actionContext || null,
+      execute: typeof data.execute === "function" ? data.execute : function noop() {},
+    };
+  }
+
+  function getEnemyIntentSnapshot() {
+    if (!pendingEnemyIntent) {
+      return null;
+    }
+    return {
+      id: pendingEnemyIntent.id,
+      label: pendingEnemyIntent.label,
+      summary: pendingEnemyIntent.summary,
+      pressure: pendingEnemyIntent.pressure,
+      timingText: pendingEnemyIntent.timingText,
+      insertHint: pendingEnemyIntent.insertHint,
+    };
+  }
+
+  function planEnemyIntent() {
+    const enemySpeed = getEffectiveSpeed(currentEnemy, enemyStatus);
+
+    function enemyActionFrame(actionId, targetUnitId, timingLike) {
+      return createActionFrame({
+        sourceUnitId: "enemy",
+        targetUnitId: targetUnitId,
+        actionId: actionId,
+        actionType: "skill",
+        timingLike: timingLike,
+        timelineApi: timelineApi,
+        sourceSpeed: enemySpeed,
+      });
+    }
+
+    function emitEnemyHitLog(message, damage) {
+      log(message, { type: "enemy_action", source: "enemy", turn: "enemy" });
+      emitEffect("playerHit", { damage: damage, enemy: currentEnemy });
+    }
+
+    function emitEnemySetupLog(message) {
+      log(message, { type: "enemy_action", source: "enemy", turn: "enemy" });
+      emitEffect("enemyHit", { damage: 0, enemy: currentEnemy });
+    }
+
+    if (currentEnemy.isBoss && currentEnemy.role === "pack_alpha" && Math.random() < 0.55) {
+      return createEnemyIntent({
+        id: "pack_alpha_howl",
+        label: "狼群号令",
+        summary: "高伤害并进入狂怒",
+        pressure: "burst",
+        timingText: "延迟 62",
+        insertHint: "若现在插入，可抢在下一波重击前出手。",
+        actionContext: enemyActionFrame("pack_alpha_howl", "player", { baseDelay: 62 }),
+        execute: function executePackAlphaHowl() {
+          const rawDamage = rollDamage(currentEnemy.attack, 1.35, player.defense, rand);
+          const dealt = applyDamageToTarget(player, playerStatus, rawDamage);
+          enemyStatus.attackBuffValue = 0.18;
+          enemyStatus.attackBuffTurns = 2;
+          emitEnemyHitLog(currentEnemy.name + " 号召狼群，造成 " + dealt + " 点伤害并进入狂怒状态。", dealt);
+        },
+      });
+    }
+    if (currentEnemy.isBoss && currentEnemy.role === "arcane_warden" && Math.random() < 0.52) {
+      return createEnemyIntent({
+        id: "arcane_pulse",
+        label: "禁术震波",
+        summary: "中伤害并施加减速",
+        pressure: "control",
+        timingText: "压后 +12",
+        insertHint: "若现在插入，可避免被减速后再掉出节奏。",
+        actionContext: enemyActionFrame("arcane_pulse", "player", { baseDelay: 60, delayTarget: 12 }),
+        execute: function executeArcanePulse() {
+          const rawDamage = rollDamage(currentEnemy.attack, 1.45, player.defense, rand);
+          const dealt = applyDamageToTarget(player, playerStatus, rawDamage);
+          playerStatus.speedDownTurns = 1;
+          playerStatus.speedDownValue = 2;
+          emitEnemyHitLog(currentEnemy.name + " 释放禁术震波，造成 " + dealt + " 点伤害并使你减速。", dealt);
+        },
+      });
+    }
+    if (currentEnemy.isBoss && currentEnemy.role === "inferno_tyrant" && Math.random() < 0.58) {
+      return createEnemyIntent({
+        id: "inferno_breath",
+        label: "烈焰喷吐",
+        summary: "中伤害并附带灼烧",
+        pressure: "burst",
+        timingText: "压后 +6",
+        insertHint: "若现在插入，可先手压血，避免承受持续灼烧。",
+        actionContext: enemyActionFrame("inferno_breath", "player", { baseDelay: 64, delayTarget: 6 }),
+        execute: function executeInfernoBreath() {
+          const rawDamage = rollDamage(currentEnemy.attack, 1.28, player.defense, rand);
+          const dealt = applyDamageToTarget(player, playerStatus, rawDamage);
+          playerStatus.poisonTurns = 2;
+          playerStatus.poisonDamage = 7;
+          emitEnemyHitLog(currentEnemy.name + " 喷吐烈焰，造成 " + dealt + " 点伤害并附带灼烧。", dealt);
+        },
+      });
+    }
+    if (currentEnemy.role === "poisoner" && Math.random() < 0.34) {
+      return createEnemyIntent({
+        id: "poison_bite",
+        label: "毒咬",
+        summary: "低伤害并附加中毒",
+        pressure: "control",
+        timingText: "压后 +4",
+        insertHint: "若现在插入，可在中毒生效前先抢一手。",
+        actionContext: enemyActionFrame("poison_bite", "player", { baseDelay: 56, delayTarget: 4 }),
+        execute: function executePoisonBite() {
+          const rawDamage = rollDamage(currentEnemy.attack, 0.9, player.defense, rand);
+          const dealt = applyDamageToTarget(player, playerStatus, rawDamage);
+          playerStatus.poisonTurns = 2;
+          playerStatus.poisonDamage = 4;
+          emitEnemyHitLog(currentEnemy.name + " 的毒咬造成 " + dealt + " 点伤害，并让你进入中毒状态。", dealt);
+        },
+      });
+    }
+    if (currentEnemy.role === "caster" && Math.random() < 0.3) {
+      return createEnemyIntent({
+        id: "arcane_bolt",
+        label: "奥术脉冲",
+        summary: "中伤害并压慢你的节奏",
+        pressure: "control",
+        timingText: "压后 +6",
+        insertHint: "若现在插入，可避免下一轮时间轴被拉开。",
+        actionContext: enemyActionFrame("arcane_bolt", "player", { baseDelay: 58, delayTarget: 6 }),
+        execute: function executeArcaneBolt() {
+          const rawDamage = rollDamage(currentEnemy.attack, 1.22, player.defense, rand);
+          const dealt = applyDamageToTarget(player, playerStatus, rawDamage);
+          playerStatus.speedDownTurns = 1;
+          playerStatus.speedDownValue = 1;
+          emitEnemyHitLog(currentEnemy.name + " 释放奥术脉冲，造成 " + dealt + " 点伤害。", dealt);
+        },
+      });
+    }
+    if (currentEnemy.role === "guardian" && Math.random() < 0.28) {
+      return createEnemyIntent({
+        id: "guardian_guard",
+        label: "举盾固守",
+        summary: "获得承伤并提前回轴",
+        pressure: "guard",
+        timingText: "抢轴 +8",
+        insertHint: "若现在插入，可压在其防势成型前打出收益。",
+        actionContext: enemyActionFrame("guardian_guard", "enemy", { baseDelay: 42, advanceSelf: 8 }),
+        execute: function executeGuardianGuard() {
+          enemyStatus.guard = Math.max(enemyStatus.guard, 0.35);
+          emitEnemySetupLog(currentEnemy.name + " 举盾固守，准备承伤。");
+        },
+      });
+    }
+    if (currentEnemy.role === "berserker" && Math.random() < 0.32) {
+      return createEnemyIntent({
+        id: "berserk_charge",
+        label: "狂化突进",
+        summary: "中高伤害并蓄下一击",
+        pressure: "burst",
+        timingText: "延迟 60",
+        insertHint: "若现在插入，可减少其连段滚雪球空间。",
+        actionContext: enemyActionFrame("berserk_charge", "player", { baseDelay: 60 }),
+        execute: function executeBerserkCharge() {
+          const rawDamage = rollDamage(currentEnemy.attack, 1.22, player.defense, rand);
+          const dealt = applyDamageToTarget(player, playerStatus, rawDamage);
+          enemyStatus.attackBuffValue = 0.14;
+          enemyStatus.attackBuffTurns = 1;
+          emitEnemyHitLog(currentEnemy.name + " 狂化突进，造成 " + dealt + " 点伤害，下一击会更重。", dealt);
+        },
+      });
+    }
+    if (currentEnemy.role === "stalker" && Math.random() < 0.36) {
+      return createEnemyIntent({
+        id: "stalker_strike",
+        label: "林影突袭",
+        summary: "中伤害并自提回轴",
+        pressure: "burst",
+        timingText: "抢轴 +6 · 压后 +4",
+        insertHint: "若现在插入，可打乱其连续追击节奏。",
+        actionContext: enemyActionFrame("stalker_strike", "player", { baseDelay: 50, advanceSelf: 6, delayTarget: 4 }),
+        execute: function executeStalkerStrike() {
+          const rawDamage = rollDamage(currentEnemy.attack, 1.16, player.defense, rand);
+          const dealt = applyDamageToTarget(player, playerStatus, rawDamage);
+          playerStatus.poisonTurns = Math.max(playerStatus.poisonTurns, 1);
+          playerStatus.poisonDamage = Math.max(playerStatus.poisonDamage, 5);
+          emitEnemyHitLog(currentEnemy.name + " 借着林影突袭，造成 " + dealt + " 点伤害并留下毒性创口。", dealt);
+        },
+      });
+    }
+    if (currentEnemy.role === "mana_drain" && Math.random() < 0.34) {
+      return createEnemyIntent({
+        id: "mana_drain",
+        label: "法力抽离",
+        summary: "中伤害并抽走法力",
+        pressure: "control",
+        timingText: "压后 +4",
+        insertHint: "若现在插入，可避免关键回合被抽空法力。",
+        actionContext: enemyActionFrame("mana_drain", "player", { baseDelay: 58, delayTarget: 4 }),
+        execute: function executeManaDrain() {
+          const rawDamage = rollDamage(currentEnemy.attack, 1.08, player.defense, rand);
+          const dealt = applyDamageToTarget(player, playerStatus, rawDamage);
+          const drained = Math.min(player.mp, 6);
+          player.mp = clamp(player.mp - drained, 0, player.maxMp);
+          emitEnemyHitLog(currentEnemy.name + " 抽离你的法力，造成 " + dealt + " 点伤害并吸走 " + drained + " 点法力。", dealt);
+        },
+      });
+    }
+    if (currentEnemy.role === "bulwark" && Math.random() < 0.3) {
+      return createEnemyIntent({
+        id: "bulwark_guard",
+        label: "收缩防线",
+        summary: "强化防势并准备下一击",
+        pressure: "guard",
+        timingText: "抢轴 +8",
+        insertHint: "若现在插入，可趁其架势建立前抢伤害。",
+        actionContext: enemyActionFrame("bulwark_guard", "enemy", { baseDelay: 46, advanceSelf: 8 }),
+        execute: function executeBulwarkGuard() {
+          enemyStatus.guard = Math.max(enemyStatus.guard, 0.42);
+          enemyStatus.attackBuffValue = Math.max(enemyStatus.attackBuffValue, 0.12);
+          enemyStatus.attackBuffTurns = 1;
+          emitEnemySetupLog(currentEnemy.name + " 收缩防线，架起防势并准备下一次重击。");
+        },
+      });
+    }
+    if (currentEnemy.role === "pyromancer" && Math.random() < 0.34) {
+      return createEnemyIntent({
+        id: "ember_rain",
+        label: "灵火灰烬",
+        summary: "中伤害并附加灼烧",
+        pressure: "control",
+        timingText: "压后 +5",
+        insertHint: "若现在插入，可减少持续伤害滚雪球。",
+        actionContext: enemyActionFrame("ember_rain", "player", { baseDelay: 60, delayTarget: 5 }),
+        execute: function executeEmberRain() {
+          const rawDamage = rollDamage(currentEnemy.attack, 1.14, player.defense, rand);
+          const dealt = applyDamageToTarget(player, playerStatus, rawDamage);
+          playerStatus.poisonTurns = Math.max(playerStatus.poisonTurns, 2);
+          playerStatus.poisonDamage = Math.max(playerStatus.poisonDamage, 6);
+          emitEnemyHitLog(currentEnemy.name + " 洒下灵火灰烬，造成 " + dealt + " 点伤害并附加灼烧。", dealt);
+        },
+      });
+    }
+
+    return createEnemyIntent({
+      id: "enemy_attack",
+      label: "普通攻击",
+      summary: "稳定造成伤害",
+      pressure: "neutral",
+      timingText: "延迟 54",
+      insertHint: "若现在插入，可纯粹争抢节奏。",
+      actionContext: enemyActionFrame("enemy_attack", "player", { baseDelay: 54 }),
+      execute: function executeBasicAttack() {
+        const rawDamage = rollDamage(getEffectiveAttack(currentEnemy, enemyStatus), 1, player.defense, rand);
+        const dealt = applyDamageToTarget(player, playerStatus, rawDamage);
+        emitEnemyHitLog(currentEnemy.name + " 使用普通攻击，造成 " + dealt + " 点伤害。", dealt);
+      },
+    });
+  }
+
   function finishCombat(result, reason) {
     if (state !== "combat") {
       return;
@@ -501,6 +771,7 @@ function createCombatController(options) {
       enemy: currentEnemy,
     });
     closeInsertWindow();
+    clearEnemyIntent();
     state = "idle";
     locked = false;
     roundCount = 0;
@@ -559,6 +830,10 @@ function createCombatController(options) {
       return;
     }
 
+    if (actor.side !== "enemy") {
+      clearEnemyIntent();
+    }
+
     const statusBag = getStatusBagForSide(actor.side);
     const unit = getUnitForSide(actor.side);
     const label = getUnitLabel(actor.side);
@@ -580,6 +855,9 @@ function createCombatController(options) {
       return;
     }
 
+    if (actor.side === "enemy" && !pendingEnemyIntent) {
+      pendingEnemyIntent = planEnemyIntent();
+    }
     refreshInsertWindow(actor.side === "enemy" ? "enemy_turn" : "");
     emitSnapshot();
 
@@ -595,7 +873,7 @@ function createCombatController(options) {
     if (pendingInsertWindow) {
       locked = false;
       if (!initial) {
-        log("终结技插入窗口已打开，现在可以抢在 " + label + " 行动前出手。", { type: "ultimate_window", source: "system", emphasis: true, turn: "timeline" });
+        log("终结技插入窗口已打开，现在可以抢在 " + (pendingEnemyIntent ? pendingEnemyIntent.label : label) + " 前出手。", { type: "ultimate_window", source: "system", emphasis: true, turn: "timeline" });
       }
       emitSnapshot();
       clearEnemyTimer();
@@ -631,6 +909,7 @@ function createCombatController(options) {
     playerStatus = createStatusRuntime();
     enemyStatus = createStatusRuntime();
     playerUltimate = createUltimateRuntime();
+    clearEnemyIntent();
     if (typeof encounter.playerUltimateCharge === "number") {
       playerUltimate.current = clamp(encounter.playerUltimateCharge, 0, playerUltimate.max);
     }
@@ -786,206 +1065,9 @@ function createCombatController(options) {
   }
 
   function enemySkillAction() {
-    const role = currentEnemy.role || "basic";
-    let actionContext = createActionFrame({
-      sourceUnitId: "enemy",
-      targetUnitId: "player",
-      actionId: "enemy_attack",
-      actionType: "skill",
-      timingLike: { baseDelay: 54 },
-      timelineApi: timelineApi,
-      sourceSpeed: getEffectiveSpeed(currentEnemy, enemyStatus),
-    });
-
-    if (currentEnemy.isBoss && role === "pack_alpha" && Math.random() < 0.55) {
-      const rawDamage = rollDamage(currentEnemy.attack, 1.35, player.defense, rand);
-      const dealt = applyDamageToTarget(player, playerStatus, rawDamage);
-      enemyStatus.attackBuffValue = 0.18;
-      enemyStatus.attackBuffTurns = 2;
-      log(currentEnemy.name + " 号召狼群，造成 " + dealt + " 点伤害并进入狂怒状态。", { type: "enemy_action", source: "enemy", turn: "enemy" });
-      emitEffect("playerHit", { damage: dealt, enemy: currentEnemy });
-      return createActionFrame({
-        sourceUnitId: "enemy",
-        targetUnitId: "player",
-        actionId: "pack_alpha_howl",
-        actionType: "skill",
-        timingLike: { baseDelay: 62 },
-        timelineApi: timelineApi,
-        sourceSpeed: getEffectiveSpeed(currentEnemy, enemyStatus),
-      });
-    }
-    if (currentEnemy.isBoss && role === "arcane_warden" && Math.random() < 0.52) {
-      const rawDamage = rollDamage(currentEnemy.attack, 1.45, player.defense, rand);
-      const dealt = applyDamageToTarget(player, playerStatus, rawDamage);
-      playerStatus.speedDownTurns = 1;
-      playerStatus.speedDownValue = 2;
-      log(currentEnemy.name + " 释放禁术震波，造成 " + dealt + " 点伤害并使你减速。", { type: "enemy_action", source: "enemy", turn: "enemy" });
-      emitEffect("playerHit", { damage: dealt, enemy: currentEnemy });
-      return createActionFrame({
-        sourceUnitId: "enemy",
-        targetUnitId: "player",
-        actionId: "arcane_pulse",
-        actionType: "skill",
-        timingLike: { baseDelay: 60, delayTarget: 12 },
-        timelineApi: timelineApi,
-        sourceSpeed: getEffectiveSpeed(currentEnemy, enemyStatus),
-      });
-    }
-    if (currentEnemy.isBoss && role === "inferno_tyrant" && Math.random() < 0.58) {
-      const rawDamage = rollDamage(currentEnemy.attack, 1.28, player.defense, rand);
-      const dealt = applyDamageToTarget(player, playerStatus, rawDamage);
-      playerStatus.poisonTurns = 2;
-      playerStatus.poisonDamage = 7;
-      log(currentEnemy.name + " 喷吐烈焰，造成 " + dealt + " 点伤害并附带灼烧。", { type: "enemy_action", source: "enemy", turn: "enemy" });
-      emitEffect("playerHit", { damage: dealt, enemy: currentEnemy });
-      return createActionFrame({
-        sourceUnitId: "enemy",
-        targetUnitId: "player",
-        actionId: "inferno_breath",
-        actionType: "skill",
-        timingLike: { baseDelay: 64, delayTarget: 6 },
-        timelineApi: timelineApi,
-        sourceSpeed: getEffectiveSpeed(currentEnemy, enemyStatus),
-      });
-    }
-    if (role === "poisoner" && Math.random() < 0.34) {
-      const rawDamage = rollDamage(currentEnemy.attack, 0.9, player.defense, rand);
-      const dealt = applyDamageToTarget(player, playerStatus, rawDamage);
-      playerStatus.poisonTurns = 2;
-      playerStatus.poisonDamage = 4;
-      log(currentEnemy.name + " 的毒咬造成 " + dealt + " 点伤害，并让你进入中毒状态。", { type: "enemy_action", source: "enemy", turn: "enemy" });
-      emitEffect("playerHit", { damage: dealt, enemy: currentEnemy });
-      return createActionFrame({
-        sourceUnitId: "enemy",
-        targetUnitId: "player",
-        actionId: "poison_bite",
-        actionType: "skill",
-        timingLike: { baseDelay: 56, delayTarget: 4 },
-        timelineApi: timelineApi,
-        sourceSpeed: getEffectiveSpeed(currentEnemy, enemyStatus),
-      });
-    }
-    if (role === "caster" && Math.random() < 0.3) {
-      const rawDamage = rollDamage(currentEnemy.attack, 1.22, player.defense, rand);
-      const dealt = applyDamageToTarget(player, playerStatus, rawDamage);
-      playerStatus.speedDownTurns = 1;
-      playerStatus.speedDownValue = 1;
-      log(currentEnemy.name + " 释放奥术脉冲，造成 " + dealt + " 点伤害。", { type: "enemy_action", source: "enemy", turn: "enemy" });
-      emitEffect("playerHit", { damage: dealt, enemy: currentEnemy });
-      return createActionFrame({
-        sourceUnitId: "enemy",
-        targetUnitId: "player",
-        actionId: "arcane_bolt",
-        actionType: "skill",
-        timingLike: { baseDelay: 58, delayTarget: 6 },
-        timelineApi: timelineApi,
-        sourceSpeed: getEffectiveSpeed(currentEnemy, enemyStatus),
-      });
-    }
-    if (role === "guardian" && Math.random() < 0.28) {
-      enemyStatus.guard = Math.max(enemyStatus.guard, 0.35);
-      log(currentEnemy.name + " 举盾固守，准备承伤。", { type: "enemy_action", source: "enemy", turn: "enemy" });
-      emitEffect("enemyHit", { damage: 0, enemy: currentEnemy });
-      return createActionFrame({
-        sourceUnitId: "enemy",
-        targetUnitId: "enemy",
-        actionId: "guardian_guard",
-        actionType: "skill",
-        timingLike: { baseDelay: 42, advanceSelf: 8 },
-        timelineApi: timelineApi,
-        sourceSpeed: getEffectiveSpeed(currentEnemy, enemyStatus),
-      });
-    }
-    if (role === "berserker" && Math.random() < 0.32) {
-      const rawDamage = rollDamage(currentEnemy.attack, 1.22, player.defense, rand);
-      const dealt = applyDamageToTarget(player, playerStatus, rawDamage);
-      enemyStatus.attackBuffValue = 0.14;
-      enemyStatus.attackBuffTurns = 1;
-      log(currentEnemy.name + " 狂化突进，造成 " + dealt + " 点伤害，下一击会更重。", { type: "enemy_action", source: "enemy", turn: "enemy" });
-      emitEffect("playerHit", { damage: dealt, enemy: currentEnemy });
-      return createActionFrame({
-        sourceUnitId: "enemy",
-        targetUnitId: "player",
-        actionId: "berserk_charge",
-        actionType: "skill",
-        timingLike: { baseDelay: 60 },
-        timelineApi: timelineApi,
-        sourceSpeed: getEffectiveSpeed(currentEnemy, enemyStatus),
-      });
-    }
-    if (role === "stalker" && Math.random() < 0.36) {
-      const rawDamage = rollDamage(currentEnemy.attack, 1.16, player.defense, rand);
-      const dealt = applyDamageToTarget(player, playerStatus, rawDamage);
-      playerStatus.poisonTurns = Math.max(playerStatus.poisonTurns, 1);
-      playerStatus.poisonDamage = Math.max(playerStatus.poisonDamage, 5);
-      log(currentEnemy.name + " 借着林影突袭，造成 " + dealt + " 点伤害并留下毒性创口。", { type: "enemy_action", source: "enemy", turn: "enemy" });
-      emitEffect("playerHit", { damage: dealt, enemy: currentEnemy });
-      return createActionFrame({
-        sourceUnitId: "enemy",
-        targetUnitId: "player",
-        actionId: "stalker_strike",
-        actionType: "skill",
-        timingLike: { baseDelay: 50, advanceSelf: 6, delayTarget: 4 },
-        timelineApi: timelineApi,
-        sourceSpeed: getEffectiveSpeed(currentEnemy, enemyStatus),
-      });
-    }
-    if (role === "mana_drain" && Math.random() < 0.34) {
-      const rawDamage = rollDamage(currentEnemy.attack, 1.08, player.defense, rand);
-      const dealt = applyDamageToTarget(player, playerStatus, rawDamage);
-      const drained = Math.min(player.mp, 6);
-      player.mp = clamp(player.mp - drained, 0, player.maxMp);
-      log(currentEnemy.name + " 抽离你的法力，造成 " + dealt + " 点伤害并吸走 " + drained + " 点法力。", { type: "enemy_action", source: "enemy", turn: "enemy" });
-      emitEffect("playerHit", { damage: dealt, enemy: currentEnemy });
-      return createActionFrame({
-        sourceUnitId: "enemy",
-        targetUnitId: "player",
-        actionId: "mana_drain",
-        actionType: "skill",
-        timingLike: { baseDelay: 58, delayTarget: 4 },
-        timelineApi: timelineApi,
-        sourceSpeed: getEffectiveSpeed(currentEnemy, enemyStatus),
-      });
-    }
-    if (role === "bulwark" && Math.random() < 0.3) {
-      enemyStatus.guard = Math.max(enemyStatus.guard, 0.42);
-      enemyStatus.attackBuffValue = Math.max(enemyStatus.attackBuffValue, 0.12);
-      enemyStatus.attackBuffTurns = 1;
-      log(currentEnemy.name + " 收缩防线，架起防势并准备下一次重击。", { type: "enemy_action", source: "enemy", turn: "enemy" });
-      emitEffect("enemyHit", { damage: 0, enemy: currentEnemy });
-      return createActionFrame({
-        sourceUnitId: "enemy",
-        targetUnitId: "enemy",
-        actionId: "bulwark_guard",
-        actionType: "skill",
-        timingLike: { baseDelay: 46, advanceSelf: 8 },
-        timelineApi: timelineApi,
-        sourceSpeed: getEffectiveSpeed(currentEnemy, enemyStatus),
-      });
-    }
-    if (role === "pyromancer" && Math.random() < 0.34) {
-      const rawDamage = rollDamage(currentEnemy.attack, 1.14, player.defense, rand);
-      const dealt = applyDamageToTarget(player, playerStatus, rawDamage);
-      playerStatus.poisonTurns = Math.max(playerStatus.poisonTurns, 2);
-      playerStatus.poisonDamage = Math.max(playerStatus.poisonDamage, 6);
-      log(currentEnemy.name + " 洒下灵火灰烬，造成 " + dealt + " 点伤害并附加灼烧。", { type: "enemy_action", source: "enemy", turn: "enemy" });
-      emitEffect("playerHit", { damage: dealt, enemy: currentEnemy });
-      return createActionFrame({
-        sourceUnitId: "enemy",
-        targetUnitId: "player",
-        actionId: "ember_rain",
-        actionType: "skill",
-        timingLike: { baseDelay: 60, delayTarget: 5 },
-        timelineApi: timelineApi,
-        sourceSpeed: getEffectiveSpeed(currentEnemy, enemyStatus),
-      });
-    }
-
-    const rawDamage = rollDamage(getEffectiveAttack(currentEnemy, enemyStatus), 1, player.defense, rand);
-    const dealt = applyDamageToTarget(player, playerStatus, rawDamage);
-    log(currentEnemy.name + " 使用普通攻击，造成 " + dealt + " 点伤害。", { type: "enemy_action", source: "enemy", turn: "enemy" });
-    emitEffect("playerHit", { damage: dealt, enemy: currentEnemy });
-    return actionContext;
+    const intent = planEnemyIntent();
+    intent.execute();
+    return intent.actionContext;
   }
 
   function runEnemyTurn() {
@@ -998,7 +1080,10 @@ function createCombatController(options) {
     }
 
     closeInsertWindow();
-    const actionContext = enemySkillAction();
+    const intent = pendingEnemyIntent || planEnemyIntent();
+    clearEnemyIntent();
+    intent.execute();
+    const actionContext = intent.actionContext;
     gainUltimateCharge(1, currentEnemy.name + " 的压制");
     emitStatus();
     syncTimelineActors();

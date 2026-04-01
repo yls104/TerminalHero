@@ -63,6 +63,16 @@
       round: typeof data.round === "number" ? data.round : 0,
       pendingAction: data.pendingAction || "",
       currentActorId: data.currentActorId || "",
+      enemyIntent: data.enemyIntent
+        ? {
+            id: data.enemyIntent.id || "",
+            label: data.enemyIntent.label || "",
+            summary: data.enemyIntent.summary || "",
+            pressure: data.enemyIntent.pressure || "neutral",
+            timingText: data.enemyIntent.timingText || "",
+            insertHint: data.enemyIntent.insertHint || "",
+          }
+        : null,
       insertWindow: data.insertWindow
         ? {
             open: Boolean(data.insertWindow.open),

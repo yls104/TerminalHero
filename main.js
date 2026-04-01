@@ -73,6 +73,13 @@
   const renderBuildCodexHtml = viewModelApi.renderBuildCodexHtml || function fallbackBuildCodexHtml() { return ""; };
   const createCombatTimelineViewModel = viewModelApi.createCombatTimelineViewModel || function fallbackCombatTimelineViewModel() { return { visible: false, statusText: "", entries: [] }; };
   const createCombatMenuTimingViewModel = viewModelApi.createCombatMenuTimingViewModel || function fallbackCombatMenuTimingViewModel() { return { metaText: "" }; };
+  const createCombatIntentViewModel = viewModelApi.createCombatIntentViewModel || function fallbackCombatIntentViewModel(snapshot) {
+    return {
+      visible: Boolean(snapshot && snapshot.enemyIntent),
+      summaryText: snapshot && snapshot.enemyIntent ? snapshot.enemyIntent.label || "" : "",
+      actionHintText: snapshot && snapshot.inCombat ? (snapshot.playerTurn ? "你的回合" : "敌方逼近") : "等待接敌",
+    };
+  };
   const saveSnapshot = saveApi.saveSnapshot || function noSave() { return { ok: false, reason: "当前版本未接入存档。" }; };
   const loadSnapshot = saveApi.loadSnapshot || function noLoad() { return { ok: false, reason: "当前版本未接入存档。" }; };
   const clearSnapshot = saveApi.clearSnapshot || function noClear() { return { ok: false, reason: "当前版本未接入存档。" }; };
@@ -150,6 +157,10 @@
     enemyName: document.querySelector("#enemyName"),
     enemyHpText: document.querySelector("#enemyHpText"),
     enemyHpBar: document.querySelector("#enemyHpBar"),
+    enemyIntentRow: document.querySelector("#enemyIntentRow"),
+    enemyIntentLabel: document.querySelector("#enemyIntentLabel"),
+    enemyIntentName: document.querySelector("#enemyIntentName"),
+    enemyIntentSummary: document.querySelector("#enemyIntentSummary"),
     battleLog: document.querySelector("#battleLog"),
     canvasWrap: document.querySelector(".canvas-wrap"),
     screenFlash: document.querySelector("#screenFlash"),
@@ -1240,13 +1251,7 @@
       ui.actionHint.textContent = "等待接敌";
       return;
     }
-    if (snapshot.insertWindow && snapshot.insertWindow.open) {
-      ui.actionHint.textContent = "终结可插入";
-      return;
-    }
-    ui.actionHint.textContent = snapshot.playerTurn
-      ? "你的回合"
-      : "敌方逼近";
+    ui.actionHint.textContent = createCombatIntentViewModel(snapshot).actionHintText;
   }
 
   function getPrimaryUltimateSkill() {
@@ -1309,11 +1314,23 @@
     updateSkillMenuVisibility();
   }
 
-  function syncEnemyPanel(enemy) {
-    const enemyView = createEnemyViewModel(enemy);
+  function syncEnemyPanel(snapshot) {
+    const enemyView = createEnemyViewModel({
+      enemy: snapshot ? snapshot.enemy : null,
+      intent: snapshot ? snapshot.enemyIntent : null,
+    });
     if (!enemyView.visible) {
       ui.enemyPanel.classList.add("is-hidden");
       ui.enemyPanel.setAttribute("aria-hidden", "true");
+      if (ui.enemyIntentRow) {
+        ui.enemyIntentRow.classList.add("is-hidden");
+        ui.enemyIntentRow.setAttribute("aria-hidden", "true");
+      }
+      if (ui.enemyIntentSummary) {
+        ui.enemyIntentSummary.classList.add("is-hidden");
+        ui.enemyIntentSummary.setAttribute("aria-hidden", "true");
+        ui.enemyIntentSummary.textContent = "";
+      }
       return;
     }
     ui.enemyPanel.classList.remove("is-hidden");
@@ -1321,6 +1338,17 @@
     ui.enemyName.textContent = enemyView.name;
     ui.enemyHpText.textContent = enemyView.hpText;
     ui.enemyHpBar.style.width = enemyView.hpPercent + "%";
+    if (ui.enemyIntentRow && ui.enemyIntentLabel && ui.enemyIntentName) {
+      ui.enemyIntentRow.classList.toggle("is-hidden", !enemyView.intentVisible);
+      ui.enemyIntentRow.setAttribute("aria-hidden", enemyView.intentVisible ? "false" : "true");
+      ui.enemyIntentLabel.textContent = enemyView.intentLabel;
+      ui.enemyIntentName.textContent = enemyView.intentName;
+    }
+    if (ui.enemyIntentSummary) {
+      ui.enemyIntentSummary.classList.toggle("is-hidden", !enemyView.intentVisible || !enemyView.intentSummary);
+      ui.enemyIntentSummary.setAttribute("aria-hidden", enemyView.intentVisible && enemyView.intentSummary ? "false" : "true");
+      ui.enemyIntentSummary.textContent = enemyView.intentSummary || "";
+    }
   }
 
   function syncStatusPanel() {
@@ -2985,7 +3013,7 @@
           if (snapshot.inCombat) {
             clearHeldMoveKeys();
             setGameState(GAME_STATE.COMBAT);
-            syncEnemyPanel(snapshot.enemy);
+            syncEnemyPanel(snapshot);
             setActionMenu(true, Boolean(snapshot.playerTurn), snapshot);
           } else {
             syncEnemyPanel(null);

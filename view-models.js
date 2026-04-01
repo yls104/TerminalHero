@@ -49,13 +49,20 @@
     };
   }
 
-  function createEnemyViewModel(enemy) {
+  function createEnemyViewModel(input) {
+    const data = input && input.enemy ? input : { enemy: input, intent: null };
+    const enemy = data.enemy;
+    const intent = data.intent || null;
     if (!enemy) {
       return {
         visible: false,
         name: "",
         hpText: "0 / 0",
         hpPercent: 0,
+        intentVisible: false,
+        intentLabel: "",
+        intentName: "",
+        intentSummary: "",
       };
     }
 
@@ -64,6 +71,18 @@
       name: enemy.isBoss ? "【首领】" + enemy.name : enemy.encounterType === "elite" ? "【精英】" + enemy.name : enemy.name,
       hpText: enemy.hp + " / " + enemy.maxHp,
       hpPercent: toPercent(enemy.hp, enemy.maxHp),
+      intentVisible: Boolean(intent && intent.label),
+      intentLabel: intent && intent.pressure === "control"
+        ? "压制预告"
+        : intent && intent.pressure === "burst"
+          ? "爆发预告"
+          : intent && intent.pressure === "guard"
+            ? "防守预告"
+            : "即将行动",
+      intentName: intent ? intent.label || "" : "",
+      intentSummary: intent
+        ? [intent.summary, intent.timingText].filter(Boolean).join(" · ")
+        : "",
     };
   }
 
@@ -207,6 +226,31 @@
     };
   }
 
+  function createCombatIntentViewModel(snapshot) {
+    const data = snapshot || {};
+    const intent = data.enemyIntent || null;
+    if (!data.inCombat || !intent) {
+      return {
+        visible: false,
+        summaryText: "",
+        actionHintText: data && data.inCombat
+          ? (data.playerTurn ? "你的回合" : "敌方逼近")
+          : "等待接敌",
+      };
+    }
+
+    const summary = [intent.label, intent.summary, intent.timingText].filter(Boolean).join(" · ");
+    return {
+      visible: true,
+      summaryText: summary,
+      actionHintText: data.insertWindow && data.insertWindow.open
+        ? "终结可插入 · " + intent.label
+        : data.playerTurn
+          ? "你的回合 · 敌方准备 " + intent.label
+          : "敌方蓄势 · " + intent.label,
+    };
+  }
+
   function createCombatMenuTimingViewModel(input) {
     const data = input || {};
     const skill = data.skill || {};
@@ -252,5 +296,6 @@
     renderBuildCodexHtml: renderBuildCodexHtml,
     createCombatTimelineViewModel: createCombatTimelineViewModel,
     createCombatMenuTimingViewModel: createCombatMenuTimingViewModel,
+    createCombatIntentViewModel: createCombatIntentViewModel,
   };
 })();
