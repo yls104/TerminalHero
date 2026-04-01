@@ -221,14 +221,23 @@ function validateDataAndViewModels() {
   const battleCrySkill = entitiesApi.getResolvedSkill("battle_cry");
   const earthshatterSkill = entitiesApi.getResolvedSkill("earthshatter");
   const executionSealSkill = entitiesApi.getResolvedSkill("execution_seal");
+  const meteorSkill = entitiesApi.getResolvedSkill("meteor");
+  const judgmentSkill = entitiesApi.getResolvedSkill("judgment");
+  const lunarBloomSkill = entitiesApi.getResolvedSkill("lunar_bloom");
   assert(entitiesApi.classes.warrior && entitiesApi.classes.warrior.selectable !== false, "战士应保持为当前可选职业");
-  assert(entitiesApi.classes.mage && entitiesApi.classes.mage.selectable === false, "法师应在职业重构阶段被禁用");
+  assert(entitiesApi.classes.mage && entitiesApi.classes.mage.selectable !== false, "法师重构试行版应已恢复选择入口");
   assert(entitiesApi.classes.rogue && entitiesApi.classes.rogue.selectable !== false, "盗贼重构试行版应已恢复选择入口");
   assert(entitiesApi.classes.ranger && entitiesApi.classes.ranger.selectable !== false, "游侠重构试行版应已恢复选择入口");
-  assert(entitiesApi.classes.paladin && entitiesApi.classes.paladin.refactorLabel === "重构中", "尚未重构的职业仍应标记为重构中");
+  assert(entitiesApi.classes.paladin && entitiesApi.classes.paladin.selectable !== false, "圣骑士重构试行版应已恢复选择入口");
+  assert(entitiesApi.classes.cleric && entitiesApi.classes.cleric.selectable !== false, "牧师重构试行版应已恢复选择入口");
+  assert(entitiesApi.classes.druid && entitiesApi.classes.druid.selectable !== false, "德鲁伊重构试行版应已恢复选择入口");
   assert(entitiesApi.classes.warrior.resourceConfig.max === 5, "战士压制值上限应提升到新版模板的 5 点");
   assert(entitiesApi.classes.rogue.resourceConfig.max === 6, "盗贼连击点上限应提升到新版模板的 6 点");
   assert(entitiesApi.classes.ranger.resourceConfig.max === 5, "游侠专注值上限应提升到新版模板的 5 点");
+  assert(entitiesApi.classes.mage.resourceConfig.max === 5, "法师过载层数上限应提升到新版模板的 5 点");
+  assert(entitiesApi.classes.paladin.resourceConfig.max === 5, "圣骑士神圣充能上限应提升到新版模板的 5 点");
+  assert(entitiesApi.classes.cleric.resourceConfig.max === 5, "牧师审判印记上限应提升到新版模板的 5 点");
+  assert(entitiesApi.classes.druid.resourceConfig.max === 5, "德鲁伊自然印记上限应提升到新版模板的 5 点");
   assert(typeof attackSkill.baseDelay === "number", "技能解析未补齐 baseDelay");
   assert(typeof attackSkill.advanceSelf === "number", "技能解析未补齐 advanceSelf");
   assert(typeof attackSkill.delayTarget === "number", "技能解析未补齐 delayTarget");
@@ -237,6 +246,9 @@ function validateDataAndViewModels() {
   assert(battleCrySkill.resourceCost === 1, "战吼应改为低消耗的窗口启动技");
   assert(earthshatterSkill.resourceCost === 3, "裂地猛击应改为新版战士的主处决消耗");
   assert(executionSealSkill.bonusVsBrokenRatio > 0, "处决印记未接入失衡处决收益");
+  assert(meteorSkill.actionType === "ultimate", "陨星术应被识别为法师终结技");
+  assert(judgmentSkill.actionType === "ultimate", "圣裁应被识别为牧师终结技");
+  assert(lunarBloomSkill.actionType === "ultimate", "月华绽放应被识别为德鲁伊终结技");
 
   const timeline = timelineApi.createTimelineState({
     actors: [
@@ -320,6 +332,38 @@ function validateDataAndViewModels() {
   assert(rangerUltimateSkills.some(function hasRangerUltimate(skill) { return skill.id === "volley"; }), "游侠终结技未在 3 级后正确解锁");
   assert(entitiesApi.player.buildSnapshot.combatFocuses.includes("起手拖轴"), "游侠构筑快照未体现起手拖轴职责");
   assert(entitiesApi.player.buildSnapshot.combatFocuses.includes("收割处决"), "游侠构筑快照未体现收割处决职责");
+
+  entitiesApi.applyClassToPlayer("mage");
+  entitiesApi.player.level = 3;
+  entitiesApi.player.classResource.current = entitiesApi.player.classResource.max;
+  entitiesApi.unlockClassSkillIfNeeded();
+  assert(entitiesApi.getResolvedUltimateSkills().some(function hasMageUltimate(skill) { return skill.id === "meteor"; }), "法师终结技未在 3 级后正确解锁");
+  assert(entitiesApi.player.buildSnapshot.combatFocuses.includes("起手过载"), "法师构筑快照未体现起手过载职责");
+  assert(entitiesApi.player.buildSnapshot.combatFocuses.includes("高耗终结"), "法师构筑快照未体现高耗终结职责");
+
+  entitiesApi.applyClassToPlayer("paladin");
+  entitiesApi.player.level = 3;
+  entitiesApi.player.classResource.current = entitiesApi.player.classResource.max;
+  entitiesApi.unlockClassSkillIfNeeded();
+  assert(entitiesApi.getResolvedUltimateSkills().some(function hasPaladinUltimate(skill) { return skill.id === "execution_seal"; }), "圣骑士终结技未在 3 级后正确解锁");
+  assert(entitiesApi.player.buildSnapshot.combatFocuses.includes("稳态推进"), "圣骑士构筑快照未体现稳态推进职责");
+  assert(entitiesApi.player.buildSnapshot.combatFocuses.includes("处决爆发"), "圣骑士构筑快照未体现处决爆发职责");
+
+  entitiesApi.applyClassToPlayer("cleric");
+  entitiesApi.player.level = 3;
+  entitiesApi.player.classResource.current = entitiesApi.player.classResource.max;
+  entitiesApi.unlockClassSkillIfNeeded();
+  assert(entitiesApi.getResolvedUltimateSkills().some(function hasClericUltimate(skill) { return skill.id === "judgment"; }), "牧师终结技未在 3 级后正确解锁");
+  assert(entitiesApi.player.buildSnapshot.combatFocuses.includes("恢复转收益"), "牧师构筑快照未体现恢复转收益职责");
+  assert(entitiesApi.player.buildSnapshot.combatFocuses.includes("审判处决"), "牧师构筑快照未体现审判处决职责");
+
+  entitiesApi.applyClassToPlayer("druid");
+  entitiesApi.player.level = 3;
+  entitiesApi.player.classResource.current = entitiesApi.player.classResource.max;
+  entitiesApi.unlockClassSkillIfNeeded();
+  assert(entitiesApi.getResolvedUltimateSkills().some(function hasDruidUltimate(skill) { return skill.id === "lunar_bloom"; }), "德鲁伊终结技未在 3 级后正确解锁");
+  assert(entitiesApi.player.buildSnapshot.combatFocuses.includes("状态铺场"), "德鲁伊构筑快照未体现状态铺场职责");
+  assert(entitiesApi.player.buildSnapshot.combatFocuses.includes("转化绽放"), "德鲁伊构筑快照未体现转化绽放职责");
 
   entitiesApi.applyClassToPlayer("warrior");
   entitiesApi.player.level = 3;

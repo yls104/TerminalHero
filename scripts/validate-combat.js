@@ -220,6 +220,40 @@ function testUltimateInsertFlow(context, apis) {
   assert(entitiesApi.getResolvedSkill("poison_arrow").resourceGain === 2, "游侠重构后毒箭应提供 2 点专注");
   assert(entitiesApi.getResolvedSkill("volley").actionType === "ultimate", "游侠重构后箭雨应被识别为终结技");
 
+  entitiesApi.applyClassToPlayer("mage");
+  entitiesApi.player.level = 3;
+  entitiesApi.player.classResource.current = entitiesApi.player.classResource.max;
+  entitiesApi.unlockClassSkillIfNeeded();
+  assert(entitiesApi.getResolvedSkill("arcane_bolt").resourceGain === 2, "法师重构后奥术飞弹应提供 2 层过载");
+  assert(entitiesApi.getResolvedSkill("frost_nova").delayTarget >= 16, "法师重构后冰环应成为显式拖轴技能");
+  assert(entitiesApi.getResolvedSkill("meteor").actionType === "ultimate", "法师重构后陨星术应被识别为终结技");
+
+  entitiesApi.applyClassToPlayer("paladin");
+  entitiesApi.player.level = 3;
+  entitiesApi.player.classResource.current = entitiesApi.player.classResource.max;
+  entitiesApi.unlockClassSkillIfNeeded();
+  assert(entitiesApi.getResolvedSkill("radiant_slash").resourceGain === 2, "圣骑士重构后光耀斩应提供 2 点神圣充能");
+  assert(entitiesApi.getResolvedSkill("execution_seal").actionType === "ultimate", "圣骑士重构后处决印记应被识别为终结技");
+
+  entitiesApi.applyClassToPlayer("cleric");
+  entitiesApi.player.level = 3;
+  entitiesApi.player.classResource.current = entitiesApi.player.classResource.max;
+  entitiesApi.unlockClassSkillIfNeeded();
+  assert(entitiesApi.getResolvedSkill("smite").resourceGain === 2, "牧师重构后圣击应提供 2 枚审判印记");
+  assert(entitiesApi.getResolvedSkill("judgment").actionType === "ultimate", "牧师重构后圣裁应被识别为终结技");
+
+  entitiesApi.applyClassToPlayer("druid");
+  entitiesApi.player.level = 3;
+  entitiesApi.player.classResource.current = entitiesApi.player.classResource.max;
+  entitiesApi.unlockClassSkillIfNeeded();
+  assert(entitiesApi.getResolvedSkill("thorn_whip").resourceGain === 2, "德鲁伊重构后藤蔓鞭笞应提供 2 枚自然印记");
+  assert(entitiesApi.getResolvedSkill("lunar_bloom").actionType === "ultimate", "德鲁伊重构后月华绽放应被识别为终结技");
+
+  entitiesApi.applyClassToPlayer("warrior");
+  entitiesApi.player.level = 3;
+  entitiesApi.player.classResource.current = entitiesApi.player.classResource.max;
+  entitiesApi.unlockClassSkillIfNeeded();
+
   const combatController = combatApi.createCombatController({
     player: entitiesApi.player,
     skills: entitiesApi.skills,
