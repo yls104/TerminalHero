@@ -344,11 +344,18 @@
     const parts = [];
     const roleMap = {
       "起手压制": "起手",
+      "起手抢轴": "抢先",
+      "连段起手": "起连",
+      "持续压血": "压血",
+      "连段续压": "续压",
       "压制推进": "压制",
       "窗口启动": "起窗",
       "爆发准备": "备爆",
       "处决": "处决",
+      "斩杀处决": "斩杀",
       "回稳换压": "回稳",
+      "回合修复": "修回",
+      "抢轴连动": "抢轴",
     };
     const basePoiseDamage = inferPoiseDamage(skill);
     const chargingPoiseDamage = basePoiseDamage + Math.max(0, Number(skill.poiseBonusVsCharging || 0));

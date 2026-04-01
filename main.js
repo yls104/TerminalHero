@@ -781,11 +781,18 @@
       : "职业资源";
     const roleMap = {
       "起手压制": "起手压制",
+      "起手抢轴": "起手抢轴",
+      "连段起手": "连段起手",
+      "持续压血": "持续压血",
+      "连段续压": "连段续压",
       "压制推进": "压制推进",
       "窗口启动": "窗口启动",
       "爆发准备": "爆发准备",
       "处决": "失衡处决",
       "回稳换压": "回稳换压",
+      "斩杀处决": "斩杀处决",
+      "回合修复": "回合修复",
+      "抢轴连动": "抢轴连动",
     };
     const roleLabels = (skill.inspectTags || []).map(function mapTag(tag) {
       return roleMap[tag] || "";
@@ -2266,6 +2273,13 @@
   }
 
   function showClassSelectionOverlay() {
+    const activeTrials = Object.keys(classes).map(function mapSelectable(classId) {
+      return classes[classId];
+    }).filter(function filterClass(classDef) {
+      return classDef.selectable !== false;
+    }).map(function mapClassLabel(classDef) {
+      return classDef.name + (classDef.refactorLabel ? "（" + classDef.refactorLabel + "）" : "");
+    });
     const choices = Object.keys(classes).map(function mapClass(classId) {
       const classDef = classes[classId];
       return {
@@ -2288,7 +2302,7 @@
       };
     });
 
-    showOverlay("蔚蓝城镇", "选择职业", "职业系统已进入重构阶段，当前优先开放战士重构试行版。其余职业会在完成与新战斗系统的适配后逐步恢复选择。" + showChoiceButtons(choices), "关闭", hideOverlay);
+    showOverlay("蔚蓝城镇", "选择职业", "职业系统已进入重构阶段，当前开放：" + (activeTrials.length ? activeTrials.join("、") : "暂无") + "。其余职业会按重构顺序，在完成与新战斗系统的适配后逐步恢复选择。" + showChoiceButtons(choices), "关闭", hideOverlay);
     bindOverlayChoices(choices);
   }
 

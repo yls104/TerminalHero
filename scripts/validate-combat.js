@@ -204,6 +204,14 @@ function testUltimateInsertFlow(context, apis) {
   assert(entitiesApi.getResolvedSkill("battle_cry").resourceCost === 1, "战士重构后战吼应仅消耗 1 点压制值");
   assert(entitiesApi.getResolvedSkill("earthshatter").resourceCost === 3, "战士重构后裂地猛击应消耗 3 点压制值");
 
+  entitiesApi.applyClassToPlayer("rogue");
+  entitiesApi.player.level = 3;
+  entitiesApi.player.classResource.current = entitiesApi.player.classResource.max;
+  entitiesApi.unlockClassSkillIfNeeded();
+  assert(entitiesApi.getResolvedSkill("backstab").advanceSelf >= 12, "盗贼重构后背刺应成为显式抢轴技能");
+  assert(entitiesApi.getResolvedSkill("venom_cut").resourceGain === 2, "盗贼重构后淬毒刃应提供 2 点连击");
+  assert(entitiesApi.getResolvedSkill("shadow_flurry").actionType === "ultimate", "盗贼重构后影袭乱舞应被识别为终结技");
+
   const combatController = combatApi.createCombatController({
     player: entitiesApi.player,
     skills: entitiesApi.skills,
