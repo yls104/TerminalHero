@@ -35,6 +35,7 @@ const PLAYER_TEMPLATE = {
     unlockedNodeNames: [],
     unlockedSkillIds: [],
     relicTags: [],
+    combatFocuses: [],
   },
   unlockedSkills: [],
   learnedUltimate: false,
@@ -640,6 +641,21 @@ function refreshBuildSnapshot() {
   const trackNames = [];
   const unlockedSkillIds = [];
   const relicTags = [];
+  const combatFocuses = [];
+  const focusMap = {
+    interrupt: "反蓄力 / 打断",
+    pressure: "压制推进",
+    execute: "失衡处决",
+    tempo: "抢轴连动",
+    control: "控场拖轴",
+    combo: "连段循环",
+    sustain: "稳态续航",
+    guard: "防守反压",
+    risk: "高风险收割",
+    power: "正面爆压",
+    spell: "法术连段",
+    burst: "爆发收尾",
+  };
 
   unlockedNodes.forEach(function eachNode(node) {
     if (!trackNames.includes(node.trackName)) {
@@ -659,6 +675,9 @@ function refreshBuildSnapshot() {
         if (!relicTags.includes(tag)) {
           relicTags.push(tag);
         }
+        if (focusMap[tag] && !combatFocuses.includes(focusMap[tag])) {
+          combatFocuses.push(focusMap[tag]);
+        }
       });
     });
   }
@@ -670,6 +689,7 @@ function refreshBuildSnapshot() {
     }),
     unlockedSkillIds: unlockedSkillIds,
     relicTags: relicTags,
+    combatFocuses: combatFocuses,
   };
 }
 

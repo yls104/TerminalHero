@@ -48,11 +48,14 @@
     const specializationText = player.buildSnapshot && player.buildSnapshot.activeTrackNames && player.buildSnapshot.activeTrackNames.length
       ? " 已激活专精：" + player.buildSnapshot.activeTrackNames.join(" / ") + "。"
       : "";
+    const combatFocusText = player.buildSnapshot && player.buildSnapshot.combatFocuses && player.buildSnapshot.combatFocuses.length
+      ? " 当前战斗倾向：" + player.buildSnapshot.combatFocuses.join(" / ") + "。"
+      : "";
     const relicTagText = player.buildSnapshot && player.buildSnapshot.relicTags && player.buildSnapshot.relicTags.length
-      ? " 当前遗物倾向：" + player.buildSnapshot.relicTags.join(" / ") + "。"
+      ? " 当前遗物标签：" + player.buildSnapshot.relicTags.join(" / ") + "。"
       : "";
     const classSummary = player.className
-      ? player.className + "，当前位于 " + stageLabel + "。" + stageDescription + (buildNote ? " 构筑提示：" + buildNote : "") + specializationText + relicTagText
+      ? player.className + "，当前位于 " + stageLabel + "。" + stageDescription + (buildNote ? " 构筑提示：" + buildNote : "") + specializationText + combatFocusText + relicTagText
       : "在城镇中选择职业，确认你这轮的成长路线。";
 
     return {
@@ -226,6 +229,7 @@
         { label: "构筑方向", value: player.classBuildNote || player.classDescription || "尚未选择职业" },
         { label: "核心资源", value: player.classResource && player.classResource.id ? player.classResource.label + "（" + player.classResource.current + " / " + player.classResource.max + "）" : "当前职业暂无专属资源" },
         { label: "已激活专精", value: player.buildSnapshot && player.buildSnapshot.activeTrackNames && player.buildSnapshot.activeTrackNames.length ? player.buildSnapshot.activeTrackNames.join("、") : "暂未投入专精节点" },
+        { label: "战斗倾向", value: player.buildSnapshot && player.buildSnapshot.combatFocuses && player.buildSnapshot.combatFocuses.length ? player.buildSnapshot.combatFocuses.join("、") : "暂未形成明确战斗轴心" },
         { label: "遗物联动标签", value: player.buildSnapshot && player.buildSnapshot.relicTags && player.buildSnapshot.relicTags.length ? player.buildSnapshot.relicTags.join("、") : "暂未形成遗物倾向" },
       ],
       sections: data.sections || [],

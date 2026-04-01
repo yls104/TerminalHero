@@ -271,6 +271,16 @@ function validateDataAndViewModels() {
     snapshot: {},
   });
   assert(executionTimingView.metaText.includes("处决 +"), "技能菜单未展示处决收益信息");
+  entitiesApi.setRelicResolver(stageApi.findRelicByName);
+  entitiesApi.player.relics = ["破阵狼徽", "处刑王冠"];
+  entitiesApi.refreshBuildSnapshot();
+  const relicSlashSkill = entitiesApi.getResolvedSkill("slash");
+  const relicExecutionSkill = entitiesApi.getResolvedSkill("execution_seal");
+  assert(relicSlashSkill.bonusVsChargingRatio > slashSkill.bonusVsChargingRatio, "挂轴遗物未提高打断型技能对蓄力目标的收益");
+  assert(relicExecutionSkill.bonusVsBrokenRatio > executionSealSkill.bonusVsBrokenRatio, "挂轴遗物未提高处决型技能对失衡目标的收益");
+  assert(Array.isArray(entitiesApi.player.buildSnapshot.combatFocuses) && entitiesApi.player.buildSnapshot.combatFocuses.length > 0, "构筑快照未汇总战斗倾向");
+  const buildCodexView = viewApi.createBuildCodexViewModel({ player: entitiesApi.player, sections: [] });
+  assert(buildCodexView.summaryRows.some(function hasFocus(row) { return row.label === "战斗倾向" && row.value.indexOf("反蓄力") !== -1; }), "构筑详情未展示遗物形成的战斗倾向");
   entitiesApi.applyClassToPlayer("warrior");
   entitiesApi.player.level = 3;
   entitiesApi.player.classResource.current = entitiesApi.player.classResource.max;
