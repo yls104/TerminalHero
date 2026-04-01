@@ -776,6 +776,24 @@
 
   function createSkillInspectLines(skill) {
     const lines = [];
+    const resourceLabel = player.classResource && player.classResource.label
+      ? (player.classResource.shortLabel || player.classResource.label)
+      : "职业资源";
+    const roleMap = {
+      "起手压制": "起手压制",
+      "压制推进": "压制推进",
+      "窗口启动": "窗口启动",
+      "爆发准备": "爆发准备",
+      "处决": "失衡处决",
+      "回稳换压": "回稳换压",
+    };
+    const roleLabels = (skill.inspectTags || []).map(function mapTag(tag) {
+      return roleMap[tag] || "";
+    }).filter(Boolean);
+
+    if (roleLabels.length) {
+      lines.push("战斗职责：" + roleLabels.join(" / "));
+    }
     if (skill.actionType === "ultimate") {
       lines.push("技能类型：终结技");
     }
@@ -799,10 +817,10 @@
       }
     }
     if (skill.resourceGain) {
-      lines.push("生成职业资源：" + skill.resourceGain);
+      lines.push("生成" + resourceLabel + "：" + skill.resourceGain);
     }
     if (skill.resourceCost) {
-      lines.push("消耗职业资源：" + skill.resourceCost);
+      lines.push("消耗" + resourceLabel + "：" + skill.resourceCost);
     }
     if (typeof skill.ultimateChargeGain === "number" && skill.ultimateChargeGain > 0) {
       lines.push("终结充能：" + skill.ultimateChargeGain);

@@ -221,13 +221,17 @@
   function createBuildCodexViewModel(input) {
     const data = input || {};
     const player = data.player || {};
+    const classResourceSummary = player.classResource && player.classResource.id
+      ? player.classResource.label + "（" + player.classResource.current + " / " + player.classResource.max + "）"
+        + (player.classResource.description ? " · " + player.classResource.description : "")
+      : "当前职业暂无专属资源";
     return {
       overlayEyebrow: "构筑详情",
       overlayTitle: (player.className || "冒险者") + " 构筑手册",
       summaryRows: [
         { label: "职业", value: player.className || "未选择" },
         { label: "构筑方向", value: player.classBuildNote || player.classDescription || "尚未选择职业" },
-        { label: "核心资源", value: player.classResource && player.classResource.id ? player.classResource.label + "（" + player.classResource.current + " / " + player.classResource.max + "）" : "当前职业暂无专属资源" },
+        { label: "核心资源", value: classResourceSummary },
         { label: "已激活专精", value: player.buildSnapshot && player.buildSnapshot.activeTrackNames && player.buildSnapshot.activeTrackNames.length ? player.buildSnapshot.activeTrackNames.join("、") : "暂未投入专精节点" },
         { label: "战斗倾向", value: player.buildSnapshot && player.buildSnapshot.combatFocuses && player.buildSnapshot.combatFocuses.length ? player.buildSnapshot.combatFocuses.join("、") : "暂未形成明确战斗轴心" },
         { label: "遗物联动标签", value: player.buildSnapshot && player.buildSnapshot.relicTags && player.buildSnapshot.relicTags.length ? player.buildSnapshot.relicTags.join("、") : "暂未形成遗物倾向" },
@@ -338,8 +342,23 @@
     const skill = data.skill || {};
     const snapshot = data.snapshot || {};
     const parts = [];
+    const roleMap = {
+      "起手压制": "起手",
+      "压制推进": "压制",
+      "窗口启动": "起窗",
+      "爆发准备": "备爆",
+      "处决": "处决",
+      "回稳换压": "回稳",
+    };
     const basePoiseDamage = inferPoiseDamage(skill);
     const chargingPoiseDamage = basePoiseDamage + Math.max(0, Number(skill.poiseBonusVsCharging || 0));
+    const roleLabels = (skill.inspectTags || []).map(function mapTag(tag) {
+      return roleMap[tag] || "";
+    }).filter(Boolean);
+
+    if (roleLabels.length) {
+      parts.push(roleLabels.join("/"));
+    }
 
     if (typeof skill.baseDelay === "number") {
       parts.push("延迟 " + skill.baseDelay);

@@ -218,14 +218,20 @@ function validateDataAndViewModels() {
 
   const attackSkill = entitiesApi.getResolvedSkill("attack");
   const slashSkill = entitiesApi.getResolvedSkill("slash");
+  const battleCrySkill = entitiesApi.getResolvedSkill("battle_cry");
+  const earthshatterSkill = entitiesApi.getResolvedSkill("earthshatter");
   const executionSealSkill = entitiesApi.getResolvedSkill("execution_seal");
   assert(entitiesApi.classes.warrior && entitiesApi.classes.warrior.selectable !== false, "战士应保持为当前可选职业");
   assert(entitiesApi.classes.mage && entitiesApi.classes.mage.selectable === false, "法师应在职业重构阶段被禁用");
   assert(entitiesApi.classes.rogue && entitiesApi.classes.rogue.refactorLabel === "重构中", "其它职业应标记为重构中");
+  assert(entitiesApi.classes.warrior.resourceConfig.max === 5, "战士压制值上限应提升到新版模板的 5 点");
   assert(typeof attackSkill.baseDelay === "number", "技能解析未补齐 baseDelay");
   assert(typeof attackSkill.advanceSelf === "number", "技能解析未补齐 advanceSelf");
   assert(typeof attackSkill.delayTarget === "number", "技能解析未补齐 delayTarget");
+  assert(slashSkill.resourceGain === 2, "裂风斩应成为战士的主压制值生成技");
   assert(slashSkill.bonusVsChargingRatio > 0, "裂风斩未接入对蓄力目标的额外收益");
+  assert(battleCrySkill.resourceCost === 1, "战吼应改为低消耗的窗口启动技");
+  assert(earthshatterSkill.resourceCost === 3, "裂地猛击应改为新版战士的主处决消耗");
   assert(executionSealSkill.bonusVsBrokenRatio > 0, "处决印记未接入失衡处决收益");
 
   const timeline = timelineApi.createTimelineState({
@@ -288,6 +294,8 @@ function validateDataAndViewModels() {
   entitiesApi.player.level = 3;
   entitiesApi.player.classResource.current = entitiesApi.player.classResource.max;
   entitiesApi.unlockClassSkillIfNeeded();
+  assert(entitiesApi.player.buildSnapshot.combatFocuses.includes("起手压制"), "战士构筑快照未体现起手压制职责");
+  assert(entitiesApi.player.buildSnapshot.combatFocuses.includes("失衡处决"), "战士构筑快照未体现失衡处决职责");
   const ultimateSkills = entitiesApi.getResolvedUltimateSkills();
   assert(ultimateSkills.length > 0, "战士终结技未能在 3 级后正确解锁");
 

@@ -48,11 +48,11 @@ const PLAYER_TEMPLATE = {
 const skills = {
   attack: { id: "attack", name: "普通攻击", type: "physical", cost: 0, power: 1.0, effect: "damage", description: "稳定输出。", resourceGain: 1, inspectTags: ["基础", "稳定输出"] },
   defend: { id: "defend", name: "防御姿态", type: "utility", cost: 0, effect: "guard", guard: 0.45, description: "减伤并稳住回合。", resourceGain: 1, inspectTags: ["防守", "过渡"] },
-  slash: { id: "slash", name: "裂风斩", type: "physical", cost: 3, power: 1.35, effect: "damage", poiseDamage: 4, bonusVsChargingRatio: 0.18, poiseBonusVsCharging: 2, description: "战士的高威力斩击，对蓄力中的目标更容易打出破势。", resourceGain: 1, inspectTags: ["战士", "爆发准备", "打断"] },
-  battle_cry: { id: "battle_cry", name: "战吼", type: "utility", cost: 5, effect: "buff_attack", buff: 0.3, turns: 2, description: "短时间提升攻击。", resourceCost: 2, inspectTags: ["战士", "增益", "窗口"] },
-  earthshatter: { id: "earthshatter", name: "裂地猛击", type: "physical", cost: 8, power: 1.8, effect: "damage", poiseDamage: 6, breakBonusDamageRatio: 0.46, bonusVsBrokenRatio: 0.18, splash: 0.15, description: "战士的终结重击，对失衡目标的处决收益更高。", resourceCost: 4, inspectTags: ["战士", "终结", "爆发", "处决"] },
-  guard_break: { id: "guard_break", name: "崩山断", type: "physical", cost: 6, power: 1.55, effect: "damage", poiseDamage: 8, delayTarget: 10, breakBonusDamageRatio: 0.32, bonusVsChargingRatio: 0.24, poiseBonusVsCharging: 3, resourceCost: 3, description: "破军专精的强力终结斩击，擅长击穿蓄力与架势。", inspectTags: ["战士", "专精", "终结", "打断"] },
-  unyielding_roar: { id: "unyielding_roar", name: "不屈战吼", type: "utility", cost: 6, power: -0.42, effect: "guard_heal", guard: 0.32, description: "稳住血线后再压回去。", resourceGain: 1, inspectTags: ["战士", "专精", "续战"] },
+  slash: { id: "slash", name: "裂风斩", type: "physical", cost: 3, power: 1.42, effect: "damage", poiseDamage: 5, delayTarget: 6, bonusVsChargingRatio: 0.22, poiseBonusVsCharging: 3, description: "战士的起手压制技，适合先把敌人推进到失衡边缘。", resourceGain: 2, inspectTags: ["战士", "起手压制", "打断", "压制推进"] },
+  battle_cry: { id: "battle_cry", name: "战吼", type: "utility", cost: 4, effect: "buff_attack", buff: 0.35, turns: 2, advanceSelf: 6, description: "消耗少量压制值立起爆发窗口，让下一轮重击更值钱。", resourceCost: 1, inspectTags: ["战士", "窗口启动", "爆发准备"] },
+  earthshatter: { id: "earthshatter", name: "裂地猛击", type: "physical", cost: 7, power: 1.95, effect: "damage", poiseDamage: 7, breakBonusDamageRatio: 0.58, bonusVsBrokenRatio: 0.24, splash: 0.1, description: "战士的核心处决技，把攒好的压制值一次性兑现成重击收益。", resourceCost: 3, inspectTags: ["战士", "终结", "处决", "爆发收尾"] },
+  guard_break: { id: "guard_break", name: "崩山断", type: "physical", cost: 6, power: 1.45, effect: "damage", poiseDamage: 9, delayTarget: 12, breakBonusDamageRatio: 0.42, bonusVsChargingRatio: 0.32, bonusVsBrokenRatio: 0.18, poiseBonusVsCharging: 4, resourceCost: 2, description: "破军专精的架势击穿技，专门用来拆蓄力、开失衡、接处决。", inspectTags: ["战士", "专精", "打断", "处决", "压制推进"] },
+  unyielding_roar: { id: "unyielding_roar", name: "不屈战吼", type: "utility", cost: 5, power: -0.6, effect: "guard_heal", guard: 0.4, advanceSelf: 8, description: "坚城专精的回稳手段，先稳住血线，再重建下一轮压制。", resourceGain: 2, inspectTags: ["战士", "专精", "回稳换压", "续战"] },
   arcane_bolt: { id: "arcane_bolt", name: "奥术飞弹", type: "magic", cost: 4, power: 1.25, effect: "damage", description: "法师的稳定魔法输出。", resourceGain: 1, inspectTags: ["法师", "循环"] },
   frost_nova: { id: "frost_nova", name: "冰环", type: "magic", cost: 6, power: 1.1, effect: "damage", poiseDamage: 4, delayTarget: 14, bonusVsChargingRatio: 0.16, poiseBonusVsCharging: 2, slow: 2, description: "造成伤害并压低敌方节奏，对蓄力目标更容易打断。", resourceGain: 1, inspectTags: ["法师", "控场", "反蓄力"] },
   meditate: { id: "meditate", name: "冥想", type: "utility", cost: 0, effect: "restore_mp", restoreMp: 8, guard: 0.2, description: "恢复法力并稍微减伤。", resourceGain: 2, inspectTags: ["法师", "回蓝"] },
@@ -99,12 +99,12 @@ const classes = {
     refactorStatus: "active",
     refactorLabel: "重构试行",
     refactorSummary: "当前职业系统重构从战士开始，优先验证压制、失衡、处决与资源窗口的统一承接。",
-    description: "高生命高爆发，适合硬碰硬。",
-    buildNote: "通过压制值堆高重击窗口，适合走爆发终结路线。",
+    description: "把敌人压进失衡窗口，再用重击一波带走的正面压迫职业。",
+    buildNote: "先用普通攻击、裂风斩与防御姿态积累压制值，再用战吼或裂地猛击把窗口兑现。",
     statBonus: { maxHp: 28, maxMp: -4, attack: 5, defense: 3, speed: -1 },
     starterSkills: ["attack", "slash", "defend", "battle_cry"],
     unlockSkill: "earthshatter",
-    resourceConfig: { id: "pressure", label: "压制值", shortLabel: "压制", max: 4, colorClass: "resource-warrior", description: "普通攻击与基础技会积累压制值，终结技会大量消耗它。" },
+    resourceConfig: { id: "pressure", label: "压制值", shortLabel: "压制", max: 5, colorClass: "resource-warrior", description: "战士通过稳扎稳打与起手压制积累压制值，再把它换成爆发准备或处决重击。" },
   },
   mage: {
     id: "mage",
@@ -198,21 +198,21 @@ const specializationTrees = {
       {
         id: "warrior_breaker",
         name: "破军路线",
-        summary: "专注于更快地积累压制值，再把窗口换成高额斩杀。",
+        summary: "把每一次压制都尽量推成失衡，再靠更狠的终结技直接收头。",
         nodes: [
           { id: "warrior_breaker_edge", name: "裂甲训练", cost: 1, summary: "攻击 +2，压制上限 +1。", effects: [{ type: "stat", stat: "attack", amount: 2 }, { type: "resource_max", amount: 1 }] },
           { id: "warrior_breaker_skill", name: "崩山断", cost: 1, requires: ["warrior_breaker_edge"], summary: "解锁主动技能「崩山断」。", effects: [{ type: "unlock_skill", skillId: "guard_break" }] },
-          { id: "warrior_breaker_mastery", name: "破军宗师", cost: 2, requires: ["warrior_breaker_skill"], summary: "裂风斩与裂地猛击更强，更适合一波带走敌人。", effects: [{ type: "skill_mod", skillId: "slash", changes: { power: 0.2 }, inspectNote: "专精强化：伤害倍率提高。" }, { type: "skill_mod", skillId: "earthshatter", changes: { power: 0.25, resourceCost: -1 }, inspectNote: "专精强化：终结威力提高且压制消耗降低 1。" }] },
+          { id: "warrior_breaker_mastery", name: "破军宗师", cost: 2, requires: ["warrior_breaker_skill"], summary: "裂风斩更容易开失衡，裂地猛击更适合顺着窗口直接斩杀。", effects: [{ type: "skill_mod", skillId: "slash", changes: { power: 0.16, poiseDamage: 1 }, inspectNote: "专精强化：裂风斩伤害与韧性削减提高。" }, { type: "skill_mod", skillId: "earthshatter", changes: { power: 0.25, resourceCost: -1 }, inspectNote: "专精强化：裂地猛击更强且压制消耗降低 1。" }] },
         ],
       },
       {
         id: "warrior_juggernaut",
         name: "坚城路线",
-        summary: "通过回稳与减伤保证自己始终能活到下一个爆发窗口。",
+        summary: "通过回稳换压与减伤站稳正面，把战斗拖进自己更强的窗口。",
         nodes: [
           { id: "warrior_juggernaut_body", name: "铁壁体魄", cost: 1, summary: "生命上限 +18，防御 +2。", effects: [{ type: "stat", stat: "maxHp", amount: 18 }, { type: "stat", stat: "defense", amount: 2 }] },
           { id: "warrior_juggernaut_skill", name: "不屈战吼", cost: 1, requires: ["warrior_juggernaut_body"], summary: "解锁主动技能「不屈战吼」。", effects: [{ type: "unlock_skill", skillId: "unyielding_roar" }] },
-          { id: "warrior_juggernaut_mastery", name: "铜墙斗志", cost: 2, requires: ["warrior_juggernaut_skill"], summary: "防御姿态与战吼提供更稳定的前置收益。", effects: [{ type: "skill_mod", skillId: "defend", changes: { guard: 0.15 }, inspectNote: "专精强化：减伤提高 15%。" }, { type: "skill_mod", skillId: "battle_cry", changes: { buff: 0.1, turns: 1 }, inspectNote: "专精强化：攻击提升更高，持续时间 +1 回合。" }] },
+          { id: "warrior_juggernaut_mastery", name: "铜墙斗志", cost: 2, requires: ["warrior_juggernaut_skill"], summary: "防御姿态让你更稳地等到窗口，不屈战吼则能把喘息回合重新变回压制回合。", effects: [{ type: "skill_mod", skillId: "defend", changes: { guard: 0.15, resourceGain: 1 }, inspectNote: "专精强化：减伤提高 15%，并额外积累 1 点压制。" }, { type: "skill_mod", skillId: "unyielding_roar", changes: { power: -0.2, resourceGain: 1 }, inspectNote: "专精强化：恢复更高，且额外积累 1 点压制。" }] },
         ],
       },
     ],
@@ -683,6 +683,15 @@ function refreshBuildSnapshot() {
     power: "正面爆压",
     spell: "法术连段",
     burst: "爆发收尾",
+    "起手压制": "起手压制",
+    "打断": "反蓄力 / 打断",
+    "压制推进": "压制推进",
+    "窗口启动": "窗口启动",
+    "爆发准备": "爆发准备",
+    "处决": "失衡处决",
+    "爆发收尾": "爆发收尾",
+    "回稳换压": "回稳换压",
+    "续战": "稳态续航",
   };
 
   unlockedNodes.forEach(function eachNode(node) {
@@ -709,6 +718,14 @@ function refreshBuildSnapshot() {
       });
     });
   }
+
+  getResolvedPlayerSkills().forEach(function eachSkill(skill) {
+    (skill.inspectTags || []).forEach(function eachTag(tag) {
+      if (focusMap[tag] && !combatFocuses.includes(focusMap[tag])) {
+        combatFocuses.push(focusMap[tag]);
+      }
+    });
+  });
 
   player.buildSnapshot = {
     activeTrackNames: trackNames,
