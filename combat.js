@@ -883,6 +883,195 @@ function createCombatController(options) {
       emitEffect("enemyHit", { damage: 0, enemy: currentEnemy });
     }
 
+    function createExecutionIntent(data) {
+      return createEnemyIntent({
+        id: data.id,
+        label: data.label,
+        summary: data.summary || "对失衡目标发动处决重击",
+        pressure: "execution",
+        timingText: data.timingText || "处决重击",
+        insertHint: data.insertHint || "你已处于失衡窗口，若让敌方连上这一击会很危险。",
+        actionContext: enemyActionFrame(data.id, data.targetId || "player", data.timingLike || { baseDelay: 40, power: 1.45, breakBonusDamageRatio: 0.32 }),
+        execute: data.execute,
+      });
+    }
+
+    if (playerPressure && playerPressure.executionReady) {
+      if (currentEnemy.role === "execution_dummy") {
+        return createExecutionIntent({
+          id: "dummy_execution_drop",
+          label: "处决重踏",
+          summary: "专门针对失衡目标的试炼重击",
+          timingText: "处决重击 · 压后 +8",
+          insertHint: "你已处于失衡状态，若再吃下这招会被连续压制。",
+          timingLike: { baseDelay: 36, delayTarget: 8, power: 1.32, breakBonusDamageRatio: 0.55 },
+          execute: function executeDummyExecution() {
+            const rawDamage = resolveDamageAgainstSide("player", rollDamage(currentEnemy.attack, 1.32, player.defense, rand), {
+              breakBonusDamageRatio: 0.55,
+              bonusVsBrokenRatio: 0.22,
+            });
+            const dealt = applyDamageToTarget(player, playerStatus, rawDamage);
+            emitEnemyHitLog(currentEnemy.name + " 看准你的失衡破绽，踏下处决重击，造成 " + dealt + " 点伤害。", dealt);
+          },
+        });
+      }
+      if (currentEnemy.isBoss && currentEnemy.role === "pack_alpha") {
+        return createExecutionIntent({
+          id: "pack_alpha_execution",
+          label: "裂喉处刑",
+          summary: "狼王扑向失衡目标，打出极重收尾",
+          timingText: "处决重击 · 抢轴 +10",
+          insertHint: "狼王已经锁定你的破绽，优先考虑自保与回稳。",
+          timingLike: { baseDelay: 38, advanceSelf: 10, power: 1.48, breakBonusDamageRatio: 0.62 },
+          execute: function executePackAlphaExecution() {
+            const rawDamage = resolveDamageAgainstSide("player", rollDamage(currentEnemy.attack, 1.48, player.defense, rand), {
+              breakBonusDamageRatio: 0.62,
+              bonusVsBrokenRatio: 0.24,
+            });
+            const dealt = applyDamageToTarget(player, playerStatus, rawDamage);
+            enemyStatus.attackBuffValue = Math.max(enemyStatus.attackBuffValue, 0.1);
+            enemyStatus.attackBuffTurns = Math.max(enemyStatus.attackBuffTurns, 1);
+            emitEnemyHitLog(currentEnemy.name + " 撕开你的失衡防线，造成 " + dealt + " 点伤害并继续逼压。", dealt);
+          },
+        });
+      }
+      if (currentEnemy.isBoss && currentEnemy.role === "arcane_warden") {
+        return createExecutionIntent({
+          id: "arcane_warden_execution",
+          label: "封印断罪",
+          summary: "对失衡目标施加高压惩戒并抽离资源",
+          timingText: "处决重击 · 压后 +10",
+          insertHint: "典狱官会趁你失衡时连同资源一起压垮。",
+          timingLike: { baseDelay: 40, delayTarget: 10, power: 1.42, breakBonusDamageRatio: 0.58 },
+          execute: function executeArcaneWardenExecution() {
+            const rawDamage = resolveDamageAgainstSide("player", rollDamage(currentEnemy.attack, 1.42, player.defense, rand), {
+              breakBonusDamageRatio: 0.58,
+              bonusVsBrokenRatio: 0.2,
+            });
+            const dealt = applyDamageToTarget(player, playerStatus, rawDamage);
+            const drained = Math.min(player.mp, 8);
+            player.mp = clamp(player.mp - drained, 0, player.maxMp);
+            playerStatus.speedDownTurns = Math.max(playerStatus.speedDownTurns, 1);
+            playerStatus.speedDownValue = Math.max(playerStatus.speedDownValue, 2);
+            emitEnemyHitLog(currentEnemy.name + " 对准你的破绽落下封印断罪，造成 " + dealt + " 点伤害并抽离 " + drained + " 点法力。", dealt);
+          },
+        });
+      }
+      if (currentEnemy.isBoss && currentEnemy.role === "inferno_tyrant") {
+        return createExecutionIntent({
+          id: "inferno_tyrant_execution",
+          label: "熔核裁决",
+          summary: "对失衡目标施放高压灼烧处决",
+          timingText: "处决重击 · 灼烧",
+          insertHint: "暴君已经进入收割节奏，最好先想办法活过这次爆压。",
+          timingLike: { baseDelay: 42, delayTarget: 6, power: 1.5, breakBonusDamageRatio: 0.64 },
+          execute: function executeInfernoTyrantExecution() {
+            const rawDamage = resolveDamageAgainstSide("player", rollDamage(currentEnemy.attack, 1.5, player.defense, rand), {
+              breakBonusDamageRatio: 0.64,
+              bonusVsBrokenRatio: 0.26,
+            });
+            const dealt = applyDamageToTarget(player, playerStatus, rawDamage);
+            playerStatus.poisonTurns = Math.max(playerStatus.poisonTurns, 2);
+            playerStatus.poisonDamage = Math.max(playerStatus.poisonDamage, 8);
+            emitEnemyHitLog(currentEnemy.name + " 借着你的失衡压下熔核裁决，造成 " + dealt + " 点伤害并点燃灼烧。", dealt);
+          },
+        });
+      }
+      if (currentEnemy.role === "stalker" || currentEnemy.role === "swift") {
+        return createExecutionIntent({
+          id: "stalker_execution",
+          label: "穿心追猎",
+          summary: "高机动敌人锁定失衡破绽发起追击",
+          timingText: "处决重击 · 抢轴 +8",
+          timingLike: { baseDelay: 38, advanceSelf: 8, power: 1.28, breakBonusDamageRatio: 0.4 },
+          execute: function executeStalkerExecution() {
+            const rawDamage = resolveDamageAgainstSide("player", rollDamage(currentEnemy.attack, 1.28, player.defense, rand), {
+              breakBonusDamageRatio: 0.4,
+              bonusVsBrokenRatio: 0.14,
+            });
+            const dealt = applyDamageToTarget(player, playerStatus, rawDamage);
+            emitEnemyHitLog(currentEnemy.name + " 顺着你的失衡空档穿心追猎，造成 " + dealt + " 点伤害。", dealt);
+          },
+        });
+      }
+      if (currentEnemy.role === "poisoner" || currentEnemy.role === "pyromancer" || currentEnemy.role === "caster" || currentEnemy.role === "mana_drain") {
+        return createExecutionIntent({
+          id: "control_execution",
+          label: currentEnemy.role === "mana_drain" ? "空耗断脉" : currentEnemy.role === "pyromancer" ? "燃痕处决" : "破绽咒袭",
+          summary: "控场型敌人会在你失衡时补上一段高价值压制",
+          timingText: currentEnemy.role === "mana_drain" ? "处决重击 · 吸蓝" : "处决重击 · 持续压制",
+          timingLike: { baseDelay: 40, delayTarget: 6, power: 1.24, breakBonusDamageRatio: 0.36 },
+          execute: function executeControlExecution() {
+            const rawDamage = resolveDamageAgainstSide("player", rollDamage(currentEnemy.attack, 1.24, player.defense, rand), {
+              breakBonusDamageRatio: 0.36,
+              bonusVsBrokenRatio: 0.12,
+            });
+            const dealt = applyDamageToTarget(player, playerStatus, rawDamage);
+            if (currentEnemy.role === "mana_drain") {
+              const drained = Math.min(player.mp, 5);
+              player.mp = clamp(player.mp - drained, 0, player.maxMp);
+              emitEnemyHitLog(currentEnemy.name + " 借着你的失衡空耗断脉，造成 " + dealt + " 点伤害并吸走 " + drained + " 点法力。", dealt);
+              return;
+            }
+            if (currentEnemy.role === "pyromancer") {
+              playerStatus.poisonTurns = Math.max(playerStatus.poisonTurns, 2);
+              playerStatus.poisonDamage = Math.max(playerStatus.poisonDamage, 6);
+              emitEnemyHitLog(currentEnemy.name + " 在你的破绽中灌入烈焰，造成 " + dealt + " 点伤害并附加灼烧。", dealt);
+              return;
+            }
+            if (currentEnemy.role === "poisoner") {
+              playerStatus.poisonTurns = Math.max(playerStatus.poisonTurns, 2);
+              playerStatus.poisonDamage = Math.max(playerStatus.poisonDamage, 5);
+            } else {
+              playerStatus.speedDownTurns = Math.max(playerStatus.speedDownTurns, 1);
+              playerStatus.speedDownValue = Math.max(playerStatus.speedDownValue, 1);
+            }
+            emitEnemyHitLog(currentEnemy.name + " 抓住你的失衡破绽补上咒袭，造成 " + dealt + " 点伤害。", dealt);
+          },
+        });
+      }
+      if (currentEnemy.role === "guardian" || currentEnemy.role === "bulwark" || currentEnemy.role === "berserker") {
+        return createExecutionIntent({
+          id: "brute_execution",
+          label: currentEnemy.role === "guardian" || currentEnemy.role === "bulwark" ? "壁垒处刑" : "断骨重砸",
+          summary: "重装 / 狂战型敌人会在你失衡时补上正面处决",
+          timingText: currentEnemy.role === "berserker" ? "处决重击 · 爆发" : "处决重击 · 压后 +8",
+          timingLike: { baseDelay: 42, delayTarget: 8, power: 1.34, breakBonusDamageRatio: 0.44 },
+          execute: function executeBruteExecution() {
+            const rawDamage = resolveDamageAgainstSide("player", rollDamage(currentEnemy.attack, 1.34, player.defense, rand), {
+              breakBonusDamageRatio: 0.44,
+              bonusVsBrokenRatio: 0.16,
+            });
+            const dealt = applyDamageToTarget(player, playerStatus, rawDamage);
+            if (currentEnemy.role === "guardian" || currentEnemy.role === "bulwark") {
+              enemyStatus.guard = Math.max(enemyStatus.guard, 0.3);
+            } else {
+              enemyStatus.attackBuffValue = Math.max(enemyStatus.attackBuffValue, 0.12);
+              enemyStatus.attackBuffTurns = Math.max(enemyStatus.attackBuffTurns, 1);
+            }
+            emitEnemyHitLog(currentEnemy.name + " 趁你失衡正面压上，造成 " + dealt + " 点伤害。", dealt);
+          },
+        });
+      }
+    }
+
+    if (currentEnemy.role === "execution_dummy") {
+      return createEnemyIntent({
+        id: "dummy_break_strike",
+        label: "碎势敲击",
+        summary: "试炼偶会优先击穿你的架势，再接下一拍处决",
+        pressure: "control",
+        timingText: "韧性压制 · 抢轴 +14",
+        insertHint: "若不尽快回稳，它会沿着失衡窗口继续追击。",
+        actionContext: enemyActionFrame("dummy_break_strike", "player", { baseDelay: 34, advanceSelf: 14, poiseDamage: 18 }),
+        execute: function executeDummyBreakStrike() {
+          const rawDamage = rollDamage(currentEnemy.attack, 0.88, player.defense, rand);
+          const dealt = applyDamageToTarget(player, playerStatus, rawDamage);
+          emitEnemyHitLog(currentEnemy.name + " 以碎势敲击撬开你的架势，造成 " + dealt + " 点伤害。", dealt);
+        },
+      });
+    }
+
     if (currentEnemy.role === "charge_dummy") {
       return createChargeIntent({
         chargeId: "dummy_charge_start",
@@ -986,7 +1175,7 @@ function createCombatController(options) {
         pressure: "control",
         timingText: "压后 +4",
         insertHint: "若现在插入，可在中毒生效前先抢一手。",
-        actionContext: enemyActionFrame("poison_bite", "player", { baseDelay: 56, delayTarget: 4 }),
+        actionContext: enemyActionFrame("poison_bite", "player", { baseDelay: 56, delayTarget: 4, poiseDamage: 2 }),
         execute: function executePoisonBite() {
           const rawDamage = rollDamage(currentEnemy.attack, 0.9, player.defense, rand);
           const dealt = applyDamageToTarget(player, playerStatus, rawDamage);
@@ -1004,7 +1193,7 @@ function createCombatController(options) {
         pressure: "control",
         timingText: "压后 +6",
         insertHint: "若现在插入，可避免下一轮时间轴被拉开。",
-        actionContext: enemyActionFrame("arcane_bolt", "player", { baseDelay: 58, delayTarget: 6 }),
+        actionContext: enemyActionFrame("arcane_bolt", "player", { baseDelay: 58, delayTarget: 6, poiseDamage: 3 }),
         execute: function executeArcaneBolt() {
           const rawDamage = rollDamage(currentEnemy.attack, 1.22, player.defense, rand);
           const dealt = applyDamageToTarget(player, playerStatus, rawDamage);
@@ -1040,7 +1229,7 @@ function createCombatController(options) {
         pressure: "burst",
         timingText: "延迟 60",
         insertHint: "若现在插入，可减少其连段滚雪球空间。",
-        actionContext: enemyActionFrame("berserk_charge", "player", { baseDelay: 60 }),
+        actionContext: enemyActionFrame("berserk_charge", "player", { baseDelay: 60, poiseDamage: 4 }),
         execute: function executeBerserkCharge() {
           const rawDamage = rollDamage(currentEnemy.attack, 1.22, player.defense, rand);
           const dealt = applyDamageToTarget(player, playerStatus, rawDamage);
@@ -1058,7 +1247,7 @@ function createCombatController(options) {
         pressure: "burst",
         timingText: "抢轴 +6 · 压后 +4",
         insertHint: "若现在插入，可打乱其连续追击节奏。",
-        actionContext: enemyActionFrame("stalker_strike", "player", { baseDelay: 50, advanceSelf: 6, delayTarget: 4 }),
+        actionContext: enemyActionFrame("stalker_strike", "player", { baseDelay: 50, advanceSelf: 6, delayTarget: 4, poiseDamage: 3 }),
         execute: function executeStalkerStrike() {
           const rawDamage = rollDamage(currentEnemy.attack, 1.16, player.defense, rand);
           const dealt = applyDamageToTarget(player, playerStatus, rawDamage);
@@ -1076,7 +1265,7 @@ function createCombatController(options) {
         pressure: "control",
         timingText: "压后 +4",
         insertHint: "若现在插入，可避免关键回合被抽空法力。",
-        actionContext: enemyActionFrame("mana_drain", "player", { baseDelay: 58, delayTarget: 4 }),
+        actionContext: enemyActionFrame("mana_drain", "player", { baseDelay: 58, delayTarget: 4, poiseDamage: 3 }),
         execute: function executeManaDrain() {
           const rawDamage = rollDamage(currentEnemy.attack, 1.08, player.defense, rand);
           const dealt = applyDamageToTarget(player, playerStatus, rawDamage);
@@ -1119,7 +1308,7 @@ function createCombatController(options) {
         pressure: "control",
         timingText: "压后 +5",
         insertHint: "若现在插入，可减少持续伤害滚雪球。",
-        actionContext: enemyActionFrame("ember_rain", "player", { baseDelay: 60, delayTarget: 5 }),
+        actionContext: enemyActionFrame("ember_rain", "player", { baseDelay: 60, delayTarget: 5, poiseDamage: 3 }),
         execute: function executeEmberRain() {
           const rawDamage = rollDamage(currentEnemy.attack, 1.14, player.defense, rand);
           const dealt = applyDamageToTarget(player, playerStatus, rawDamage);
@@ -1137,7 +1326,7 @@ function createCombatController(options) {
       pressure: "neutral",
       timingText: "延迟 54",
       insertHint: "若现在插入，可纯粹争抢节奏。",
-      actionContext: enemyActionFrame("enemy_attack", "player", { baseDelay: 54 }),
+      actionContext: enemyActionFrame("enemy_attack", "player", { baseDelay: 54, poiseDamage: 2 }),
       execute: function executeBasicAttack() {
         const rawDamage = rollDamage(getEffectiveAttack(currentEnemy, enemyStatus), 1, player.defense, rand);
         const dealt = applyDamageToTarget(player, playerStatus, rawDamage);

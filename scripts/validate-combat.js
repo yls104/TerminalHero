@@ -476,6 +476,74 @@ function testChargeInterruptFlow(context, apis) {
   }), "敌方失衡后未触发动作中断日志");
 }
 
+function testEnemyPunishesPlayerBreak(context, apis) {
+  const logs = [];
+  const entitiesApi = apis.entitiesApi;
+  const combatApi = apis.combatApi;
+  const viewApi = apis.viewApi;
+
+  entitiesApi.applyClassToPlayer("warrior");
+  entitiesApi.player.level = 3;
+  entitiesApi.player.maxHp = 24;
+  entitiesApi.player.hp = 24;
+  entitiesApi.player.attack = 10;
+  entitiesApi.player.defense = 0;
+  entitiesApi.player.speed = 3;
+  entitiesApi.player.mp = entitiesApi.player.maxMp;
+  entitiesApi.player.classResource.current = 0;
+
+  const combatController = combatApi.createCombatController({
+    player: entitiesApi.player,
+    skills: entitiesApi.skills,
+    resolveSkill: entitiesApi.getResolvedSkill,
+    getUltimateSkills: entitiesApi.getResolvedUltimateSkills,
+    onLog(entry) {
+      logs.push(entry);
+    },
+    onStatusSync: function noopStatus() {},
+    onEffect: function noopEffect() {},
+    onStateChange: function noopState() {},
+    onCombatEnd: function noopEnd() {},
+  });
+
+  const started = combatController.startCombat({
+    tile: 3,
+    playerUltimateCharge: 0,
+    enemyTemplate: {
+      id: "execution_dummy",
+      name: "处决试炼偶",
+      hp: 120,
+      attack: 10,
+      defense: 2,
+      speed: 30,
+      exp: 0,
+      gold: 0,
+      skills: [],
+      role: "execution_dummy",
+      assetKey: "enemy",
+      encounterType: "normal",
+      dropTableId: "field_default",
+      poiseMax: 8,
+    },
+  });
+  assert(started, "敌方处决专项测试未能成功启动");
+
+  const firstEnemyAction = context.__runNextTimer();
+  assert(firstEnemyAction, "敌方首个动作未执行");
+
+  const afterBreak = combatController.getState();
+  assert(afterBreak.playerPressure && afterBreak.playerPressure.executionReady, "敌方压制后玩家未进入失衡窗口");
+
+  const breakHint = viewApi.createCombatIntentViewModel(afterBreak);
+  assert(breakHint.summaryText.indexOf("失衡") !== -1, "玩家失衡后提示未切换到危险态");
+
+  const secondEnemyAction = context.__runNextTimer();
+  assert(secondEnemyAction, "敌方处决动作未执行");
+  assert(logs.some(function hasExecutionLog(entry) {
+    return entry && entry.text && entry.text.indexOf("处决重击") !== -1;
+  }), "敌方未对玩家失衡窗口发动专属处决动作");
+}
+
 function validateSourceSyntax(relativePath) {
   const source = readFile(relativePath);
   try {
@@ -493,8 +561,9 @@ function main() {
   testDelayAndAdvanceAffectTiming(apis.timelineApi);
   testPressureAxisFoundation(context, apis);
   testChargeInterruptFlow(context, apis);
+  testEnemyPunishesPlayerBreak(context, apis);
   testUltimateInsertFlow(context, apis);
-  console.log("战斗专项验证通过：时间轴、压制轴、蓄力打断、速度收益、技能延迟、终结技插入与 UI 快照读取正常。");
+  console.log("战斗专项验证通过：时间轴、压制轴、蓄力打断、敌方处决、速度收益、技能延迟、终结技插入与 UI 快照读取正常。");
 }
 
 main();

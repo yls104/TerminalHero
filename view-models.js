@@ -114,6 +114,8 @@
       intentVisible: Boolean(intent && intent.label),
       intentLabel: intent && intent.pressure === "charge"
         ? "蓄力预告"
+        : intent && intent.pressure === "execution"
+        ? "处决预告"
         : intent && intent.pressure === "control"
         ? "压制预告"
         : intent && intent.pressure === "burst"
@@ -283,8 +285,8 @@
     if (data.inCombat && playerPressure && playerPressure.executionReady) {
       return {
         visible: true,
-        summaryText: "你正处于失衡状态",
-        actionHintText: "自身失衡 · 小心敌方重击",
+        summaryText: intent && intent.label ? "你正处于失衡状态 · " + intent.label : "你正处于失衡状态",
+        actionHintText: intent && intent.label ? "自身失衡 · 敌方准备 " + intent.label : "自身失衡 · 小心敌方重击",
       };
     }
     if (data.inCombat && enemyPressure && enemyPressure.chargeLevel > 0) {
