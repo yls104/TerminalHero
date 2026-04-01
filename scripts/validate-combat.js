@@ -285,6 +285,95 @@ function testUltimateInsertFlow(context, apis) {
   assert(timelineView.entries[0].meta.includes("速度"), "时间轴视图模型未展示速度信息");
 }
 
+function testPressureAxisFoundation(context, apis) {
+  const logs = [];
+  const entitiesApi = apis.entitiesApi;
+  const combatApi = apis.combatApi;
+  const viewApi = apis.viewApi;
+
+  entitiesApi.applyClassToPlayer("warrior");
+  entitiesApi.player.level = 3;
+  entitiesApi.player.hp = entitiesApi.player.maxHp;
+  entitiesApi.player.mp = entitiesApi.player.maxMp;
+  entitiesApi.player.classResource.current = entitiesApi.player.classResource.max;
+  entitiesApi.unlockClassSkillIfNeeded();
+
+  const combatController = combatApi.createCombatController({
+    player: entitiesApi.player,
+    skills: entitiesApi.skills,
+    resolveSkill: entitiesApi.getResolvedSkill,
+    getUltimateSkills: entitiesApi.getResolvedUltimateSkills,
+    onLog(entry) {
+      logs.push(entry);
+    },
+    onStatusSync: function noopStatus() {},
+    onEffect: function noopEffect() {},
+    onStateChange: function noopState() {},
+    onCombatEnd: function noopEnd() {},
+  });
+
+  const started = combatController.startCombat({
+    tile: 3,
+    playerUltimateCharge: 8,
+    enemyTemplate: {
+      id: "pressure_dummy",
+      name: "韧性试炼偶",
+      hp: 96,
+      attack: 6,
+      defense: 1,
+      speed: 4,
+      exp: 0,
+      gold: 0,
+      skills: [],
+      role: "basic",
+      assetKey: "enemy",
+      encounterType: "normal",
+      dropTableId: "field_default",
+      poiseMax: 4,
+    },
+  });
+  assert(started, "压制轴专项烟雾测试未能成功启动");
+
+  const beforeBreak = combatController.getState();
+  assert(beforeBreak.enemyPressure && beforeBreak.enemyPressure.poiseMax === 4, "敌方压制快照未承接 poiseMax 覆盖值");
+
+  const slashTimingView = viewApi.createCombatMenuTimingViewModel({
+    skill: entitiesApi.getResolvedSkill("slash"),
+    snapshot: beforeBreak,
+  });
+  assert(slashTimingView.metaText.includes("韧性 -"), "技能菜单未展示韧性削减信息");
+
+  const primaryUltimate = entitiesApi.getResolvedUltimateSkills()[0];
+  const usedUltimate = combatController.playerAction("ultimate:" + primaryUltimate.id);
+  assert(usedUltimate, "压制轴专项测试中未能成功施放终结技");
+
+  const afterBreak = combatController.getState();
+  assert(afterBreak.enemyPressure && afterBreak.enemyPressure.executionReady, "敌方被击破后未进入失衡窗口");
+  assert(afterBreak.enemyPressure.stance === "broken" || afterBreak.enemyPressure.stanceLabel.indexOf("失衡") !== -1, "敌方失衡后未写入正确的架势状态");
+
+  const enemyView = viewApi.createEnemyViewModel({
+    enemy: afterBreak.enemy,
+    intent: afterBreak.enemyIntent,
+    pressure: afterBreak.enemyPressure,
+  });
+  assert(enemyView.poiseVisible, "敌情面板未承接韧性条显示");
+  assert(enemyView.stanceText.indexOf("失衡") !== -1, "敌情面板未展示失衡状态");
+
+  const breakHintView = viewApi.createCombatIntentViewModel(afterBreak);
+  assert(breakHintView.actionHintText.indexOf("失衡") !== -1, "战斗提示未在失衡窗口中切换为压制提示");
+  assert(logs.some(function hasBreakLog(entry) {
+    return entry && entry.type === "pressure_break";
+  }), "敌方失衡后未产出压制击破日志");
+
+  const drained = context.__drainTimers(4);
+  assert(drained > 0, "压制轴专项测试中敌方回合未继续推进");
+  const recoveredState = combatController.getState();
+  assert(recoveredState.enemyPressure && !recoveredState.enemyPressure.executionReady, "敌方行动后未从失衡窗口恢复");
+  assert(logs.some(function hasRecoverLog(entry) {
+    return entry && entry.type === "pressure_recover";
+  }), "敌方从失衡恢复后未产出恢复日志");
+}
+
 function validateSourceSyntax(relativePath) {
   const source = readFile(relativePath);
   try {
@@ -300,8 +389,9 @@ function main() {
   const apis = loadApis(context);
   testTimelineInitializationAndSpeed(apis.timelineApi);
   testDelayAndAdvanceAffectTiming(apis.timelineApi);
+  testPressureAxisFoundation(context, apis);
   testUltimateInsertFlow(context, apis);
-  console.log("战斗专项验证通过：时间轴、速度收益、技能延迟、终结技插入与 UI 快照读取正常。");
+  console.log("战斗专项验证通过：时间轴、压制轴、速度收益、技能延迟、终结技插入与 UI 快照读取正常。");
 }
 
 main();

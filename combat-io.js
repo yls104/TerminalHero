@@ -51,6 +51,24 @@
     return createCombatLogEntry(input, options);
   }
 
+  function clonePressureState(state) {
+    if (!state) {
+      return null;
+    }
+    return {
+      poiseCurrent: state.poiseCurrent || 0,
+      poiseMax: state.poiseMax || 0,
+      poisePercent: state.poisePercent || 0,
+      stance: state.stance || "steady",
+      stanceLabel: state.stanceLabel || "稳固",
+      exposedTurns: state.exposedTurns || 0,
+      executionReady: Boolean(state.executionReady),
+      chargeLevel: state.chargeLevel || 0,
+      chargeMax: state.chargeMax || 0,
+      chargeLabel: state.chargeLabel || "",
+    };
+  }
+
   function createCombatSnapshot(payload) {
     const data = payload || {};
     return {
@@ -63,6 +81,8 @@
       round: typeof data.round === "number" ? data.round : 0,
       pendingAction: data.pendingAction || "",
       currentActorId: data.currentActorId || "",
+      playerPressure: clonePressureState(data.playerPressure),
+      enemyPressure: clonePressureState(data.enemyPressure),
       enemyIntent: data.enemyIntent
         ? {
             id: data.enemyIntent.id || "",

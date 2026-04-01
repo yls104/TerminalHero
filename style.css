@@ -185,6 +185,39 @@ button,
   line-height: 1.35;
 }
 
+.enemy-poise-row {
+  display: grid;
+  gap: 4px;
+}
+
+.enemy-poise-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.enemy-poise-label,
+.enemy-poise-text,
+.enemy-stance-text {
+  font-size: 0.67rem;
+}
+
+.enemy-poise-label {
+  color: #facc15;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.enemy-poise-text {
+  color: #fef3c7;
+}
+
+.enemy-stance-text {
+  color: #fde68a;
+  line-height: 1.3;
+}
+
 .combat-action-dock {
   width: min(100%, 760px);
   margin: 0 auto;
@@ -547,6 +580,10 @@ button,
   overflow: hidden;
 }
 
+.meter-thin {
+  height: 7px;
+}
+
 .meter-fill {
   height: 100%;
   width: 0;
@@ -567,6 +604,10 @@ button,
 
 .meter-fill.enemy {
   background: linear-gradient(90deg, #fb7185, #ef4444);
+}
+
+.meter-fill.poise {
+  background: linear-gradient(90deg, #facc15, #f59e0b);
 }
 
 .meter-fill.resource-neutral {

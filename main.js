@@ -64,7 +64,19 @@
   const createRewardChoices = stageApi.createRewardChoices || function noRewardChoices() { return []; };
 
   const createHudViewModel = viewModelApi.createHudViewModel || function fallbackHudViewModel() { return {}; };
-  const createEnemyViewModel = viewModelApi.createEnemyViewModel || function fallbackEnemyViewModel() { return { visible: false, name: "", hpText: "0 / 0", hpPercent: 0 }; };
+  const createEnemyViewModel = viewModelApi.createEnemyViewModel || function fallbackEnemyViewModel() {
+    return {
+      visible: false,
+      name: "",
+      hpText: "0 / 0",
+      hpPercent: 0,
+      poiseVisible: false,
+      poiseText: "",
+      poisePercent: 0,
+      stanceText: "",
+      chargeText: "",
+    };
+  };
   const createDetailStatsViewModel = viewModelApi.createDetailStatsViewModel || function fallbackDetailStatsViewModel() { return { overlayEyebrow: "", overlayTitle: "", rows: [] }; };
   const renderDetailStatsHtml = viewModelApi.renderDetailStatsHtml || function fallbackDetailHtml() { return ""; };
   const createRunSummaryViewModel = viewModelApi.createRunSummaryViewModel || function fallbackRunSummaryViewModel() { return { overlayEyebrow: "", overlayTitle: "", rows: [] }; };
@@ -157,6 +169,10 @@
     enemyName: document.querySelector("#enemyName"),
     enemyHpText: document.querySelector("#enemyHpText"),
     enemyHpBar: document.querySelector("#enemyHpBar"),
+    enemyPoiseRow: document.querySelector("#enemyPoiseRow"),
+    enemyPoiseText: document.querySelector("#enemyPoiseText"),
+    enemyPoiseBar: document.querySelector("#enemyPoiseBar"),
+    enemyStanceText: document.querySelector("#enemyStanceText"),
     enemyIntentRow: document.querySelector("#enemyIntentRow"),
     enemyIntentLabel: document.querySelector("#enemyIntentLabel"),
     enemyIntentName: document.querySelector("#enemyIntentName"),
@@ -1318,10 +1334,15 @@
     const enemyView = createEnemyViewModel({
       enemy: snapshot ? snapshot.enemy : null,
       intent: snapshot ? snapshot.enemyIntent : null,
+      pressure: snapshot ? snapshot.enemyPressure : null,
     });
     if (!enemyView.visible) {
       ui.enemyPanel.classList.add("is-hidden");
       ui.enemyPanel.setAttribute("aria-hidden", "true");
+      if (ui.enemyPoiseRow) {
+        ui.enemyPoiseRow.classList.add("is-hidden");
+        ui.enemyPoiseRow.setAttribute("aria-hidden", "true");
+      }
       if (ui.enemyIntentRow) {
         ui.enemyIntentRow.classList.add("is-hidden");
         ui.enemyIntentRow.setAttribute("aria-hidden", "true");
@@ -1338,6 +1359,13 @@
     ui.enemyName.textContent = enemyView.name;
     ui.enemyHpText.textContent = enemyView.hpText;
     ui.enemyHpBar.style.width = enemyView.hpPercent + "%";
+    if (ui.enemyPoiseRow && ui.enemyPoiseText && ui.enemyPoiseBar && ui.enemyStanceText) {
+      ui.enemyPoiseRow.classList.toggle("is-hidden", !enemyView.poiseVisible);
+      ui.enemyPoiseRow.setAttribute("aria-hidden", enemyView.poiseVisible ? "false" : "true");
+      ui.enemyPoiseText.textContent = enemyView.poiseText || "";
+      ui.enemyPoiseBar.style.width = enemyView.poisePercent + "%";
+      ui.enemyStanceText.textContent = enemyView.chargeText || enemyView.stanceText || "";
+    }
     if (ui.enemyIntentRow && ui.enemyIntentLabel && ui.enemyIntentName) {
       ui.enemyIntentRow.classList.toggle("is-hidden", !enemyView.intentVisible);
       ui.enemyIntentRow.setAttribute("aria-hidden", enemyView.intentVisible ? "false" : "true");

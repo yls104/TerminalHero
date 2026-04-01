@@ -7,6 +7,21 @@
     return Number.isFinite(Number(value)) ? Number(value) : fallback;
   }
 
+  function inferPoiseDamage(timing) {
+    const data = timing || {};
+    if (Number.isFinite(Number(data.poiseDamage))) {
+      return Math.max(0, toNumber(data.poiseDamage, 0));
+    }
+    if (data.effect !== "damage" && data.effect !== "poison") {
+      return 0;
+    }
+    const power = Math.max(0, toNumber(data.power, 1));
+    const delayBonus = toNumber(data.delayTarget, 0) > 0 ? 1 : 0;
+    const advanceBonus = toNumber(data.advanceSelf, 0) > 0 ? 1 : 0;
+    const ultimateBonus = data.actionType === "ultimate" ? 2 : 0;
+    return clamp(Math.round(power * 2 + delayBonus + advanceBonus + ultimateBonus), 1, 12);
+  }
+
   function resolveActionDelay(input) {
     const config = input || {};
     const timelineApi = config.timelineApi || {};
@@ -35,6 +50,10 @@
       }),
       advanceSelf: Math.max(0, toNumber(timing.advanceSelf, 0)),
       delayTarget: Math.max(0, toNumber(timing.delayTarget, 0)),
+      poiseDamage: inferPoiseDamage(timing),
+      breakBonusDamageRatio: Math.max(0, toNumber(timing.breakBonusDamageRatio, timing.actionType === "ultimate" ? 0.28 : 0.18)),
+      interruptCharge: Boolean(timing.interruptCharge),
+      grantsExecutionWindow: timing.grantsExecutionWindow !== false,
     };
   }
 

@@ -52,6 +52,43 @@ function createCombatController(options) {
       max: 8,
     };
   };
+  const createPressureRuntime = effectsApi.createPressureState || function fallbackPressureState(unit, options) {
+    const data = unit || {};
+    const config = options || {};
+    if (Number.isFinite(Number(config.poiseMax))) {
+      const maxPoiseOverride = clamp(toNumber(config.poiseMax, 16), 1, 180);
+      return {
+        poiseCurrent: maxPoiseOverride,
+        poiseMax: maxPoiseOverride,
+        stance: "steady",
+        stanceLabel: "稳固",
+        exposedTurns: 0,
+        executionReady: false,
+        chargeLevel: 0,
+        chargeMax: clamp(toNumber(config.chargeMax, 2), 1, 9),
+        chargeLabel: "",
+        lastBreakSource: "",
+      };
+    }
+    const hp = Math.max(1, toNumber(data.maxHp || data.hp, 1));
+    const defense = Math.max(0, toNumber(data.defense, 0));
+    const speed = Math.max(1, toNumber(data.speed, 1));
+    const role = config.role || data.role || "";
+    const roleBonus = role === "boss" ? 14 : role === "guardian" || role === "bulwark" ? 8 : 0;
+    const maxPoise = clamp(Math.round(10 + hp * 0.1 + defense * 4 + speed * 1.2 + roleBonus), 8, 180);
+    return {
+      poiseCurrent: maxPoise,
+      poiseMax: maxPoise,
+      stance: "steady",
+      stanceLabel: "稳固",
+      exposedTurns: 0,
+      executionReady: false,
+      chargeLevel: 0,
+      chargeMax: clamp(toNumber(config.chargeMax, 2), 1, 9),
+      chargeLabel: "",
+      lastBreakSource: "",
+    };
+  };
   const getEffectiveAttack = effectsApi.effectiveAttack || function fallbackEffectiveAttack(unit, statusBag) {
     const buff = statusBag.attackBuffTurns > 0 ? statusBag.attackBuffValue : 0;
     return unit.attack * (1 + buff);
@@ -69,6 +106,54 @@ function createCombatController(options) {
     const finalDamage = Math.max(1, Math.round(rawDamage * (1 - statusBag.guard)));
     target.hp = clamp(target.hp - finalDamage, 0, target.maxHp);
     return finalDamage;
+  };
+  const applyPoiseDamage = effectsApi.applyPoiseDamage || function fallbackApplyPoiseDamage(pressureState, amount, options) {
+    const stateBag = pressureState;
+    const value = Math.max(0, toNumber(amount, 0));
+    if (!stateBag || !value || stateBag.executionReady) {
+      return {
+        applied: 0,
+        broken: false,
+        previous: stateBag ? stateBag.poiseCurrent : 0,
+        current: stateBag ? stateBag.poiseCurrent : 0,
+      };
+    }
+    const previous = stateBag.poiseCurrent;
+    stateBag.poiseCurrent = clamp(stateBag.poiseCurrent - value, 0, stateBag.poiseMax);
+    const broken = stateBag.poiseCurrent === 0;
+    if (broken) {
+      stateBag.stance = "broken";
+      stateBag.stanceLabel = "失衡";
+      stateBag.exposedTurns = Math.max(stateBag.exposedTurns, 1);
+      stateBag.executionReady = true;
+      stateBag.chargeLevel = 0;
+      stateBag.chargeLabel = "";
+      stateBag.lastBreakSource = options && options.sourceUnitId ? options.sourceUnitId : "";
+    }
+    return {
+      applied: previous - stateBag.poiseCurrent,
+      broken: broken,
+      previous: previous,
+      current: stateBag.poiseCurrent,
+    };
+  };
+  const recoverPressureWindow = effectsApi.recoverPressureWindow || function fallbackRecoverPressureWindow(pressureState) {
+    if (!pressureState) {
+      return { recovered: false, remaining: 0 };
+    }
+    if (pressureState.exposedTurns > 0) {
+      pressureState.exposedTurns -= 1;
+      if (pressureState.exposedTurns <= 0) {
+        pressureState.exposedTurns = 0;
+        pressureState.executionReady = false;
+        pressureState.stance = "steady";
+        pressureState.stanceLabel = "稳固";
+        pressureState.poiseCurrent = pressureState.poiseMax;
+        pressureState.lastBreakSource = "";
+        return { recovered: true, remaining: 0 };
+      }
+    }
+    return { recovered: false, remaining: pressureState.exposedTurns };
   };
   const tickStatusEffects = effectsApi.tickStatus || function fallbackTickStatus(input) {
     const statusBag = input.statusBag;
@@ -127,6 +212,20 @@ function createCombatController(options) {
     const skillBaseDelay = toNumber(config.skillLike && config.skillLike.baseDelay, 52);
     return clamp(baseAv + (skillBaseDelay - 52), 18, 999);
   };
+  function inferPoiseDamage(timingLike) {
+    const timing = timingLike || {};
+    if (Number.isFinite(Number(timing.poiseDamage))) {
+      return Math.max(0, toNumber(timing.poiseDamage, 0));
+    }
+    if (timing.effect !== "damage" && timing.effect !== "poison") {
+      return 0;
+    }
+    const power = Math.max(0, toNumber(timing.power, 1));
+    const delayBonus = toNumber(timing.delayTarget, 0) > 0 ? 1 : 0;
+    const advanceBonus = toNumber(timing.advanceSelf, 0) > 0 ? 1 : 0;
+    const ultimateBonus = timing.actionType === "ultimate" ? 2 : 0;
+    return clamp(Math.round(power * 2 + delayBonus + advanceBonus + ultimateBonus), 1, 12);
+  }
   const createActionFrame = actionsApi.createActionContext || function fallbackActionContext(input) {
     const config = input || {};
     const timing = config.timingLike || {};
@@ -142,6 +241,10 @@ function createCombatController(options) {
       }),
       advanceSelf: Math.max(0, toNumber(timing.advanceSelf, 0)),
       delayTarget: Math.max(0, toNumber(timing.delayTarget, 0)),
+      poiseDamage: inferPoiseDamage(timing),
+      breakBonusDamageRatio: Math.max(0, toNumber(timing.breakBonusDamageRatio, timing.actionType === "ultimate" ? 0.28 : 0.18)),
+      interruptCharge: Boolean(timing.interruptCharge),
+      grantsExecutionWindow: timing.grantsExecutionWindow !== false,
     };
   };
   const createInsertWindowSpec = actionsApi.createInsertWindow || function fallbackInsertWindow(input) {
@@ -191,6 +294,8 @@ function createCombatController(options) {
   let playerUltimate = createUltimateRuntime();
   let playerStatus = createStatusRuntime();
   let enemyStatus = createStatusRuntime();
+  let playerPressure = createPressureRuntime(player, { side: "player" });
+  let enemyPressure = createPressureRuntime(null, { side: "enemy" });
 
   function clamp(value, min, max) {
     return Math.max(min, Math.min(max, value));
@@ -298,6 +403,7 @@ function createCombatController(options) {
       assetKey: template.assetKey || (template.isBoss ? "boss" : "enemy"),
       encounterType: template.encounterType || (template.isBoss ? "boss" : "normal"),
       dropTableId: template.dropTableId || "",
+      poiseMax: Number.isFinite(Number(template.poiseMax)) ? Number(template.poiseMax) : null,
     };
   }
 
@@ -357,6 +463,92 @@ function createCombatController(options) {
   function getUnitLabel(side) {
     const unit = getUnitForSide(side);
     return unit ? unit.name : "单位";
+  }
+
+  function getPressureStateForSide(side) {
+    return side === "player" ? playerPressure : enemyPressure;
+  }
+
+  function getPressureSnapshot(side) {
+    const pressureState = getPressureStateForSide(side);
+    const statusBag = getStatusBagForSide(side);
+    if (!pressureState) {
+      return null;
+    }
+    let stance = pressureState.stance || "steady";
+    let stanceLabel = pressureState.stanceLabel || "稳固";
+    let chargeLevel = pressureState.chargeLevel || 0;
+    let chargeMax = pressureState.chargeMax || 0;
+    let chargeLabel = pressureState.chargeLabel || "";
+
+    if (!pressureState.executionReady && side === "enemy" && pendingEnemyIntent && pendingEnemyIntent.chargeLevel > 0) {
+      stance = "charging";
+      stanceLabel = pendingEnemyIntent.chargeLabel || "蓄势";
+      chargeLevel = pendingEnemyIntent.chargeLevel;
+      chargeMax = pendingEnemyIntent.chargeMax || Math.max(chargeLevel, chargeMax || 1);
+      chargeLabel = pendingEnemyIntent.chargeLabel || "蓄势";
+    } else if (!pressureState.executionReady && statusBag && statusBag.guard > 0) {
+      stance = "guarded";
+      stanceLabel = "防守";
+    }
+
+    return {
+      poiseCurrent: pressureState.poiseCurrent,
+      poiseMax: pressureState.poiseMax,
+      poisePercent: pressureState.poiseMax > 0 ? Math.round((pressureState.poiseCurrent / pressureState.poiseMax) * 100) : 0,
+      stance: stance,
+      stanceLabel: stanceLabel,
+      exposedTurns: pressureState.exposedTurns || 0,
+      executionReady: Boolean(pressureState.executionReady),
+      chargeLevel: chargeLevel,
+      chargeMax: chargeMax,
+      chargeLabel: chargeLabel,
+    };
+  }
+
+  function getBreakDamageMultiplier(targetSide, actionContext) {
+    const pressureState = getPressureStateForSide(targetSide);
+    if (!pressureState || !pressureState.executionReady) {
+      return 1;
+    }
+    return 1 + Math.max(0, toNumber(actionContext && actionContext.breakBonusDamageRatio, 0.18));
+  }
+
+  function resolveDamageAgainstSide(targetSide, rawDamage, actionContext) {
+    return Math.max(1, Math.round(rawDamage * getBreakDamageMultiplier(targetSide, actionContext)));
+  }
+
+  function applyPressureDamageToSide(targetSide, actionContext) {
+    if (!actionContext || !actionContext.poiseDamage) {
+      return { applied: 0, broken: false };
+    }
+    const targetPressure = getPressureStateForSide(targetSide);
+    const targetLabel = getUnitLabel(targetSide);
+    const outcome = applyPoiseDamage(targetPressure, actionContext.poiseDamage, {
+      sourceUnitId: actionContext.sourceUnitId,
+    });
+    if (outcome.broken) {
+      log(targetLabel + " 的架势被击穿，进入失衡窗口。", {
+        type: "pressure_break",
+        source: actionContext.sourceUnitId === "player" ? "player" : "enemy",
+        emphasis: true,
+        turn: "pressure",
+      });
+    }
+    return outcome;
+  }
+
+  function advancePressureWindowForSide(side) {
+    const pressureState = getPressureStateForSide(side);
+    const outcome = recoverPressureWindow(pressureState);
+    if (outcome.recovered) {
+      log(getUnitLabel(side) + " 重新稳住了架势。", {
+        type: "pressure_recover",
+        source: side,
+        turn: "pressure",
+      });
+    }
+    return outcome;
   }
 
   function syncTimelineActors() {
@@ -422,6 +614,8 @@ function createCombatController(options) {
       inCombat: state === "combat",
       phase: state,
       playerTurn: Boolean(currentActor && currentActor.side === "player"),
+      playerPressure: getPressureSnapshot("player"),
+      enemyPressure: getPressureSnapshot("enemy"),
       enemy: currentEnemy,
       enemyTile: sourceTile,
       locked: locked,
@@ -504,6 +698,9 @@ function createCombatController(options) {
       pressure: data.pressure || "neutral",
       timingText: data.timingText || "",
       insertHint: data.insertHint || "",
+      chargeLevel: Math.max(0, toNumber(data.chargeLevel, 0)),
+      chargeMax: Math.max(0, toNumber(data.chargeMax, 0)),
+      chargeLabel: data.chargeLabel || "",
       actionContext: data.actionContext || null,
       execute: typeof data.execute === "function" ? data.execute : function noop() {},
     };
@@ -520,6 +717,9 @@ function createCombatController(options) {
       pressure: pendingEnemyIntent.pressure,
       timingText: pendingEnemyIntent.timingText,
       insertHint: pendingEnemyIntent.insertHint,
+      chargeLevel: pendingEnemyIntent.chargeLevel,
+      chargeMax: pendingEnemyIntent.chargeMax,
+      chargeLabel: pendingEnemyIntent.chargeLabel,
     };
   }
 
@@ -527,12 +727,15 @@ function createCombatController(options) {
     const enemySpeed = getEffectiveSpeed(currentEnemy, enemyStatus);
 
     function enemyActionFrame(actionId, targetUnitId, timingLike) {
+      const timingData = Object.assign({
+        effect: targetUnitId === "player" ? "damage" : "utility",
+      }, timingLike || {});
       return createActionFrame({
         sourceUnitId: "enemy",
         targetUnitId: targetUnitId,
         actionId: actionId,
         actionType: "skill",
-        timingLike: timingLike,
+        timingLike: timingData,
         timelineApi: timelineApi,
         sourceSpeed: enemySpeed,
       });
@@ -556,6 +759,9 @@ function createCombatController(options) {
         pressure: "burst",
         timingText: "延迟 62",
         insertHint: "若现在插入，可抢在下一波重击前出手。",
+        chargeLevel: 1,
+        chargeMax: 1,
+        chargeLabel: "狂怒蓄势",
         actionContext: enemyActionFrame("pack_alpha_howl", "player", { baseDelay: 62 }),
         execute: function executePackAlphaHowl() {
           const rawDamage = rollDamage(currentEnemy.attack, 1.35, player.defense, rand);
@@ -574,6 +780,9 @@ function createCombatController(options) {
         pressure: "control",
         timingText: "压后 +12",
         insertHint: "若现在插入，可避免被减速后再掉出节奏。",
+        chargeLevel: 1,
+        chargeMax: 1,
+        chargeLabel: "禁术蓄势",
         actionContext: enemyActionFrame("arcane_pulse", "player", { baseDelay: 60, delayTarget: 12 }),
         execute: function executeArcanePulse() {
           const rawDamage = rollDamage(currentEnemy.attack, 1.45, player.defense, rand);
@@ -592,6 +801,9 @@ function createCombatController(options) {
         pressure: "burst",
         timingText: "压后 +6",
         insertHint: "若现在插入，可先手压血，避免承受持续灼烧。",
+        chargeLevel: 1,
+        chargeMax: 1,
+        chargeLabel: "烈焰蓄势",
         actionContext: enemyActionFrame("inferno_breath", "player", { baseDelay: 64, delayTarget: 6 }),
         execute: function executeInfernoBreath() {
           const rawDamage = rollDamage(currentEnemy.attack, 1.28, player.defense, rand);
@@ -646,6 +858,9 @@ function createCombatController(options) {
         pressure: "guard",
         timingText: "抢轴 +8",
         insertHint: "若现在插入，可压在其防势成型前打出收益。",
+        chargeLevel: 1,
+        chargeMax: 1,
+        chargeLabel: "防守架势",
         actionContext: enemyActionFrame("guardian_guard", "enemy", { baseDelay: 42, advanceSelf: 8 }),
         execute: function executeGuardianGuard() {
           enemyStatus.guard = Math.max(enemyStatus.guard, 0.35);
@@ -715,6 +930,9 @@ function createCombatController(options) {
         pressure: "guard",
         timingText: "抢轴 +8",
         insertHint: "若现在插入，可趁其架势建立前抢伤害。",
+        chargeLevel: 1,
+        chargeMax: 1,
+        chargeLabel: "防线成型",
         actionContext: enemyActionFrame("bulwark_guard", "enemy", { baseDelay: 46, advanceSelf: 8 }),
         execute: function executeBulwarkGuard() {
           enemyStatus.guard = Math.max(enemyStatus.guard, 0.42);
@@ -777,6 +995,8 @@ function createCombatController(options) {
     roundCount = 0;
     timelineState = null;
     playerUltimate = createUltimateRuntime();
+    playerPressure = createPressureRuntime(player, { side: "player" });
+    enemyPressure = createPressureRuntime(null, { side: "enemy" });
     emitSnapshot();
     if (config.onCombatEnd) {
       config.onCombatEnd(payload);
@@ -819,6 +1039,18 @@ function createCombatController(options) {
       return true;
     }
     return false;
+  }
+
+  function logPressureWindowHit(targetSide, multiplier) {
+    if (multiplier <= 1) {
+      return;
+    }
+    log(getUnitLabel(targetSide) + " 处于失衡，承受了更重的打击。", {
+      type: "pressure_window",
+      source: targetSide === "enemy" ? "player" : "enemy",
+      emphasis: true,
+      turn: "pressure",
+    });
   }
 
   function enterActiveTurn(initial) {
@@ -909,6 +1141,12 @@ function createCombatController(options) {
     playerStatus = createStatusRuntime();
     enemyStatus = createStatusRuntime();
     playerUltimate = createUltimateRuntime();
+    playerPressure = createPressureRuntime(player, { side: "player" });
+    enemyPressure = createPressureRuntime(currentEnemy, {
+      side: "enemy",
+      role: currentEnemy.role,
+      poiseMax: currentEnemy.poiseMax,
+    });
     clearEnemyIntent();
     if (typeof encounter.playerUltimateCharge === "number") {
       playerUltimate.current = clamp(encounter.playerUltimateCharge, 0, playerUltimate.max);
@@ -984,8 +1222,10 @@ function createCombatController(options) {
       if (skill.bonusFirst && isPlayerTurn()) {
         power += skill.bonusFirst;
       }
-      const rawDamage = rollDamage(attackValue, power, currentEnemy.defense, rand);
+      const pressureMultiplier = getBreakDamageMultiplier("enemy", actionContext);
+      const rawDamage = resolveDamageAgainstSide("enemy", rollDamage(attackValue, power, currentEnemy.defense, rand), actionContext);
       const dealt = applyDamageToTarget(currentEnemy, enemyStatus, rawDamage);
+      logPressureWindowHit("enemy", pressureMultiplier);
       log((isUltimateAction ? "你插入施放了 " : "你使用了 ") + skill.name + "，对 " + currentEnemy.name + " 造成 " + dealt + " 点伤害。", {
         type: isUltimateAction ? "ultimate_action" : "player_action",
         source: "player",
@@ -993,6 +1233,7 @@ function createCombatController(options) {
         turn: "player",
       });
       emitEffect("enemyHit", { damage: dealt, enemy: currentEnemy });
+      applyPressureDamageToSide("enemy", actionContext);
     } else if (skill.effect === "heal") {
       const healValue = Math.max(1, Math.round((attackValue * Math.abs(skill.power) + player.level * 4) * rand(0.96, 1.08)));
       player.hp = clamp(player.hp + healValue, 0, player.maxHp);
@@ -1014,8 +1255,10 @@ function createCombatController(options) {
       log("你施放了 " + skill.name + "，恢复了法力。", { type: isUltimateAction ? "ultimate_action" : "player_action", source: "player", emphasis: isUltimateAction, turn: "player" });
       actionContext.targetUnitId = "player";
     } else if (skill.effect === "poison") {
-      const rawDamage = rollDamage(attackValue, skill.power || 1, currentEnemy.defense, rand);
+      const pressureMultiplier = getBreakDamageMultiplier("enemy", actionContext);
+      const rawDamage = resolveDamageAgainstSide("enemy", rollDamage(attackValue, skill.power || 1, currentEnemy.defense, rand), actionContext);
       const dealt = applyDamageToTarget(currentEnemy, enemyStatus, rawDamage);
+      logPressureWindowHit("enemy", pressureMultiplier);
       enemyStatus.poisonTurns = skill.poisonTurns || 2;
       enemyStatus.poisonDamage = skill.poisonDamage || 5;
       log("你使用了 " + skill.name + "，造成 " + dealt + " 点伤害并附加中毒。", {
@@ -1025,6 +1268,7 @@ function createCombatController(options) {
         turn: "player",
       });
       emitEffect("enemyHit", { damage: dealt, enemy: currentEnemy });
+      applyPressureDamageToSide("enemy", actionContext);
     } else if (skill.effect === "regen") {
       playerStatus.regenTurns = skill.regenTurns || 2;
       playerStatus.regenValue = skill.regenValue || 8;
@@ -1060,6 +1304,7 @@ function createCombatController(options) {
     }
 
     locked = true;
+    advancePressureWindowForSide("player");
     finalizeAction(actionContext);
     return true;
   }
@@ -1084,6 +1329,7 @@ function createCombatController(options) {
     clearEnemyIntent();
     intent.execute();
     const actionContext = intent.actionContext;
+    applyPressureDamageToSide("player", actionContext);
     gainUltimateCharge(1, currentEnemy.name + " 的压制");
     emitStatus();
     syncTimelineActors();
@@ -1096,6 +1342,7 @@ function createCombatController(options) {
       return;
     }
 
+    advancePressureWindowForSide("enemy");
     finalizeAction(actionContext);
   }
 

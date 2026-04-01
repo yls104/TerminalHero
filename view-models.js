@@ -10,6 +10,21 @@
     return clamp((current / max) * 100, 0, 100);
   }
 
+  function inferPoiseDamage(skill) {
+    const data = skill || {};
+    if (Number.isFinite(Number(data.poiseDamage))) {
+      return Math.max(0, Number(data.poiseDamage));
+    }
+    if (data.effect !== "damage" && data.effect !== "poison") {
+      return 0;
+    }
+    const power = Math.max(0, Number.isFinite(Number(data.power)) ? Number(data.power) : 1);
+    const delayBonus = Number(data.delayTarget || 0) > 0 ? 1 : 0;
+    const advanceBonus = Number(data.advanceSelf || 0) > 0 ? 1 : 0;
+    const ultimateBonus = data.actionType === "ultimate" ? 2 : 0;
+    return clamp(Math.round(power * 2 + delayBonus + advanceBonus + ultimateBonus), 1, 12);
+  }
+
   function createHudViewModel(input) {
     const data = input || {};
     const player = data.player || {};
@@ -50,15 +65,21 @@
   }
 
   function createEnemyViewModel(input) {
-    const data = input && input.enemy ? input : { enemy: input, intent: null };
+    const data = input && input.enemy ? input : { enemy: input, intent: null, pressure: null };
     const enemy = data.enemy;
     const intent = data.intent || null;
+    const pressure = data.pressure || null;
     if (!enemy) {
       return {
         visible: false,
         name: "",
         hpText: "0 / 0",
         hpPercent: 0,
+        poiseVisible: false,
+        poiseText: "",
+        poisePercent: 0,
+        stanceText: "",
+        chargeText: "",
         intentVisible: false,
         intentLabel: "",
         intentName: "",
@@ -71,6 +92,19 @@
       name: enemy.isBoss ? "【首领】" + enemy.name : enemy.encounterType === "elite" ? "【精英】" + enemy.name : enemy.name,
       hpText: enemy.hp + " / " + enemy.maxHp,
       hpPercent: toPercent(enemy.hp, enemy.maxHp),
+      poiseVisible: Boolean(pressure && pressure.poiseMax > 0),
+      poiseText: pressure ? pressure.poiseCurrent + " / " + pressure.poiseMax : "",
+      poisePercent: pressure ? toPercent(pressure.poiseCurrent, pressure.poiseMax) : 0,
+      stanceText: pressure
+        ? pressure.executionReady
+          ? "失衡窗口已打开"
+          : pressure.chargeLevel > 0
+            ? (pressure.stanceLabel || "蓄势") + " " + pressure.chargeLevel + "/" + (pressure.chargeMax || pressure.chargeLevel)
+            : pressure.stanceLabel || "稳固"
+        : "",
+      chargeText: pressure && pressure.chargeLevel > 0 && pressure.chargeLabel
+        ? pressure.chargeLabel + " " + pressure.chargeLevel + "/" + (pressure.chargeMax || pressure.chargeLevel)
+        : "",
       intentVisible: Boolean(intent && intent.label),
       intentLabel: intent && intent.pressure === "control"
         ? "压制预告"
@@ -229,6 +263,22 @@
   function createCombatIntentViewModel(snapshot) {
     const data = snapshot || {};
     const intent = data.enemyIntent || null;
+    const enemyPressure = data.enemyPressure || null;
+    const playerPressure = data.playerPressure || null;
+    if (data.inCombat && enemyPressure && enemyPressure.executionReady) {
+      return {
+        visible: true,
+        summaryText: "敌方失衡窗口已打开",
+        actionHintText: "敌方失衡 · 可趁势重击",
+      };
+    }
+    if (data.inCombat && playerPressure && playerPressure.executionReady) {
+      return {
+        visible: true,
+        summaryText: "你正处于失衡状态",
+        actionHintText: "自身失衡 · 小心敌方重击",
+      };
+    }
     if (!data.inCombat || !intent) {
       return {
         visible: false,
@@ -265,6 +315,9 @@
     }
     if (skill.delayTarget) {
       parts.push("压制 +" + skill.delayTarget);
+    }
+    if (inferPoiseDamage(skill)) {
+      parts.push("韧性 -" + inferPoiseDamage(skill));
     }
     if (skill.ultimateChargeGain) {
       parts.push("终结 +" + skill.ultimateChargeGain);
