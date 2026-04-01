@@ -149,6 +149,13 @@
     const relics = data.relics || [];
     const blessings = data.blessings || [];
     const materials = data.materials || [];
+    const professionProfile = player.professionProfile || {};
+    const professionState = player.professionState || {};
+    const professionStateSummary = professionProfile.mechanicName
+      ? professionProfile.mechanicName
+        + (professionState.valueText ? "（" + professionState.valueText + "）" : "")
+        + (professionState.statusText ? " · " + professionState.statusText : "")
+      : "当前职业尚未建立二轮机制";
 
     return {
       overlayEyebrow: "详细属性",
@@ -157,6 +164,8 @@
         { label: "姓名", value: player.name || "-" },
         { label: "职业", value: player.className || "未选择" },
         { label: "职业特性", value: player.classDescription || "尚未选择职业" },
+        { label: "职业机制", value: professionStateSummary },
+        { label: "机制指引", value: professionState.hintText || professionProfile.mechanicSummary || "后续会在该职业二轮深化中继续扩展。" },
         { label: "区域", value: data.stageLabel || "-" },
         { label: "等级", value: "Lv." + (player.level || 0) },
         { label: "生命", value: (player.hp || 0) + " / " + (player.maxHp || 0) },
@@ -221,10 +230,17 @@
   function createBuildCodexViewModel(input) {
     const data = input || {};
     const player = data.player || {};
+    const professionProfile = player.professionProfile || {};
+    const professionState = player.professionState || {};
     const classResourceSummary = player.classResource && player.classResource.id
       ? player.classResource.label + "（" + player.classResource.current + " / " + player.classResource.max + "）"
         + (player.classResource.description ? " · " + player.classResource.description : "")
       : "当前职业暂无专属资源";
+    const professionSummary = professionProfile.mechanicName
+      ? professionProfile.mechanicName
+        + (professionState.valueText ? "（" + professionState.valueText + "）" : "")
+        + (professionState.statusText ? " · " + professionState.statusText : "")
+      : "当前职业尚未建立二轮机制";
     return {
       overlayEyebrow: "构筑详情",
       overlayTitle: (player.className || "冒险者") + " 构筑手册",
@@ -232,6 +248,7 @@
         { label: "职业", value: player.className || "未选择" },
         { label: "构筑方向", value: player.classBuildNote || player.classDescription || "尚未选择职业" },
         { label: "核心资源", value: classResourceSummary },
+        { label: "职业机制", value: professionSummary },
         { label: "已激活专精", value: player.buildSnapshot && player.buildSnapshot.activeTrackNames && player.buildSnapshot.activeTrackNames.length ? player.buildSnapshot.activeTrackNames.join("、") : "暂未投入专精节点" },
         { label: "战斗倾向", value: player.buildSnapshot && player.buildSnapshot.combatFocuses && player.buildSnapshot.combatFocuses.length ? player.buildSnapshot.combatFocuses.join("、") : "暂未形成明确战斗轴心" },
         { label: "遗物联动标签", value: player.buildSnapshot && player.buildSnapshot.relicTags && player.buildSnapshot.relicTags.length ? player.buildSnapshot.relicTags.join("、") : "暂未形成遗物倾向" },

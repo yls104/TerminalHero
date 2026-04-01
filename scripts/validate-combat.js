@@ -200,6 +200,7 @@ function testUltimateInsertFlow(context, apis) {
   entitiesApi.player.mp = entitiesApi.player.maxMp;
   entitiesApi.player.classResource.current = entitiesApi.player.classResource.max;
   entitiesApi.unlockClassSkillIfNeeded();
+  assert(entitiesApi.player.professionProfile.mechanicName === "破军势", "战士二轮职业机制未正确挂接");
   assert(entitiesApi.getResolvedSkill("slash").resourceGain === 2, "战士重构后裂风斩应提供 2 点压制值");
   assert(entitiesApi.getResolvedSkill("battle_cry").resourceCost === 1, "战士重构后战吼应仅消耗 1 点压制值");
   assert(entitiesApi.getResolvedSkill("earthshatter").resourceCost === 3, "战士重构后裂地猛击应消耗 3 点压制值");
@@ -259,6 +260,7 @@ function testUltimateInsertFlow(context, apis) {
     skills: entitiesApi.skills,
     resolveSkill: entitiesApi.getResolvedSkill,
     getUltimateSkills: entitiesApi.getResolvedUltimateSkills,
+    onPlayerSkillResolved: entitiesApi.applyProfessionAfterPlayerSkill,
     onLog(entry) {
       logs.push(entry);
     },
@@ -356,6 +358,7 @@ function testPressureAxisFoundation(context, apis) {
     skills: entitiesApi.skills,
     resolveSkill: entitiesApi.getResolvedSkill,
     getUltimateSkills: entitiesApi.getResolvedUltimateSkills,
+    onPlayerSkillResolved: entitiesApi.applyProfessionAfterPlayerSkill,
     onLog(entry) {
       logs.push(entry);
     },
@@ -451,6 +454,7 @@ function testChargeInterruptFlow(context, apis) {
     skills: entitiesApi.skills,
     resolveSkill: entitiesApi.getResolvedSkill,
     getUltimateSkills: entitiesApi.getResolvedUltimateSkills,
+    onPlayerSkillResolved: entitiesApi.applyProfessionAfterPlayerSkill,
     onLog(entry) {
       logs.push(entry);
     },
@@ -550,6 +554,7 @@ function testEnemyPunishesPlayerBreak(context, apis) {
     skills: entitiesApi.skills,
     resolveSkill: entitiesApi.getResolvedSkill,
     getUltimateSkills: entitiesApi.getResolvedUltimateSkills,
+    onPlayerSkillResolved: entitiesApi.applyProfessionAfterPlayerSkill,
     onLog(entry) {
       logs.push(entry);
     },

@@ -17,6 +17,35 @@ const PLAYER_TEMPLATE = {
   className: "",
   classDescription: "",
   classBuildNote: "",
+  professionProfile: {
+    mechanicName: "",
+    mechanicSummary: "",
+    battleLoop: [],
+    decisionAxes: [],
+    uiSignals: [],
+    runtime: {
+      label: "",
+      shortLabel: "",
+      max: 0,
+      gainSkills: [],
+      spendSkills: [],
+      empoweredSkills: {},
+      statuses: {},
+      readyHint: "",
+    },
+  },
+  professionState: {
+    label: "",
+    shortLabel: "",
+    current: 0,
+    max: 0,
+    ready: false,
+    previewOnly: true,
+    valueText: "",
+    statusText: "",
+    hintText: "",
+    activeSkillIds: [],
+  },
   classResource: {
     id: "",
     label: "",
@@ -105,6 +134,36 @@ const classes = {
     starterSkills: ["attack", "slash", "defend", "battle_cry"],
     unlockSkill: "earthshatter",
     resourceConfig: { id: "pressure", label: "压制值", shortLabel: "压制", max: 5, colorClass: "resource-warrior", description: "战士通过稳扎稳打与起手压制积累压制值，再把它换成爆发准备或处决重击。" },
+    secondPassProfile: {
+      mechanicName: "破军势",
+      mechanicSummary: "通过起手压制与守势过渡积势，等成势后把处决技能推入更高收益窗口。",
+      battleLoop: ["裂风斩、战吼或防御姿态负责积势", "成势后用裂地猛击或崩山断兑现重击", "兑现后回到回稳换压，准备下一轮窗口"],
+      decisionAxes: ["这一拍应该继续积势，还是直接进入处决？", "当前窗口值不值得交掉破军势？", "残局里要不要先靠防御姿态把势补满再出手？"],
+      uiSignals: ["详细属性显示破军势当前层数与状态", "构筑手册解释积势、成势与兑现三段循环", "技能检视会在成势时提示裂地猛击与崩山断已被强化"],
+      runtime: {
+        label: "破军势",
+        shortLabel: "势",
+        max: 2,
+        gainSkills: ["slash", "battle_cry", "defend", "unyielding_roar"],
+        spendSkills: ["earthshatter", "guard_break"],
+        empoweredSkills: {
+          earthshatter: {
+            changes: { power: 0.42, poiseDamage: 2, advanceSelf: 8, bonusVsBrokenRatio: 0.1 },
+            inspectNote: "破军势已成：裂地猛击获得额外伤害、压制与抢轴收益。",
+          },
+          guard_break: {
+            changes: { power: 0.22, poiseDamage: 2, delayTarget: 6, bonusVsChargingRatio: 0.08 },
+            inspectNote: "破军势已成：崩山断的破势、压制与拖轴能力更强。",
+          },
+        },
+        statuses: {
+          empty: "尚未成势",
+          building: "正在积势",
+          ready: "破军势已成",
+        },
+        readyHint: "现在适合用裂地猛击或崩山断兑现这一轮窗口。",
+      },
+    },
   },
   mage: {
     id: "mage",
@@ -119,6 +178,14 @@ const classes = {
     starterSkills: ["attack", "arcane_bolt", "frost_nova", "meditate"],
     unlockSkill: "meteor",
     resourceConfig: { id: "overload", label: "过载层数", shortLabel: "过载", max: 5, colorClass: "resource-mage", description: "法师通过轻施法、控场和冥想积累过载层数，再把它换成高耗终结与窗口爆发。" },
+    secondPassProfile: {
+      mechanicName: "过载点火",
+      mechanicSummary: "围绕过载层数与高耗兑现建立更清晰的爆发准备节奏。",
+      battleLoop: ["轻施法先铺过载", "控场与回蓝把节奏拉到安全窗口", "用高耗终结把点火收益一次性兑现"],
+      decisionAxes: ["现在该继续铺过载，还是直接交爆发？", "什么时候值得先冥想而不是继续压输出？", "面对高压敌方意图时要不要牺牲爆发节奏先拖轴？"],
+      uiSignals: ["详情面板显示过载点火阶段", "构筑手册解释慢轴铺垫与高耗兑现关系", "后续会在技能检视中提示点火后的高耗强化"],
+      runtime: { label: "点火", shortLabel: "火", max: 0, gainSkills: [], spendSkills: [], empoweredSkills: {}, statuses: {}, readyHint: "" },
+    },
   },
   ranger: {
     id: "ranger",
@@ -133,6 +200,14 @@ const classes = {
     starterSkills: ["attack", "aimed_shot", "poison_arrow", "first_aid"],
     unlockSkill: "volley",
     resourceConfig: { id: "focus", label: "专注值", shortLabel: "专注", max: 5, colorClass: "resource-ranger", description: "游侠通过拖轴、挂毒和稳定拉扯积累专注值，再把它换成远程收割与精准点杀。" },
+    secondPassProfile: {
+      mechanicName: "猎线",
+      mechanicSummary: "让游侠围绕拖轴、压血与收割窗口形成更强的线路经营感。",
+      battleLoop: ["先拖轴并挂持续压制", "观察敌人血线与行动顺位", "在线路成熟时远程收割"],
+      decisionAxes: ["继续拉扯还是立刻收割？", "敌人节奏已经被拖慢到什么程度？", "是否需要为了安全先交回稳手段？"],
+      uiSignals: ["详情面板显示猎线阶段", "构筑手册解释拖轴与收割的连接点", "后续会在收割技能上提示猎线成熟状态"],
+      runtime: { label: "猎线", shortLabel: "线", max: 0, gainSkills: [], spendSkills: [], empoweredSkills: {}, statuses: {}, readyHint: "" },
+    },
   },
   cleric: {
     id: "cleric",
@@ -147,6 +222,14 @@ const classes = {
     starterSkills: ["smite", "heal", "sanctuary", "defend"],
     unlockSkill: "judgment",
     resourceConfig: { id: "judgment", label: "审判印记", shortLabel: "审判", max: 5, colorClass: "resource-cleric", description: "牧师通过惩戒、恢复与庇护积累审判印记，再把它转成高价值的裁决收尾。" },
+    secondPassProfile: {
+      mechanicName: "审判回响",
+      mechanicSummary: "围绕回稳与蓄印后的多段裁决收益继续深化牧师的收束节奏。",
+      battleLoop: ["先靠惩戒与恢复稳定蓄印", "在安全回合维持局面", "把回响后的审判收益转成收尾"],
+      decisionAxes: ["这一拍先稳态还是先裁决？", "当前印记是否值得立刻兑现？", "是否需要先用庇护换来下一轮更大的裁决窗口？"],
+      uiSignals: ["详情面板显示审判回响阶段", "构筑手册解释恢复如何转收益", "后续会提示裁决技能是否进入高收益状态"],
+      runtime: { label: "回响", shortLabel: "响", max: 0, gainSkills: [], spendSkills: [], empoweredSkills: {}, statuses: {}, readyHint: "" },
+    },
   },
   rogue: {
     id: "rogue",
@@ -161,6 +244,14 @@ const classes = {
     starterSkills: ["attack", "backstab", "smoke_step", "venom_cut"],
     unlockSkill: "shadow_flurry",
     resourceConfig: { id: "combo", label: "连击点", shortLabel: "连击", max: 6, colorClass: "resource-rogue", description: "盗贼通过抢轴、规避与续压积累连击点，再把它换成高速斩杀和连段终结。" },
+    secondPassProfile: {
+      mechanicName: "夺拍窗口",
+      mechanicSummary: "把盗贼的抢轴、连段与斩杀阈值整合成更明显的夺拍节奏。",
+      battleLoop: ["先抢拍并累积连段优势", "用规避与续压保住主动权", "在敌方失序时连续兑现斩杀"],
+      decisionAxes: ["当前应该继续抢拍还是直接斩杀？", "连段要不要留给下一次更好的窗口？", "残局里是否值得先交保命换主动权？"],
+      uiSignals: ["详情面板显示夺拍窗口阶段", "构筑手册解释连段和斩杀的闭环", "后续会在高节奏技能上提示夺拍成熟状态"],
+      runtime: { label: "夺拍", shortLabel: "拍", max: 0, gainSkills: [], spendSkills: [], empoweredSkills: {}, statuses: {}, readyHint: "" },
+    },
   },
   paladin: {
     id: "paladin",
@@ -175,6 +266,14 @@ const classes = {
     starterSkills: ["radiant_slash", "holy_heal", "aegis", "defend"],
     unlockSkill: "execution_seal",
     resourceConfig: { id: "charge", label: "神圣充能", shortLabel: "充能", max: 5, colorClass: "resource-paladin", description: "圣骑士通过稳态推进、防守和回稳动作积累神圣充能，再把它换成厚重的处决爆发。" },
+    secondPassProfile: {
+      mechanicName: "誓能裁决",
+      mechanicSummary: "继续强化圣骑士在稳态推进后以厚重裁决收尾的职业辨识度。",
+      battleLoop: ["稳态推进积蓄誓能", "守反与回稳保证节奏不丢", "在窗口中把誓能压成裁决爆发"],
+      decisionAxes: ["现在要继续稳态，还是转入裁决？", "该先守反起势还是先厚重推进？", "誓能是否已经足够支撑收尾？"],
+      uiSignals: ["详情面板显示誓能裁决阶段", "构筑手册解释稳态到裁决的转换", "后续会在裁决技能上提示誓能爆发状态"],
+      runtime: { label: "裁决", shortLabel: "裁", max: 0, gainSkills: [], spendSkills: [], empoweredSkills: {}, statuses: {}, readyHint: "" },
+    },
   },
   druid: {
     id: "druid",
@@ -189,6 +288,14 @@ const classes = {
     starterSkills: ["thorn_whip", "rejuvenation", "barkskin", "defend"],
     unlockSkill: "lunar_bloom",
     resourceConfig: { id: "growth", label: "自然印记", shortLabel: "印记", max: 5, colorClass: "resource-druid", description: "德鲁伊通过铺场、持续恢复和树肤回稳积累自然印记，再把它转成绽放输出与状态引爆。" },
+    secondPassProfile: {
+      mechanicName: "生长轮转",
+      mechanicSummary: "把德鲁伊的铺场、轮转与转化时机继续拉开成更清晰的节奏层次。",
+      battleLoop: ["先铺场并维持持续恢复", "用树肤与状态轮转稳住局面", "在时机成熟时把铺好的状态转成绽放收益"],
+      decisionAxes: ["当前应该继续铺场还是转化输出？", "回稳动作要不要提前交？", "是否已经到达最值得绽放的轮次？"],
+      uiSignals: ["详情面板显示生长轮转阶段", "构筑手册解释铺场到绽放的关系", "后续会在转化技能上提示轮转成熟状态"],
+      runtime: { label: "轮转", shortLabel: "轮", max: 0, gainSkills: [], spendSkills: [], empoweredSkills: {}, statuses: {}, readyHint: "" },
+    },
   },
 };
 
@@ -396,6 +503,125 @@ function createClassResourceState(classDef) {
     colorClass: classDef.resourceConfig.colorClass || "resource-neutral",
     description: classDef.resourceConfig.description || "",
   };
+}
+
+function createEmptyProfessionProfile() {
+  return deepClone(PLAYER_TEMPLATE.professionProfile);
+}
+
+function getClassProfessionProfile(classDef) {
+  if (!classDef || !classDef.secondPassProfile) {
+    return createEmptyProfessionProfile();
+  }
+  return deepClone(classDef.secondPassProfile);
+}
+
+function syncProfessionState(profile, state) {
+  const runtime = profile && profile.runtime ? profile.runtime : {};
+  const nextState = state || {};
+  const max = Math.max(0, Number(nextState.max || runtime.max || 0));
+  const current = max > 0 ? clamp(Number(nextState.current || 0), 0, max) : 0;
+  nextState.label = runtime.label || profile.mechanicName || "";
+  nextState.shortLabel = runtime.shortLabel || "";
+  nextState.max = max;
+  nextState.current = current;
+  nextState.previewOnly = max <= 0;
+  nextState.ready = max > 0 && current >= max;
+  nextState.activeSkillIds = Object.keys(runtime.empoweredSkills || {});
+  if (nextState.previewOnly) {
+    nextState.valueText = "待接入";
+    nextState.statusText = profile.mechanicSummary || "二轮机制待落地";
+    nextState.hintText = (profile.battleLoop || [])[0] || "后续会在该职业的二轮深化中接入运行时机制。";
+    return nextState;
+  }
+  nextState.valueText = current + " / " + max;
+  if (nextState.ready) {
+    nextState.statusText = runtime.statuses && runtime.statuses.ready
+      ? runtime.statuses.ready
+      : "已进入可兑现状态";
+    nextState.hintText = runtime.readyHint || "当前适合交出强化技能兑现收益。";
+  } else if (current > 0) {
+    nextState.statusText = runtime.statuses && runtime.statuses.building
+      ? runtime.statuses.building
+      : "机制正在积累";
+    nextState.hintText = (profile.battleLoop || [])[0] || "继续通过铺机制技能把职业节奏推到可兑现阶段。";
+  } else {
+    nextState.statusText = runtime.statuses && runtime.statuses.empty
+      ? runtime.statuses.empty
+      : "尚未进入机制循环";
+    nextState.hintText = (profile.battleLoop || [])[0] || "先用起手技能开始搭建职业机制。";
+  }
+  return nextState;
+}
+
+function createProfessionState(classDef) {
+  const profile = getClassProfessionProfile(classDef);
+  return syncProfessionState(profile, {
+    current: 0,
+    max: profile.runtime && profile.runtime.max ? profile.runtime.max : 0,
+  });
+}
+
+function getProfessionProfile() {
+  return player.professionProfile || createEmptyProfessionProfile();
+}
+
+function getProfessionState() {
+  return syncProfessionState(getProfessionProfile(), player.professionState || deepClone(PLAYER_TEMPLATE.professionState));
+}
+
+function applyProfessionEmpowerment(skillId, resolvedSkill, inspectNotes) {
+  const profile = getProfessionProfile();
+  const state = getProfessionState();
+  const runtime = profile.runtime || {};
+  const empowered = runtime.empoweredSkills && runtime.empoweredSkills[skillId];
+  if (!state.ready || !empowered) {
+    return;
+  }
+  const changes = empowered.changes || {};
+  Object.keys(changes).forEach(function eachKey(key) {
+    if (typeof changes[key] === "number") {
+      const previous = typeof resolvedSkill[key] === "number" ? resolvedSkill[key] : 0;
+      resolvedSkill[key] = previous + changes[key];
+    } else {
+      resolvedSkill[key] = changes[key];
+    }
+  });
+  if (empowered.inspectNote) {
+    inspectNotes.push(empowered.inspectNote);
+  }
+}
+
+function applyProfessionAfterPlayerSkill(skillId) {
+  const profile = getProfessionProfile();
+  const runtime = profile.runtime || {};
+  const state = player.professionState || createProfessionState(classes[player.classId]);
+  const result = {
+    label: runtime.label || profile.mechanicName || "职业机制",
+    gained: 0,
+    consumed: false,
+    readied: false,
+    state: state,
+  };
+  if (!skillId || !runtime || state.previewOnly || state.max <= 0) {
+    player.professionState = syncProfessionState(profile, state);
+    result.state = player.professionState;
+    return result;
+  }
+  const wasReady = Boolean(state.ready);
+  if (Array.isArray(runtime.gainSkills) && runtime.gainSkills.indexOf(skillId) !== -1) {
+    const previous = state.current;
+    state.current = clamp(state.current + 1, 0, state.max);
+    result.gained = state.current - previous;
+  }
+  if (wasReady && Array.isArray(runtime.spendSkills) && runtime.spendSkills.indexOf(skillId) !== -1) {
+    state.current = 0;
+    result.consumed = true;
+  }
+  player.professionState = syncProfessionState(profile, state);
+  result.readied = !wasReady && player.professionState.ready;
+  result.state = player.professionState;
+  return result;
 }
 
 function createSpecializationState() {
@@ -783,6 +1009,8 @@ function applyClassToPlayer(classId) {
   player.className = classDef.name;
   player.classDescription = classDef.description;
   player.classBuildNote = classDef.buildNote || "";
+  player.professionProfile = getClassProfessionProfile(classDef);
+  player.professionState = createProfessionState(classDef);
   player.classResource = createClassResourceState(classDef);
   player.specialization = createSpecializationState();
   player.maxHp += classDef.statBonus.maxHp;
@@ -857,6 +1085,8 @@ function getResolvedSkill(skillId) {
       inspectNotes.push(modifier.inspectNote);
     }
   });
+
+  applyProfessionEmpowerment(skillId, resolvedSkill, inspectNotes);
 
   resolvedSkill.cost = Math.max(0, resolvedSkill.cost || 0);
   if (typeof resolvedSkill.resourceCost === "number") {
@@ -1088,6 +1318,9 @@ window.GameEntities = {
   PLAYER_TEMPLATE,
   applyClassToPlayer,
   unlockClassSkillIfNeeded,
+  getProfessionProfile,
+  getProfessionState,
+  applyProfessionAfterPlayerSkill,
   getPlayerSkills,
   getResolvedSkill,
   getResolvedPlayerSkills,

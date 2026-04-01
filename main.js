@@ -27,6 +27,7 @@
   const getResolvedSkill = entitiesApi.getResolvedSkill || function fallbackResolvedSkill(skillId) { return skills[skillId] || null; };
   const getResolvedPlayerSkills = entitiesApi.getResolvedPlayerSkills || function fallbackResolvedSkills() { return getPlayerSkills(); };
   const getResolvedUltimateSkills = entitiesApi.getResolvedUltimateSkills || function fallbackResolvedUltimateSkills() { return []; };
+  const applyProfessionAfterPlayerSkill = entitiesApi.applyProfessionAfterPlayerSkill || function noopProfession() { return null; };
   const isUltimateSkill = entitiesApi.isUltimateSkill || function fallbackIsUltimateSkill(skill) { return Boolean(skill && skill.actionType === "ultimate"); };
   const setRelicResolver = entitiesApi.setRelicResolver || function noopRelicResolver() {};
   const refreshBuildSnapshot = entitiesApi.refreshBuildSnapshot || function noopRefreshBuildSnapshot() {};
@@ -1584,6 +1585,32 @@
       };
     });
 
+    const professionProfile = player.professionProfile || {};
+    const professionState = player.professionState || {};
+    const empoweredSkillNames = Object.keys((professionProfile.runtime && professionProfile.runtime.empoweredSkills) || {}).map(function mapSkillId(skillId) {
+      const skill = getResolvedSkill(skillId);
+      return skill ? skill.name : skillId;
+    });
+    const professionEntries = professionProfile.mechanicName
+      ? [{
+          name: professionProfile.mechanicName,
+          meta: "职业机制 / " + (professionState.valueText || "待接入"),
+          summary: professionProfile.mechanicSummary || "当前职业的二轮机制正在整理中。",
+          details: []
+            .concat(["当前状态：" + ((professionState.statusText || "未建立") + (professionState.hintText ? " · " + professionState.hintText : ""))])
+            .concat((professionProfile.battleLoop || []).map(function mapLoop(text, index) {
+              return "循环 " + (index + 1) + "：" + text;
+            }))
+            .concat((professionProfile.decisionAxes || []).map(function mapAxis(text) {
+              return "关键取舍：" + text;
+            }))
+            .concat((professionProfile.uiSignals || []).map(function mapSignal(text) {
+              return "界面承接：" + text;
+            }))
+            .concat(empoweredSkillNames.length ? ["当前会被机制强化的技能：" + empoweredSkillNames.join("、")] : []),
+        }]
+      : [];
+
     const skillEntries = getResolvedPlayerSkills().map(function mapSkill(skill) {
       return {
         name: skill.name,
@@ -1644,6 +1671,7 @@
     const buildView = createBuildCodexViewModel({
       player: player,
       sections: [
+        { title: "职业机制", entries: professionEntries.length ? professionEntries : [{ name: "暂无职业机制", meta: "", summary: "当前职业尚未建立二轮机制档案。", details: [] }] },
         { title: "技能详情", entries: skillEntries.length ? skillEntries : [{ name: "暂无技能", meta: "", summary: "先选择职业后再查看。", details: [] }] },
         { title: "职业专精", entries: specializationEntries.length ? specializationEntries : [{ name: "暂无专精", meta: "", summary: "先选择职业后再查看。", details: [] }] },
         { title: "构筑标签", entries: buildTagEntries.length ? buildTagEntries : [{ name: "暂无标签", meta: "", summary: "当前还没有形成明显的 build 倾向。", details: [] }] },
@@ -3149,6 +3177,7 @@
         skills: skills,
         resolveSkill: getResolvedSkill,
         getUltimateSkills: getResolvedUltimateSkills,
+        onPlayerSkillResolved: applyProfessionAfterPlayerSkill,
         onLog: appendLog,
         onStatusSync: syncStatusPanel,
         onEffect: function onEffect(name) {

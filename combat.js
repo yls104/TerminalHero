@@ -3,6 +3,7 @@ function createCombatController(options) {
   const player = config.player;
   const skills = config.skills || {};
   const resolveSkill = config.resolveSkill || function fallbackResolveSkill(skillId) { return skills[skillId] || null; };
+  const onPlayerSkillResolved = typeof config.onPlayerSkillResolved === "function" ? config.onPlayerSkillResolved : null;
   const getUltimateSkills = config.getUltimateSkills || function fallbackGetUltimateSkills() {
     return (player && Array.isArray(player.unlockedSkills) ? player.unlockedSkills : []).map(function mapSkill(skillId) {
       return resolveSkill(skillId);
@@ -1677,6 +1678,31 @@ function createCombatController(options) {
       gainUltimateCharge(skill.ultimateChargeGain, skill.name);
     } else if (isUltimateAction) {
       log("你消耗了 " + (skill.ultimateChargeCost || 0) + " 点终结充能。", { type: "ultimate_spend", source: "player", emphasis: true, turn: "player" });
+    }
+    if (onPlayerSkillResolved) {
+      const professionResult = onPlayerSkillResolved(skill.id);
+      if (professionResult && professionResult.gained > 0) {
+        log(professionResult.label + " +" + professionResult.gained + "（" + ((professionResult.state && professionResult.state.valueText) || "") + "）。", {
+          type: "profession_gain",
+          source: "player",
+          turn: "player",
+        });
+      }
+      if (professionResult && professionResult.readied) {
+        log(professionResult.label + "已成：当前适合交出强化技能兑现窗口。", {
+          type: "profession_ready",
+          source: "player",
+          emphasis: true,
+          turn: "player",
+        });
+      }
+      if (professionResult && professionResult.consumed) {
+        log(professionResult.label + "已兑现，重新进入下一轮铺势。", {
+          type: "profession_spend",
+          source: "player",
+          turn: "player",
+        });
+      }
     }
 
     emitStatus();

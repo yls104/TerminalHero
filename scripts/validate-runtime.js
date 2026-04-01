@@ -231,6 +231,10 @@ function validateDataAndViewModels() {
   assert(entitiesApi.classes.paladin && entitiesApi.classes.paladin.selectable !== false, "圣骑士重构试行版应已恢复选择入口");
   assert(entitiesApi.classes.cleric && entitiesApi.classes.cleric.selectable !== false, "牧师重构试行版应已恢复选择入口");
   assert(entitiesApi.classes.druid && entitiesApi.classes.druid.selectable !== false, "德鲁伊重构试行版应已恢复选择入口");
+  ["warrior", "mage", "rogue", "ranger", "paladin", "cleric", "druid"].forEach(function eachClass(classId) {
+    assert(entitiesApi.classes[classId].secondPassProfile, classId + " 缺少二轮职业档案 secondPassProfile");
+    assert(entitiesApi.classes[classId].secondPassProfile.mechanicName, classId + " 缺少二轮职业机制名称");
+  });
   assert(entitiesApi.classes.warrior.resourceConfig.max === 5, "战士压制值上限应提升到新版模板的 5 点");
   assert(entitiesApi.classes.rogue.resourceConfig.max === 6, "盗贼连击点上限应提升到新版模板的 6 点");
   assert(entitiesApi.classes.ranger.resourceConfig.max === 5, "游侠专注值上限应提升到新版模板的 5 点");
@@ -310,6 +314,19 @@ function validateDataAndViewModels() {
   entitiesApi.player.level = 3;
   entitiesApi.player.classResource.current = entitiesApi.player.classResource.max;
   entitiesApi.unlockClassSkillIfNeeded();
+  assert(entitiesApi.player.professionProfile && entitiesApi.player.professionProfile.mechanicName === "破军势", "战士未接入二轮职业机制档案");
+  assert(entitiesApi.player.professionState && entitiesApi.player.professionState.label === "破军势", "战士未初始化二轮职业机制状态");
+  entitiesApi.applyProfessionAfterPlayerSkill("slash");
+  entitiesApi.applyProfessionAfterPlayerSkill("battle_cry");
+  assert(entitiesApi.player.professionState.ready, "战士在积势后未进入破军势完成状态");
+  assert(entitiesApi.getResolvedSkill("earthshatter").inspectNotes.some(function hasProfessionNote(note) { return note.indexOf("破军势已成") !== -1; }), "战士成势后裂地猛击未显示职业机制强化提示");
+  assert(entitiesApi.getResolvedSkill("earthshatter").power > earthshatterSkill.power, "战士成势后裂地猛击未获得职业机制强化");
+  const detailView = viewApi.createDetailStatsViewModel({ player: entitiesApi.player, stageLabel: "测试区域" });
+  assert(detailView.rows.some(function hasProfessionRow(row) { return row.label === "职业机制" && row.value.indexOf("破军势") !== -1; }), "详细属性面板未展示职业机制信息");
+  const warriorBuildCodexView = viewApi.createBuildCodexViewModel({ player: entitiesApi.player, sections: [] });
+  assert(warriorBuildCodexView.summaryRows.some(function hasProfessionSummary(row) { return row.label === "职业机制" && row.value.indexOf("破军势") !== -1; }), "构筑手册摘要未展示职业机制信息");
+  entitiesApi.applyProfessionAfterPlayerSkill("earthshatter");
+  assert(!entitiesApi.player.professionState.ready && entitiesApi.player.professionState.current === 0, "战士兑现处决后未正确清空破军势");
   assert(entitiesApi.player.buildSnapshot.combatFocuses.includes("起手压制"), "战士构筑快照未体现起手压制职责");
   assert(entitiesApi.player.buildSnapshot.combatFocuses.includes("失衡处决"), "战士构筑快照未体现失衡处决职责");
   const ultimateSkills = entitiesApi.getResolvedUltimateSkills();
@@ -375,6 +392,7 @@ function validateDataAndViewModels() {
     skills: entitiesApi.skills,
     resolveSkill: entitiesApi.getResolvedSkill,
     getUltimateSkills: entitiesApi.getResolvedUltimateSkills,
+    onPlayerSkillResolved: entitiesApi.applyProfessionAfterPlayerSkill,
     onLog: function noopLog() {},
     onStatusSync: function noopStatus() {},
     onEffect: function noopEffect() {},
