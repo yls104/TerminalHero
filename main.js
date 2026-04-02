@@ -349,7 +349,9 @@
   function createEmptyChallengeRun() {
     return {
       active: false,
+      startFloor: 1,
       floor: 0,
+      highestClearedFloor: 0,
       score: 0,
       floorsCleared: 0,
       bossesCleared: 0,
@@ -382,33 +384,70 @@
     return Boolean(currentChallengeRun && currentChallengeRun.active);
   }
 
+  function normalizeChallengeRunState() {
+    if (!currentChallengeRun || typeof currentChallengeRun !== "object") {
+      currentChallengeRun = createEmptyChallengeRun();
+      return;
+    }
+    if (typeof currentChallengeRun.startFloor !== "number" || currentChallengeRun.startFloor < 1) {
+      currentChallengeRun.startFloor = 1;
+    }
+    if (typeof currentChallengeRun.floor !== "number" || currentChallengeRun.floor < 0) {
+      currentChallengeRun.floor = 0;
+    }
+    if (typeof currentChallengeRun.highestClearedFloor !== "number" || currentChallengeRun.highestClearedFloor < 0) {
+      currentChallengeRun.highestClearedFloor = Math.max(0, currentChallengeRun.startFloor - 1);
+    }
+    if (typeof currentChallengeRun.score !== "number" || currentChallengeRun.score < 0) {
+      currentChallengeRun.score = 0;
+    }
+    if (typeof currentChallengeRun.floorsCleared !== "number" || currentChallengeRun.floorsCleared < 0) {
+      currentChallengeRun.floorsCleared = 0;
+    }
+    if (typeof currentChallengeRun.bossesCleared !== "number" || currentChallengeRun.bossesCleared < 0) {
+      currentChallengeRun.bossesCleared = 0;
+    }
+  }
+
   function getCurrentChallengeFloor() {
+    normalizeChallengeRunState();
     if (currentStageContent && currentStageContent.challenge && currentStageContent.challenge.floor) {
       return currentStageContent.challenge.floor;
     }
     return currentChallengeRun.floor || 0;
   }
 
-  function startEndlessTrial() {
+  function getEndlessTrialMaxStartFloor() {
+    const endlessProgress = getEndlessTrialProgress();
+    return Math.max(1, endlessProgress.bestFloor || 1);
+  }
+
+  function startEndlessTrial(initialFloor) {
+    const startFloor = clamp(Math.floor(initialFloor || 1), 1, getEndlessTrialMaxStartFloor());
     startRun(ENDLESS_TRIAL_STAGE_ID);
     runSummary.stageLabel = getStageMeta(ENDLESS_TRIAL_STAGE_ID).label || "无尽回廊";
     currentChallengeRun = createEmptyChallengeRun();
     currentChallengeRun.active = true;
-    currentChallengeRun.floor = 1;
-    loadStage(ENDLESS_TRIAL_STAGE_ID, { mode: "endless", floor: 1 });
-    appendLog("你踏入了无尽回廊。每层只有一次关键战斗，胜利后可继续冲层，也可见好就收。");
+    currentChallengeRun.startFloor = startFloor;
+    currentChallengeRun.floor = startFloor;
+    currentChallengeRun.highestClearedFloor = Math.max(0, startFloor - 1);
+    loadStage(ENDLESS_TRIAL_STAGE_ID, { mode: "endless", floor: startFloor });
+    appendLog("你踏入了无尽回廊，从第 " + startFloor + " 层开始挑战。每层只有一次关键战斗，胜利后可继续冲层，也可见好就收。");
   }
 
   function getEndlessTrialSettlement(outcome) {
-    const floor = Math.max(0, currentChallengeRun.floorsCleared || 0);
+    normalizeChallengeRunState();
+    const highestFloor = Math.max(0, currentChallengeRun.highestClearedFloor || 0);
+    const clearedFloors = Math.max(0, currentChallengeRun.floorsCleared || 0);
     const bosses = Math.max(0, currentChallengeRun.bossesCleared || 0);
     const score = Math.max(0, currentChallengeRun.score || 0);
-    const legacyMarks = Math.max(0, floor + bosses * 4 + Math.floor(score / 420));
-    const townRenown = bosses > 0 ? Math.min(2 + Math.floor(floor / 15), bosses) : 0;
+    const legacyMarks = Math.max(0, clearedFloors + bosses * 4 + Math.floor(score / 420));
+    const townRenown = bosses > 0 ? Math.min(2 + Math.floor(clearedFloors / 15), bosses) : 0;
     return {
       legacyMarks: legacyMarks,
       townRenown: townRenown,
-      floor: floor,
+      floor: highestFloor,
+      clearedFloors: clearedFloors,
       score: score,
       bosses: bosses,
       outcome: outcome || "retire",
@@ -481,7 +520,9 @@
   function showEndlessTrialFloorOverlay(enemy) {
     const floor = getCurrentChallengeFloor();
     const scoreGain = Math.max(0, enemy && enemy.scoreValue ? enemy.scoreValue : 90 + floor * 24);
+    normalizeChallengeRunState();
     currentChallengeRun.floorsCleared += 1;
+    currentChallengeRun.highestClearedFloor = Math.max(currentChallengeRun.highestClearedFloor || 0, floor);
     currentChallengeRun.score += scoreGain;
     currentChallengeRun.floor = floor + 1;
     if (enemy && enemy.isBoss) {
@@ -514,12 +555,83 @@
       "当前积分 +" + scoreGain
         + "<div class=\"detail-stats\">"
         + "<p><strong>当前总分：</strong>" + currentChallengeRun.score + "</p>"
+        + "<p><strong>本轮已击破：</strong>" + currentChallengeRun.floorsCleared + " 层（起始层：" + currentChallengeRun.startFloor + "）</p>"
         + "<p><strong>预计带回：</strong>传承印记 " + projected.legacyMarks + " / 城镇声望 " + projected.townRenown + "</p>"
         + "<p><strong>下一层：</strong>第 " + nextFloor + " 层" + (enemy && enemy.isBoss ? "，首领考核已通过，后续压力会继续抬升。" : "，继续向更深处推进。") + "</p>"
         + "</div>"
         + showChoiceButtons(choices),
       "继续下层",
       choices[0].onClick
+    );
+    bindOverlayChoices(choices);
+  }
+
+  function showEndlessTrialSetupOverlay(selectedFloor) {
+    const maxFloor = getEndlessTrialMaxStartFloor();
+    const floor = clamp(Math.floor(selectedFloor || 1), 1, maxFloor);
+    const endlessProgress = getEndlessTrialProgress();
+    const choices = [];
+
+    if (floor > 1) {
+      choices.push({
+        label: "降低 1 层",
+        onClick: function lowerOneFloor() {
+          showEndlessTrialSetupOverlay(floor - 1);
+        },
+      });
+    }
+    if (floor > 5) {
+      choices.push({
+        label: "降低 5 层",
+        onClick: function lowerFiveFloors() {
+          showEndlessTrialSetupOverlay(floor - 5);
+        },
+      });
+    }
+    choices.push({
+      label: "从第 " + floor + " 层出发",
+      onClick: function confirmStartFloor() {
+        hideOverlay();
+        startEndlessTrial(floor);
+      },
+    });
+    if (floor < maxFloor) {
+      choices.push({
+        label: "提高 1 层",
+        onClick: function raiseOneFloor() {
+          showEndlessTrialSetupOverlay(floor + 1);
+        },
+      });
+    }
+    if (floor + 5 <= maxFloor) {
+      choices.push({
+        label: "提高 5 层",
+        onClick: function raiseFiveFloors() {
+          showEndlessTrialSetupOverlay(floor + 5);
+        },
+      });
+    }
+    choices.push({
+      label: "返回路线选择",
+      onClick: showGatekeeperOverlay,
+    });
+
+    showOverlay(
+      "无尽回廊",
+      "设置起始层数",
+      "你可以在强化 build 后直接从已到达的高层继续挑战，不需要每次都从第一层重打。"
+        + "<div class=\"detail-stats\">"
+        + "<p><strong>当前选择：</strong>第 " + floor + " 层</p>"
+        + "<p><strong>可选范围：</strong>第 1 层 - 第 " + maxFloor + " 层</p>"
+        + "<p><strong>历史纪录：</strong>最高第 " + (endlessProgress.bestFloor || 0) + " 层 / 最高分 " + (endlessProgress.bestScore || 0) + "</p>"
+        + "<p><strong>结算规则：</strong>跳过的楼层不会补发奖励，只按本轮实际击破的楼层和积分结算。</p>"
+        + "</div>"
+        + showChoiceButtons(choices),
+      "从第 " + floor + " 层出发",
+      function confirmStartFloor() {
+        hideOverlay();
+        startEndlessTrial(floor);
+      }
     );
     bindOverlayChoices(choices);
   }
@@ -841,6 +953,7 @@
     merchantStock = Array.isArray(snapshot.merchantStock) ? cloneValue(snapshot.merchantStock) : [];
     runSummary = snapshot.runSummary ? cloneValue(snapshot.runSummary) : createEmptyRunSummary();
     currentChallengeRun = snapshot.currentChallengeRun ? cloneValue(snapshot.currentChallengeRun) : createEmptyChallengeRun();
+    normalizeChallengeRunState();
     renderPosition = snapshot.renderPosition ? cloneValue(snapshot.renderPosition) : { x: player.position.x, y: player.position.y };
     movementState.active = false;
     clearHeldMoveKeys();
@@ -2912,6 +3025,7 @@
       + "<br>模式状态：" + endlessStatus
       + "<br>玩法目标：构筑成型后，持续冲击更深层数与更高积分。"
       + "<br>规则摘要：每层只有一次关键战斗，每 5 层迎来首领考核，胜利后可继续冲层或立即结算。"
+      + "<br>挑战便利：已到达的最高层会解锁为可选起始层，方便强化后直接从高层复挑。"
       + "</p>"
       + "</div>";
   }
@@ -2940,8 +3054,7 @@
         : "完成当前章节线后开放",
       disabled: !endlessUnlocked,
       onClick: function enterEndlessTrial() {
-        hideOverlay();
-        startEndlessTrial();
+        showEndlessTrialSetupOverlay(Math.max(1, endlessProgress.bestFloor || 1));
       },
     });
 
