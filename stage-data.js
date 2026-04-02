@@ -3,6 +3,7 @@
   const TILE = mapApi.TILE || { FLOOR: 0, WALL: 1, PLAYER_START: 2, ENEMY: 3, HEAL_POINT: 4, BOSS: 5, PORTAL: 6, ELITE: 7, EVENT: 8 };
   const MAP_COLS = mapApi.MAP_COLS || 20;
   const MAP_ROWS = mapApi.MAP_ROWS || 15;
+  const ENDLESS_TRIAL_STAGE_ID = "abyss_corridor";
 
   const STAGE_MAPS = {
     azure_town: [
@@ -101,6 +102,22 @@
         { id: "slag_guard", name: "炉渣守卫", hp: 52, attack: 10, defense: 6, speed: 4, exp: 33, gold: 26, role: "guardian", assetKey: "ember_enemy" },
       ],
       boss: { id: "ember_tyrant", name: "熔焰暴君", hp: 172, attack: 18, defense: 7, speed: 9, exp: 126, gold: 104, isBoss: true, role: "inferno_tyrant", assetKey: "ember_boss" },
+    },
+    abyss_corridor: {
+      label: "无尽回廊",
+      bossLabel: "回廊首领层",
+      description: "构筑成型后的极限挑战模式。每层只保留最核心的战斗和补给节点，让你持续把 build 推向更深处。",
+      bossDescription: "每逢首领层，回廊会把当前主题区域的首领机制推到更高强度。击破后可以继续冲层，也可以立刻见好就收。",
+      assetTheme: "verdant_grove",
+      routeLabel: "单战层推进 / 每 5 层首领考核",
+      pressureLabel: "逐层成长 / 不断抬升数值与压制",
+      rewardLabel: "纪录刷新 / 传承印记沉淀",
+      floorTarget: [0, 0],
+      enemyCount: [0, 0],
+      eventCountRange: [0, 0],
+      eliteCount: 0,
+      enemyRoster: [],
+      boss: null,
     },
   };
 
@@ -879,6 +896,7 @@
       encounterType: template.encounterType || (template.isBoss ? "boss" : "normal"),
       dropTableId: template.dropTableId || "",
       rewardProfile: template.rewardProfile || "",
+      scoreValue: template.scoreValue || 0,
       eventHooks: template.eventHooks ? template.eventHooks.slice() : [],
     };
   }
@@ -941,6 +959,140 @@
 
   function getStageMeta(stageName) {
     return STAGE_META[stageName] || STAGE_META.azure_town;
+  }
+
+  function getEndlessThemeStageId(floor) {
+    const groupIndex = Math.max(0, Math.floor((Math.max(1, floor) - 1) / 5));
+    return STAGE_SEQUENCE[groupIndex % STAGE_SEQUENCE.length] || STAGE_SEQUENCE[0];
+  }
+
+  function getEndlessFloorDescriptor(floor) {
+    const safeFloor = Math.max(1, floor);
+    return {
+      floor: safeFloor,
+      themeStageId: getEndlessThemeStageId(safeFloor),
+      bossFloor: safeFloor % 5 === 0,
+      eliteFloor: safeFloor % 5 !== 0 && safeFloor % 3 === 0,
+    };
+  }
+
+  function scaleEndlessEnemy(template, floorDescriptor, themeMeta) {
+    const base = cloneEnemyTemplate(template);
+    const floor = floorDescriptor.floor;
+    const bossBonus = floorDescriptor.bossFloor ? 1 : 0;
+    const eliteBonus = floorDescriptor.eliteFloor ? 1 : 0;
+    const hpRatio = 1 + (floor - 1) * 0.18 + bossBonus * 0.42 + eliteBonus * 0.2;
+    const attackRatio = 1 + (floor - 1) * 0.11 + bossBonus * 0.24 + eliteBonus * 0.1;
+    const defenseBonus = Math.floor((floor - 1) / 2) + bossBonus * 2 + eliteBonus;
+    const speedBonus = Math.floor((floor - 1) / 3) + bossBonus + (eliteBonus ? 1 : 0);
+    const expRatio = 1 + (floor - 1) * 0.14 + bossBonus * 0.2 + eliteBonus * 0.12;
+    const goldRatio = 1 + (floor - 1) * 0.16 + bossBonus * 0.24 + eliteBonus * 0.14;
+
+    base.hp = Math.max(1, Math.round(base.hp * hpRatio));
+    base.attack = Math.max(1, Math.round(base.attack * attackRatio));
+    base.defense = Math.max(0, base.defense + defenseBonus);
+    base.speed = Math.max(1, base.speed + speedBonus);
+    base.exp = Math.max(1, Math.round(base.exp * expRatio));
+    base.gold = Math.max(1, Math.round(base.gold * goldRatio));
+    base.scoreValue = 90 + floor * 26 + (floorDescriptor.bossFloor ? 320 : floorDescriptor.eliteFloor ? 170 : 0);
+    base.rewardProfile = themeMeta.rewardProfileId || "";
+    base.dropTableId = floorDescriptor.bossFloor
+      ? (themeMeta.bossDropTableId || themeMeta.dropTableId || "")
+      : themeMeta.dropTableId || "";
+    return base;
+  }
+
+  function createEndlessArena(themeStageId, bossFloor) {
+    const mapData = createSolidMap();
+    for (let y = 1; y < MAP_ROWS - 1; y += 1) {
+      for (let x = 1; x < MAP_COLS - 1; x += 1) {
+        mapData[y][x] = TILE.FLOOR;
+      }
+    }
+
+    const obstacleSets = {
+      verdant_grove: bossFloor
+        ? [{ x: 7, y: 4 }, { x: 7, y: 10 }, { x: 12, y: 4 }, { x: 12, y: 10 }]
+        : [{ x: 8, y: 5 }, { x: 8, y: 9 }, { x: 11, y: 5 }, { x: 11, y: 9 }],
+      sunken_archive: bossFloor
+        ? [{ x: 6, y: 4 }, { x: 6, y: 10 }, { x: 13, y: 4 }, { x: 13, y: 10 }]
+        : [{ x: 7, y: 6 }, { x: 7, y: 8 }, { x: 12, y: 6 }, { x: 12, y: 8 }],
+      ember_hollow: bossFloor
+        ? [{ x: 8, y: 3 }, { x: 8, y: 11 }, { x: 11, y: 3 }, { x: 11, y: 11 }]
+        : [{ x: 9, y: 5 }, { x: 9, y: 9 }, { x: 10, y: 5 }, { x: 10, y: 9 }],
+    };
+
+    (obstacleSets[themeStageId] || []).forEach(function placeObstacle(cell) {
+      mapData[cell.y][cell.x] = TILE.WALL;
+    });
+
+    const start = { x: 2, y: Math.floor(MAP_ROWS / 2) };
+    const healPos = { x: 4, y: Math.floor(MAP_ROWS / 2) };
+    const enemyPos = { x: MAP_COLS - 4, y: Math.floor(MAP_ROWS / 2) };
+    mapData[start.y][start.x] = TILE.PLAYER_START;
+    mapData[healPos.y][healPos.x] = TILE.HEAL_POINT;
+    mapData[enemyPos.y][enemyPos.x] = bossFloor ? TILE.BOSS : TILE.ENEMY;
+
+    return {
+      map: mapData,
+      start: start,
+      enemyPos: enemyPos,
+    };
+  }
+
+  function generateEndlessStage(floor) {
+    const descriptor = getEndlessFloorDescriptor(floor);
+    const themeMeta = getStageMeta(descriptor.themeStageId);
+    const arena = createEndlessArena(descriptor.themeStageId, descriptor.bossFloor);
+    const encounterPool = {};
+    const elitePool = ELITE_TEMPLATES[themeMeta.elitePoolId] || [];
+    const baseTemplate = descriptor.bossFloor
+      ? themeMeta.boss
+      : descriptor.eliteFloor && elitePool.length
+        ? pickRandom(elitePool)
+        : pickRandom(themeMeta.enemyRoster);
+    const endlessTemplate = scaleEndlessEnemy(baseTemplate, descriptor, themeMeta);
+    endlessTemplate.encounterType = descriptor.bossFloor ? "boss" : descriptor.eliteFloor ? "elite" : "normal";
+    endlessTemplate.isBoss = descriptor.bossFloor;
+
+    encounterPool[positionKey(arena.enemyPos.x, arena.enemyPos.y)] = createEncounterRuntime(endlessTemplate, themeMeta, {
+      encounterType: endlessTemplate.encounterType,
+    });
+
+    return {
+      map: arena.map,
+      start: arena.start,
+      portalPos: null,
+      encounters: encounterPool,
+      events: {},
+      contentPools: {
+        eventPoolId: "",
+        relicPoolId: themeMeta.relicPoolId || "",
+        dropTableId: endlessTemplate.dropTableId || "",
+        elitePoolId: themeMeta.elitePoolId || "",
+        rewardProfileId: themeMeta.rewardProfileId || "",
+        routeLabel: "第 " + descriptor.floor + " 层 / 单战突破",
+        pressureLabel: (descriptor.bossFloor ? "首领层" : descriptor.eliteFloor ? "精英层" : "试炼层") + " / " + (themeMeta.pressureLabel || "持续加压"),
+        rewardLabel: "见好就收或继续冲层",
+        layoutProfile: "endless_arena",
+        stageLabel: "无尽回廊·第 " + descriptor.floor + " 层",
+        stageDescription: (descriptor.bossFloor
+          ? "当前层为首领考核。"
+          : descriptor.eliteFloor
+            ? "当前层为精英压制。"
+            : "当前层为常规试炼。")
+          + " 主题区域：" + themeMeta.label + "。",
+        assetTheme: themeMeta.assetTheme || descriptor.themeStageId,
+        challenge: {
+          floor: descriptor.floor,
+          themeStageId: descriptor.themeStageId,
+          themeLabel: themeMeta.label || descriptor.themeStageId,
+          bossFloor: descriptor.bossFloor,
+          eliteFloor: descriptor.eliteFloor,
+          scoreValue: endlessTemplate.scoreValue || 0,
+        },
+      },
+    };
   }
 
   function createSolidMap() {
@@ -1327,6 +1479,16 @@
           arcane_archive: 0,
           supply_caravan: 0,
         },
+        endlessTrial: {
+          bestFloor: 0,
+          bestScore: 0,
+          totalRuns: 0,
+          totalLegacyMarksEarned: 0,
+          totalBossesDefeated: 0,
+          lastFloor: 0,
+          lastScore: 0,
+          lastOutcome: "",
+        },
       },
     };
   }
@@ -1348,6 +1510,9 @@
         },
       };
     }
+    if (stageName === ENDLESS_TRIAL_STAGE_ID && settings.mode === "endless") {
+      return generateEndlessStage(settings.floor || 1);
+    }
     return settings.mode === "boss" ? generateBossStage(stageName) : generateFieldStage(stageName);
   }
 
@@ -1363,10 +1528,12 @@
     CHAPTERS: CHAPTERS,
     SHOP_ITEMS: SHOP_ITEMS,
     TOWN_UPGRADES: TOWN_UPGRADES,
+    ENDLESS_TRIAL_STAGE_ID: ENDLESS_TRIAL_STAGE_ID,
     cloneMap: cloneMap,
     mergeBonusPackages: mergeBonusPackages,
     positionKey: positionKey,
     getStageMeta: getStageMeta,
+    getEndlessFloorDescriptor: getEndlessFloorDescriptor,
     getChapterByStageId: getChapterByStageId,
     createStageProgress: createStageProgress,
     createStageInstance: createStageInstance,

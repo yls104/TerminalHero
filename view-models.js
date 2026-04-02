@@ -196,27 +196,42 @@
 
   function createRunSummaryViewModel(input) {
     const data = input || {};
+    const rows = [
+      { label: "结果", value: data.outcomeText || "返回城镇" },
+      { label: "区域", value: data.stageLabel || "-" },
+    ];
+    if (data.challengeFloor || data.challengeScore || data.challengeBossesCleared) {
+      rows.push({ label: "冲层结果", value: data.challengeOutcomeLabel || "本轮挑战完成" });
+      rows.push({ label: "最高推进", value: "第 " + (data.challengeFloor || 0) + " 层" });
+      rows.push({ label: "本轮积分", value: String(data.challengeScore || 0) });
+      rows.push({ label: "击破首领层", value: String(data.challengeBossesCleared || 0) + " 次" });
+      if (data.challengeNewBestFloor) {
+        rows.push({ label: "新层数纪录", value: "第 " + data.challengeNewBestFloor + " 层" });
+      }
+      if (data.challengeNewBestScore) {
+        rows.push({ label: "新积分纪录", value: String(data.challengeNewBestScore) });
+      }
+    }
+    rows.push(
+      { label: "战斗胜利", value: String(data.combatsWon || 0) + " 场" },
+      { label: "击败精英", value: String(data.elitesDefeated || 0) + " 个" },
+      { label: "解决事件", value: String(data.eventsResolved || 0) + " 次" },
+      { label: "领取奖励", value: String(data.rewardsClaimed || 0) + " 次" },
+      { label: "获得经验", value: String(data.expGained || 0) },
+      { label: "获得金币", value: String(data.goldEarned || 0) },
+      { label: "获得技能点", value: String(data.skillPointsEarned || 0) },
+      { label: "传承印记", value: String(data.legacyMarksEarned || 0) },
+      { label: "城镇声望", value: String(data.townRenownEarned || 0) },
+      { label: "新遗物", value: (data.gainedRelics || []).join("、") || "暂无" },
+      { label: "新材料", value: (data.gainedMaterials || []).join("、") || "暂无" },
+      { label: "本轮祝福", value: (data.gainedBlessings || []).join("、") || "暂无" },
+      { label: "章节推进", value: data.unlockedChapterLabel || "无" },
+      { label: "新解锁区域", value: data.unlockedStageLabel || "无" }
+    );
     return {
       overlayEyebrow: "冒险结算",
       overlayTitle: (data.stageLabel || "本轮冒险") + (data.bossCleared ? " 已完成" : " 暂告一段落"),
-      rows: [
-        { label: "结果", value: data.outcomeText || "返回城镇" },
-        { label: "区域", value: data.stageLabel || "-" },
-        { label: "战斗胜利", value: String(data.combatsWon || 0) + " 场" },
-        { label: "击败精英", value: String(data.elitesDefeated || 0) + " 个" },
-        { label: "解决事件", value: String(data.eventsResolved || 0) + " 次" },
-        { label: "领取奖励", value: String(data.rewardsClaimed || 0) + " 次" },
-        { label: "获得经验", value: String(data.expGained || 0) },
-        { label: "获得金币", value: String(data.goldEarned || 0) },
-        { label: "获得技能点", value: String(data.skillPointsEarned || 0) },
-        { label: "传承印记", value: String(data.legacyMarksEarned || 0) },
-        { label: "城镇声望", value: String(data.townRenownEarned || 0) },
-        { label: "新遗物", value: (data.gainedRelics || []).join("、") || "暂无" },
-        { label: "新材料", value: (data.gainedMaterials || []).join("、") || "暂无" },
-        { label: "本轮祝福", value: (data.gainedBlessings || []).join("、") || "暂无" },
-        { label: "章节推进", value: data.unlockedChapterLabel || "无" },
-        { label: "新解锁区域", value: data.unlockedStageLabel || "无" },
-      ],
+      rows: rows,
     };
   }
 

@@ -63,6 +63,7 @@
   const createEquipmentOffer = stageApi.createEquipmentOffer || function fallbackEquipmentOffer(item) { return item; };
   const upgradeEquipmentInstance = stageApi.upgradeEquipmentInstance || function fallbackUpgradeEquipmentInstance(item) { return item; };
   const createRewardChoices = stageApi.createRewardChoices || function noRewardChoices() { return []; };
+  const ENDLESS_TRIAL_STAGE_ID = stageApi.ENDLESS_TRIAL_STAGE_ID || "abyss_corridor";
 
   const createHudViewModel = viewModelApi.createHudViewModel || function fallbackHudViewModel() { return {}; };
   const createEnemyViewModel = viewModelApi.createEnemyViewModel || function fallbackEnemyViewModel() {
@@ -237,7 +238,7 @@
   let currentPortalPos = null;
   let currentEncounterPool = {};
   let currentEventPool = {};
-  let currentStageContent = { eventPoolId: "", relicPoolId: "", dropTableId: "", elitePoolId: "", rewardProfileId: "", routeLabel: "", pressureLabel: "", rewardLabel: "", layoutProfile: "" };
+  let currentStageContent = createDefaultStageContent();
   let renderPosition = { x: 1, y: 1 };
   let overlayAction = null;
   let combatSnapshot = null;
@@ -272,6 +273,7 @@
     directionKey: "",
   };
   let runSummary = createEmptyRunSummary();
+  let currentChallengeRun = createEmptyChallengeRun();
   let merchantStock = [];
   const movementState = {
     active: false,
@@ -293,6 +295,24 @@
 
   function randInt(min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
+  }
+
+  function createDefaultStageContent() {
+    return {
+      eventPoolId: "",
+      relicPoolId: "",
+      dropTableId: "",
+      elitePoolId: "",
+      rewardProfileId: "",
+      routeLabel: "",
+      pressureLabel: "",
+      rewardLabel: "",
+      layoutProfile: "",
+      stageLabel: "",
+      stageDescription: "",
+      assetTheme: "",
+      challenge: null,
+    };
   }
 
   function createEmptyRunSummary() {
@@ -317,6 +337,22 @@
       unlockedChapterLabel: "",
       legacyMarksEarned: 0,
       townRenownEarned: 0,
+      challengeFloor: 0,
+      challengeScore: 0,
+      challengeBossesCleared: 0,
+      challengeNewBestFloor: 0,
+      challengeNewBestScore: 0,
+      challengeOutcomeLabel: "",
+    };
+  }
+
+  function createEmptyChallengeRun() {
+    return {
+      active: false,
+      floor: 0,
+      score: 0,
+      floorsCleared: 0,
+      bossesCleared: 0,
     };
   }
 
@@ -329,6 +365,163 @@
 
   function buildRunSummarySnapshot(overrides) {
     return Object.assign({}, runSummary, overrides || {});
+  }
+
+  function getEndlessTrialProgress() {
+    ensureProgressState();
+    return progress.longTerm.endlessTrial;
+  }
+
+  function isEndlessTrialUnlocked() {
+    ensureProgressState();
+    return Boolean(progress.chapterProgress.campaignComplete)
+      || (Array.isArray(progress.chapterProgress.clearedStageIds) && progress.chapterProgress.clearedStageIds.length >= CHAPTERS.length);
+  }
+
+  function isEndlessTrialActive() {
+    return Boolean(currentChallengeRun && currentChallengeRun.active);
+  }
+
+  function getCurrentChallengeFloor() {
+    if (currentStageContent && currentStageContent.challenge && currentStageContent.challenge.floor) {
+      return currentStageContent.challenge.floor;
+    }
+    return currentChallengeRun.floor || 0;
+  }
+
+  function startEndlessTrial() {
+    startRun(ENDLESS_TRIAL_STAGE_ID);
+    runSummary.stageLabel = getStageMeta(ENDLESS_TRIAL_STAGE_ID).label || "无尽回廊";
+    currentChallengeRun = createEmptyChallengeRun();
+    currentChallengeRun.active = true;
+    currentChallengeRun.floor = 1;
+    loadStage(ENDLESS_TRIAL_STAGE_ID, { mode: "endless", floor: 1 });
+    appendLog("你踏入了无尽回廊。每层只有一次关键战斗，胜利后可继续冲层，也可见好就收。");
+  }
+
+  function getEndlessTrialSettlement(outcome) {
+    const floor = Math.max(0, currentChallengeRun.floorsCleared || 0);
+    const bosses = Math.max(0, currentChallengeRun.bossesCleared || 0);
+    const score = Math.max(0, currentChallengeRun.score || 0);
+    const legacyMarks = Math.max(0, floor + bosses * 4 + Math.floor(score / 420));
+    const townRenown = bosses > 0 ? Math.min(2 + Math.floor(floor / 15), bosses) : 0;
+    return {
+      legacyMarks: legacyMarks,
+      townRenown: townRenown,
+      floor: floor,
+      score: score,
+      bosses: bosses,
+      outcome: outcome || "retire",
+    };
+  }
+
+  function settleEndlessTrial(outcome) {
+    const endlessProgress = getEndlessTrialProgress();
+    const settlement = getEndlessTrialSettlement(outcome);
+    const previousBestFloor = endlessProgress.bestFloor || 0;
+    const previousBestScore = endlessProgress.bestScore || 0;
+    const newBestFloor = settlement.floor > previousBestFloor ? settlement.floor : 0;
+    const newBestScore = settlement.score > previousBestScore ? settlement.score : 0;
+
+    endlessProgress.totalRuns += 1;
+    endlessProgress.totalLegacyMarksEarned += settlement.legacyMarks;
+    endlessProgress.totalBossesDefeated += settlement.bosses;
+    endlessProgress.lastFloor = settlement.floor;
+    endlessProgress.lastScore = settlement.score;
+    endlessProgress.lastOutcome = settlement.outcome;
+    if (newBestFloor) {
+      endlessProgress.bestFloor = settlement.floor;
+    }
+    if (newBestScore) {
+      endlessProgress.bestScore = settlement.score;
+    }
+
+    progress.longTerm.legacyMarks += settlement.legacyMarks;
+    progress.longTerm.townRenown += settlement.townRenown;
+    runSummary.legacyMarksEarned += settlement.legacyMarks;
+    runSummary.townRenownEarned += settlement.townRenown;
+    runSummary.challengeFloor = settlement.floor;
+    runSummary.challengeScore = settlement.score;
+    runSummary.challengeBossesCleared = settlement.bosses;
+    runSummary.challengeNewBestFloor = newBestFloor;
+    runSummary.challengeNewBestScore = newBestScore;
+    runSummary.challengeOutcomeLabel = settlement.outcome === "defeat"
+      ? "试炼中倒下"
+      : settlement.outcome === "flee"
+        ? "中途撤出"
+        : "主动结算";
+
+    if (settlement.legacyMarks > 0 || settlement.townRenown > 0) {
+      appendLog("回廊结算：获得传承印记 " + settlement.legacyMarks + "，城镇声望 " + settlement.townRenown + "。");
+    }
+    if (newBestFloor) {
+      appendLog("无尽回廊纪录刷新：最高推进到第 " + newBestFloor + " 层。");
+    }
+    if (newBestScore) {
+      appendLog("无尽回廊积分纪录刷新：最高分 " + newBestScore + "。");
+    }
+
+    const summary = buildRunSummarySnapshot({
+      outcomeText: settlement.outcome === "defeat"
+        ? "你在高压中倒下，但本轮纪录和沉淀已经带回城镇。"
+        : settlement.outcome === "flee"
+          ? "你主动中止了本轮挑战，把当前成果安全带回。"
+          : "你主动结算了本轮挑战，把当前成果沉淀回城镇。",
+    });
+
+    currentChallengeRun = createEmptyChallengeRun();
+    showRunSummaryOverlay(summary, function onClose() {
+      loadStage("azure_town");
+      setGameState(GAME_STATE.EXPLORE);
+      runSummary = createEmptyRunSummary();
+      saveCurrentProgress({ silent: true });
+    });
+  }
+
+  function showEndlessTrialFloorOverlay(enemy) {
+    const floor = getCurrentChallengeFloor();
+    const scoreGain = Math.max(0, enemy && enemy.scoreValue ? enemy.scoreValue : 90 + floor * 24);
+    currentChallengeRun.floorsCleared += 1;
+    currentChallengeRun.score += scoreGain;
+    currentChallengeRun.floor = floor + 1;
+    if (enemy && enemy.isBoss) {
+      currentChallengeRun.bossesCleared += 1;
+    }
+
+    const projected = getEndlessTrialSettlement("retire");
+    const nextFloor = currentChallengeRun.floor;
+    const choices = [
+      {
+        label: "继续下层",
+        onClick: function continueTrial() {
+          hideOverlay();
+          loadStage(ENDLESS_TRIAL_STAGE_ID, { mode: "endless", floor: nextFloor });
+          appendLog("无尽回廊：进入第 " + nextFloor + " 层。");
+        },
+      },
+      {
+        label: "见好就收",
+        onClick: function retireTrial() {
+          hideOverlay();
+          settleEndlessTrial("retire");
+        },
+      },
+    ];
+
+    showOverlay(
+      "无尽回廊",
+      "第 " + floor + " 层突破",
+      "当前积分 +" + scoreGain
+        + "<div class=\"detail-stats\">"
+        + "<p><strong>当前总分：</strong>" + currentChallengeRun.score + "</p>"
+        + "<p><strong>预计带回：</strong>传承印记 " + projected.legacyMarks + " / 城镇声望 " + projected.townRenown + "</p>"
+        + "<p><strong>下一层：</strong>第 " + nextFloor + " 层" + (enemy && enemy.isBoss ? "，首领考核已通过，后续压力会继续抬升。" : "，继续向更深处推进。") + "</p>"
+        + "</div>"
+        + showChoiceButtons(choices),
+      "继续下层",
+      choices[0].onClick
+    );
+    bindOverlayChoices(choices);
   }
 
   function ensureRunCollections() {
@@ -378,11 +571,23 @@
     if (!progress.longTerm.townUpgrades || typeof progress.longTerm.townUpgrades !== "object") {
       progress.longTerm.townUpgrades = {};
     }
+    if (!progress.longTerm.endlessTrial || typeof progress.longTerm.endlessTrial !== "object") {
+      progress.longTerm.endlessTrial = {};
+    }
     Object.keys(TOWN_UPGRADES).forEach(function eachUpgrade(upgradeId) {
       if (typeof progress.longTerm.townUpgrades[upgradeId] !== "number") {
         progress.longTerm.townUpgrades[upgradeId] = 0;
       }
     });
+    const defaultEndless = (defaultProgress.longTerm && defaultProgress.longTerm.endlessTrial) || {};
+    ["bestFloor", "bestScore", "totalRuns", "totalLegacyMarksEarned", "totalBossesDefeated", "lastFloor", "lastScore"].forEach(function eachField(field) {
+      if (typeof progress.longTerm.endlessTrial[field] !== "number") {
+        progress.longTerm.endlessTrial[field] = Number(defaultEndless[field]) || 0;
+      }
+    });
+    if (typeof progress.longTerm.endlessTrial.lastOutcome !== "string") {
+      progress.longTerm.endlessTrial.lastOutcome = defaultEndless.lastOutcome || "";
+    }
 
     CHAPTERS.forEach(function eachChapter(chapter) {
       if (progress.clearedBosses[chapter.stageId] && progress.chapterProgress.clearedStageIds.indexOf(chapter.stageId) === -1) {
@@ -571,6 +776,7 @@
       progress: cloneValue(progress),
       merchantStock: cloneValue(merchantStock),
       runSummary: cloneValue(runSummary),
+      currentChallengeRun: cloneValue(currentChallengeRun),
       renderPosition: cloneValue(renderPosition),
     };
   }
@@ -619,15 +825,22 @@
 
     currentStageName = snapshot.currentStageName || "azure_town";
     currentStageMode = snapshot.currentStageMode || (currentStageName === "azure_town" ? "town" : "field");
-    currentMap = Array.isArray(snapshot.currentMap) && snapshot.currentMap.length ? cloneValue(snapshot.currentMap) : createStageInstance(currentStageName, currentStageMode === "boss" ? { mode: "boss" } : {}).map;
+    currentMap = Array.isArray(snapshot.currentMap) && snapshot.currentMap.length
+      ? cloneValue(snapshot.currentMap)
+      : createStageInstance(currentStageName, currentStageMode === "boss"
+        ? { mode: "boss" }
+        : currentStageMode === "endless"
+          ? { mode: "endless", floor: (snapshot.currentChallengeRun && snapshot.currentChallengeRun.floor) || 1 }
+          : {}).map;
     currentPortalPos = snapshot.currentPortalPos ? cloneValue(snapshot.currentPortalPos) : null;
     currentEncounterPool = snapshot.currentEncounterPool ? cloneValue(snapshot.currentEncounterPool) : {};
     currentEventPool = snapshot.currentEventPool ? cloneValue(snapshot.currentEventPool) : {};
     currentStageContent = snapshot.currentStageContent
       ? cloneValue(snapshot.currentStageContent)
-      : { eventPoolId: "", relicPoolId: "", dropTableId: "", elitePoolId: "", rewardProfileId: "", routeLabel: "", pressureLabel: "", rewardLabel: "", layoutProfile: "" };
+      : createDefaultStageContent();
     merchantStock = Array.isArray(snapshot.merchantStock) ? cloneValue(snapshot.merchantStock) : [];
     runSummary = snapshot.runSummary ? cloneValue(snapshot.runSummary) : createEmptyRunSummary();
+    currentChallengeRun = snapshot.currentChallengeRun ? cloneValue(snapshot.currentChallengeRun) : createEmptyChallengeRun();
     renderPosition = snapshot.renderPosition ? cloneValue(snapshot.renderPosition) : { x: player.position.x, y: player.position.y };
     movementState.active = false;
     clearHeldMoveKeys();
@@ -942,6 +1155,9 @@
 
   function getCurrentStageLabel() {
     const meta = getStageMeta(currentStageName);
+    if (currentStageContent.stageLabel) {
+      return currentStageContent.stageLabel;
+    }
     if (currentStageName === "azure_town") {
       return meta.label;
     }
@@ -953,7 +1169,7 @@
     if (currentStageName === "azure_town") {
       return meta.description;
     }
-    const baseDescription = currentStageMode === "boss" ? (meta.bossDescription || meta.description) : meta.description;
+    const baseDescription = currentStageContent.stageDescription || (currentStageMode === "boss" ? (meta.bossDescription || meta.description) : meta.description);
     const extraNotes = [];
     if (currentStageContent.routeLabel) {
       extraNotes.push("路线：" + currentStageContent.routeLabel);
@@ -978,6 +1194,12 @@
       return {
         main: "穿过传送门，选择下一章节",
         sub: "先挑路线，再进入区域推进。",
+      };
+    }
+    if (currentStageMode === "endless") {
+      return {
+        main: "击破当前层敌人，继续刷新回廊纪录",
+        sub: "当前为第 " + getCurrentChallengeFloor() + " 层，战后可以继续冲层，也可以直接结算带回奖励。",
       };
     }
     if (currentStageMode === "boss") {
@@ -1006,6 +1228,21 @@
   }
 
   function createCampaignViewModel() {
+    if (currentStageMode === "endless") {
+      const endlessProgress = getEndlessTrialProgress();
+      const floor = getCurrentChallengeFloor();
+      const bestFloor = endlessProgress.bestFloor || 0;
+      const currentScore = currentChallengeRun.score || 0;
+      const bestScore = endlessProgress.bestScore || 0;
+      return {
+        chapterTitle: "无尽回廊",
+        chapterStatus: "第 " + floor + " 层推进中",
+        chapterSummary: "当前积分 " + currentScore + "，历史最高第 " + bestFloor + " 层 / 最高分 " + bestScore + "。",
+        renownLabel: "本轮冲层",
+        renownText: floor + " / " + Math.max(bestFloor, floor),
+        renownPercent: clamp((floor / Math.max(bestFloor, floor, 1)) * 100, 0, 100),
+      };
+    }
     const unlockedChapterIds = getUnlockedChapterIds();
     const totalChapters = CHAPTERS.length || 1;
     const unlockedCount = unlockedChapterIds.length || 1;
@@ -1667,6 +1904,19 @@
         details: getTownUpgradePreviewLines(upgradeId),
       };
     });
+    const endlessProgress = getEndlessTrialProgress();
+    const endlessEntries = [
+      {
+        name: "无尽回廊最高层",
+        meta: "终局挑战纪录",
+        summary: "当前最高推进到第 " + (endlessProgress.bestFloor || 0) + " 层",
+        details: [
+          "最高分：" + (endlessProgress.bestScore || 0),
+          "总挑战次数：" + (endlessProgress.totalRuns || 0),
+          "累计击破首领层：" + (endlessProgress.totalBossesDefeated || 0),
+        ],
+      },
+    ];
 
     const buildView = createBuildCodexViewModel({
       player: player,
@@ -1678,7 +1928,7 @@
         { title: "装备详情", entries: equippedEntries.length ? equippedEntries : [{ name: "暂无装备", meta: "", summary: "当前没有已装备物品。", details: [] }] },
         { title: "遗物详情", entries: relicEntries.length ? relicEntries : [{ name: "暂无遗物", meta: "", summary: "还没有获取遗物。", details: [] }] },
         { title: "材料与资源", entries: materialEntries.length ? materialEntries : [{ name: "暂无材料", meta: "", summary: "后续构筑素材会显示在这里。", details: [] }] },
-        { title: "长期沉淀", entries: [{ name: "传承印记", meta: "长期资源", summary: "当前持有：" + (progress.longTerm ? progress.longTerm.legacyMarks : 0), details: ["用于城镇建设和永久升级。"] }, { name: "城镇声望", meta: "长期资源", summary: "当前持有：" + (progress.longTerm ? progress.longTerm.townRenown : 0), details: ["用于后续世界推进与章节解锁。"] }].concat(townEntries) },
+        { title: "长期沉淀", entries: [{ name: "传承印记", meta: "长期资源", summary: "当前持有：" + (progress.longTerm ? progress.longTerm.legacyMarks : 0), details: ["用于城镇建设和永久升级。"] }, { name: "城镇声望", meta: "长期资源", summary: "当前持有：" + (progress.longTerm ? progress.longTerm.townRenown : 0), details: ["用于后续世界推进与章节解锁。"] }].concat(endlessEntries, townEntries) },
       ],
     });
     showOverlay(buildView.overlayEyebrow, buildView.overlayTitle, renderBuildCodexHtml(buildView), "关闭", hideOverlay);
@@ -1812,12 +2062,12 @@
     const generatedStage = createStageInstance(stageName, settings);
 
     currentStageName = stageName;
-    currentStageMode = stageName === "azure_town" ? "town" : (settings.mode === "boss" ? "boss" : "field");
+    currentStageMode = stageName === "azure_town" ? "town" : (settings.mode || "field");
     currentMap = generatedStage.map;
     currentPortalPos = generatedStage.portalPos || null;
     currentEncounterPool = generatedStage.encounters || {};
     currentEventPool = generatedStage.events || {};
-    currentStageContent = generatedStage.contentPools || { eventPoolId: "", relicPoolId: "", dropTableId: "", elitePoolId: "", rewardProfileId: "", routeLabel: "", pressureLabel: "", rewardLabel: "", layoutProfile: "" };
+    currentStageContent = generatedStage.contentPools || createDefaultStageContent();
     if (stageName === "azure_town") {
       refreshMerchantStock();
     }
@@ -1843,6 +2093,8 @@
       if (currentPortalPos) {
         appendLog("Boss 传送门已显现，你可以随时进入首领房。");
       }
+    } else if (stageName === ENDLESS_TRIAL_STAGE_ID && currentStageMode === "endless") {
+      appendLog("回廊简报：" + [currentStageContent.stageLabel, currentStageContent.pressureLabel, currentStageContent.rewardLabel].filter(Boolean).join(" / ") + "。");
     }
   }
 
@@ -2635,6 +2887,10 @@
 
   function renderStageSelectionBriefing() {
     const unlockedChapterIds = getUnlockedChapterIds();
+    const endlessProgress = getEndlessTrialProgress();
+    const endlessStatus = isEndlessTrialUnlocked()
+      ? ("已开放（最高第 " + (endlessProgress.bestFloor || 0) + " 层 / 最高分 " + (endlessProgress.bestScore || 0) + "）")
+      : "未开放（需完成当前三章试炼）";
     return "<div class=\"detail-stats\">"
       + CHAPTERS.map(function mapChapter(chapter) {
         const meta = getStageMeta(chapter.stageId);
@@ -2652,6 +2908,11 @@
           + "<br>章节目标：" + chapter.summary
           + "</p>";
       }).join("")
+      + "<p><strong>终局挑战：无尽回廊</strong>"
+      + "<br>模式状态：" + endlessStatus
+      + "<br>玩法目标：构筑成型后，持续冲击更深层数与更高积分。"
+      + "<br>规则摘要：每层只有一次关键战斗，每 5 层迎来首领考核，胜利后可继续冲层或立即结算。"
+      + "</p>"
       + "</div>";
   }
 
@@ -2670,12 +2931,26 @@
         },
       };
     });
+    const endlessUnlocked = isEndlessTrialUnlocked();
+    const endlessProgress = getEndlessTrialProgress();
+    choices.push({
+      label: "无尽回廊" + (endlessUnlocked ? "（最高第 " + (endlessProgress.bestFloor || 0) + " 层）" : "（未开放）"),
+      meta: endlessUnlocked
+        ? ("最高分 " + (endlessProgress.bestScore || 0) + " / 总挑战 " + (endlessProgress.totalRuns || 0) + " 次")
+        : "完成当前章节线后开放",
+      disabled: !endlessUnlocked,
+      onClick: function enterEndlessTrial() {
+        hideOverlay();
+        startEndlessTrial();
+      },
+    });
 
     showOverlay(
       "守门人",
       "选择章节路线",
       "挑一条路线直接出发。每次进入章节都会重新生成地图、精英与事件，Boss 传送门会默认可见；后续章节是否开放则取决于城镇声望。"
         + "<p class=\"overlay-inline-note\">想稳一点就先清图拿收益，想快一点也可以直接进门开 Boss。</p>"
+        + "<p class=\"overlay-inline-note\">当三章试炼完成后，会开放终局挑战“无尽回廊”，用于测试构筑上限和长线数据极限。</p>"
         + renderStageSelectionBriefing()
         + showChoiceButtons(choices),
       "留下",
@@ -2711,7 +2986,10 @@
     setGameState(GAME_STATE.BOSS_INTRO);
     pulseFlash();
     shakeCanvas();
-    showOverlay("警告", meta.bossLabel || "Boss 房", "真正的首领战现在开始。你可以选择直面首领，也可以先在区域里积累优势再来。", "迎战", function confirmBoss() {
+    const introText = currentStageMode === "endless"
+      ? "当前层为无尽回廊首领考核。击破它后，你可以把纪录继续推向更深层。"
+      : "真正的首领战现在开始。你可以选择直面首领，也可以先在区域里积累优势再来。";
+    showOverlay("警告", meta.bossLabel || "Boss 房", introText, "迎战", function confirmBoss() {
       hideOverlay();
       bossIntroTimeout = window.setTimeout(function startBoss() {
         if (combatController) {
@@ -3209,6 +3487,7 @@
           const result = payload.result;
           const bossWin = Boolean(payload.enemy && payload.enemy.isBoss);
           const enemy = payload.enemy || null;
+          const endlessMode = currentStageMode === "endless" && isEndlessTrialActive();
 
           if (result === "victory") {
             if (encounterPos) {
@@ -3228,7 +3507,10 @@
             unlockPortalIfNeeded();
 
             showVictoryRewardOverlay(enemy, function afterReward() {
-              if (bossWin) {
+              if (endlessMode) {
+                appendLog(enemy && enemy.isBoss ? "你突破了当前首领层，回廊深处继续向你开放。" : "当前层敌人已击破，你可以继续冲层，也可以直接结算。");
+                showEndlessTrialFloorOverlay(enemy);
+              } else if (bossWin) {
                 progress.clearedBosses[currentStageName] = true;
                 runSummary.bossCleared = true;
                 awardLongTermProgress(runSummary);
@@ -3259,15 +3541,26 @@
               }
             });
           } else if (result === "flee") {
-            appendLog("你撤离了当前战斗。");
-            setGameState(GAME_STATE.EXPLORE);
+            appendLog(endlessMode ? "你撤离了无尽回廊，本轮试炼会立刻结算。" : "你撤离了当前战斗。");
+            if (endlessMode) {
+              settleEndlessTrial("flee");
+            } else {
+              setGameState(GAME_STATE.EXPLORE);
+            }
           } else if (result === "defeat") {
-            setGameState(GAME_STATE.GAME_OVER);
-            setActionMenu(false, false);
-            showOverlay("挑战失败", "暂时倒下", "你倒下了，但城镇会永远欢迎下一次重开。", "重开", function reset() {
-              hideOverlay();
-              window.location.reload();
-            });
+            if (endlessMode) {
+              setGameState(GAME_STATE.EXPLORE);
+              setActionMenu(false, false);
+              appendLog("你倒在了无尽回廊的深处，本轮纪录到此为止。");
+              settleEndlessTrial("defeat");
+            } else {
+              setGameState(GAME_STATE.GAME_OVER);
+              setActionMenu(false, false);
+              showOverlay("挑战失败", "暂时倒下", "你倒下了，但城镇会永远欢迎下一次重开。", "重开", function reset() {
+                hideOverlay();
+                window.location.reload();
+              });
+            }
           }
 
           encounterPos = null;
@@ -3290,7 +3583,7 @@
     } else {
       drawMap(ctx, currentMap, renderPosition, {
         stageName: currentStageName,
-        stageTheme: getStageMeta(currentStageName).assetTheme || currentStageName,
+        stageTheme: currentStageContent.assetTheme || getStageMeta(currentStageName).assetTheme || currentStageName,
       });
       if (currentStageName === "azure_town") {
         drawTownDecorations();

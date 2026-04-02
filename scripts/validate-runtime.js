@@ -436,16 +436,29 @@ function validateDataAndViewModels() {
   assert(progress.chapterProgress, "createStageProgress 未生成 chapterProgress");
   assert(Array.isArray(progress.chapterProgress.unlockedChapterIds), "chapterProgress.unlockedChapterIds 缺失");
   assert(progress.longTerm && typeof progress.longTerm.townRenown === "number", "longTerm.townRenown 缺失");
+  assert(progress.longTerm.endlessTrial && typeof progress.longTerm.endlessTrial.bestFloor === "number", "longTerm.endlessTrial.bestFloor 缺失");
+
+  const endlessStage = stageApi.createStageInstance(stageApi.ENDLESS_TRIAL_STAGE_ID, { mode: "endless", floor: 1 });
+  const endlessBossStage = stageApi.createStageInstance(stageApi.ENDLESS_TRIAL_STAGE_ID, { mode: "endless", floor: 5 });
+  assert(endlessStage && endlessStage.contentPools && endlessStage.contentPools.challenge, "无尽回廊楼层未生成 challenge 元数据");
+  assert(endlessStage.contentPools.challenge.floor === 1, "无尽回廊第 1 层元数据错误");
+  assert(endlessBossStage.contentPools.challenge && endlessBossStage.contentPools.challenge.bossFloor, "无尽回廊第 5 层应为首领层");
+  assert(Object.keys(endlessBossStage.encounters || {}).length === 1, "无尽回廊楼层应只生成单场关键战斗");
 
   const archiveChapter = stageApi.getChapterByStageId("sunken_archive");
   assert(archiveChapter && archiveChapter.label.includes("第二章"), "getChapterByStageId 未返回正确章节");
 
   const summaryHtml = viewApi.renderRunSummaryHtml(viewApi.createRunSummaryViewModel({
-    stageLabel: "青藤密林",
+    stageLabel: "无尽回廊",
     unlockedChapterLabel: "第二章：书库回响",
     unlockedStageLabel: "沉没书库",
+    challengeFloor: 8,
+    challengeScore: 1240,
+    challengeBossesCleared: 1,
+    challengeOutcomeLabel: "主动结算",
   }));
   assert(summaryHtml.includes("章节推进"), "结算视图未展示章节推进");
+  assert(summaryHtml.includes("本轮积分"), "结算视图未展示无尽回廊积分");
 
   const saveResult = saveApi.saveSnapshot({
     currentStageName: "azure_town",
