@@ -131,6 +131,14 @@
     routeValue: document.querySelector("#routeValue"),
     pressureValue: document.querySelector("#pressureValue"),
     rewardValue: document.querySelector("#rewardValue"),
+    professionStatusValue: document.querySelector("#professionStatusValue"),
+    professionTitleValue: document.querySelector("#professionTitleValue"),
+    professionHintValue: document.querySelector("#professionHintValue"),
+    professionTagList: document.querySelector("#professionTagList"),
+    challengeStatusValue: document.querySelector("#challengeStatusValue"),
+    challengeTitleValue: document.querySelector("#challengeTitleValue"),
+    challengeSummaryValue: document.querySelector("#challengeSummaryValue"),
+    challengeTagList: document.querySelector("#challengeTagList"),
     chapterValue: document.querySelector("#chapterValue"),
     chapterStatusValue: document.querySelector("#chapterStatusValue"),
     chapterSummaryValue: document.querySelector("#chapterSummaryValue"),
@@ -201,6 +209,10 @@
     combatPlayerResourceRow: document.querySelector("#combatPlayerResourceRow"),
     combatPlayerResourceLabel: document.querySelector("#combatPlayerResourceLabel"),
     combatPlayerResourceValue: document.querySelector("#combatPlayerResourceValue"),
+    combatPlayerMechanicRow: document.querySelector("#combatPlayerMechanicRow"),
+    combatPlayerMechanicLabel: document.querySelector("#combatPlayerMechanicLabel"),
+    combatPlayerMechanicValue: document.querySelector("#combatPlayerMechanicValue"),
+    combatPlayerMechanicHint: document.querySelector("#combatPlayerMechanicHint"),
     virtualJoystick: document.querySelector("#virtualJoystick"),
     joystickBase: document.querySelector("#joystickBase"),
     joystickKnob: document.querySelector("#joystickKnob"),
@@ -1305,8 +1317,8 @@
     }
     if (currentStageName === "azure_town") {
       return {
-        main: "穿过传送门，选择下一章节",
-        sub: "先挑路线，再进入区域推进。",
+        main: isEndlessTrialUnlocked() ? "穿过传送门，选择章节或无尽回廊" : "穿过传送门，选择下一章节",
+        sub: isEndlessTrialUnlocked() ? "章节推进和终局冲层都从守门人处进入。" : "先挑路线，再进入区域推进。",
       };
     }
     if (currentStageMode === "endless") {
@@ -1388,6 +1400,122 @@
       renownText: nextLockedChapter ? (townRenown + " / " + requiredRenown) : (unlockedCount + " / " + totalChapters),
       renownPercent: nextLockedChapter ? clamp((townRenown / requiredRenown) * 100, 0, 100) : 100,
     };
+  }
+
+  function createProfessionConsoleViewModel() {
+    const professionProfile = player.professionProfile || {};
+    const professionState = player.professionState || {};
+    const title = professionProfile.mechanicName || "职业机制待建立";
+    const status = professionState.statusText || (player.className ? "等待推进" : "未建立");
+    const valueText = professionState.valueText ? " · " + professionState.valueText : "";
+    const summary = professionState.hintText
+      || player.classBuildNote
+      || professionProfile.mechanicSummary
+      || (player.className ? "当前职业的二轮机制正在整理中。" : "先选择职业，再展开对应的机制循环。");
+    const tags = [];
+    if (player.buildSnapshot && player.buildSnapshot.activeTrackNames && player.buildSnapshot.activeTrackNames.length) {
+      tags.push("专精 " + player.buildSnapshot.activeTrackNames.slice(0, 2).join(" / "));
+    }
+    if (player.buildSnapshot && player.buildSnapshot.combatFocuses && player.buildSnapshot.combatFocuses.length) {
+      tags.push(player.buildSnapshot.combatFocuses.slice(0, 2).join(" / "));
+    }
+    if (player.buildSnapshot && player.buildSnapshot.relicTags && player.buildSnapshot.relicTags.length) {
+      tags.push("遗物 " + player.buildSnapshot.relicTags.slice(0, 2).join(" / "));
+    }
+    if (!tags.length && player.classResource && player.classResource.id) {
+      tags.push((player.classResource.label || "职业资源") + " " + (player.classResource.current || 0) + " / " + (player.classResource.max || 0));
+    }
+    return {
+      title: title + valueText,
+      status: status,
+      summary: summary,
+      tags: tags.slice(0, 3),
+      combatVisible: Boolean(professionProfile.mechanicName || (player.classResource && player.classResource.id)),
+      combatLabel: professionState.shortLabel || (professionProfile.runtime && professionProfile.runtime.shortLabel) || professionProfile.mechanicName || (player.classResource && player.classResource.shortLabel) || "机制",
+      combatValue: professionState.valueText || (player.classResource ? ((player.classResource.current || 0) + " / " + (player.classResource.max || 0)) : "待接入"),
+      combatHint: professionState.statusText || professionState.hintText || professionProfile.mechanicSummary || "等待机制启动",
+    };
+  }
+
+  function createChallengeConsoleViewModel() {
+    const endlessProgress = getEndlessTrialProgress();
+    if (currentStageMode === "endless") {
+      return {
+        status: "挑战中",
+        title: "第 " + getCurrentChallengeFloor() + " 层 · " + (currentChallengeRun.score || 0) + " 分",
+        summary: "已击破 " + (currentChallengeRun.floorsCleared || 0) + " 层，首领层 " + (currentChallengeRun.bossesCleared || 0) + " 次，可继续冲层或直接结算。",
+        tags: [
+          "历史最高 第 " + (endlessProgress.bestFloor || 0) + " 层",
+          "最高分 " + (endlessProgress.bestScore || 0),
+          "起始层 " + (currentChallengeRun.startFloor || 1),
+        ],
+      };
+    }
+    if (isEndlessTrialUnlocked()) {
+      return {
+        status: endlessProgress.totalRuns > 0 ? "已开放" : "等待首战",
+        title: "无尽回廊已开放",
+        summary: endlessProgress.totalRuns > 0
+          ? "当前最高第 " + (endlessProgress.bestFloor || 0) + " 层，最高分 " + (endlessProgress.bestScore || 0) + "。可以从守门人处直接进入终局冲层。"
+          : "章节线已完成，下一步可以从守门人处进入无尽回廊测试构筑上限。",
+        tags: [
+          "总挑战 " + (endlessProgress.totalRuns || 0) + " 次",
+          "首领层 " + (endlessProgress.totalBossesDefeated || 0),
+          endlessProgress.lastOutcome ? ("上次 " + endlessProgress.lastOutcome) : "等待首次纪录",
+        ],
+      };
+    }
+    return {
+      status: "未开放",
+      title: "无尽回廊",
+      summary: "完成三章试炼后开放，用于持续冲层、刷新最高分并带回长期沉淀。",
+      tags: ["章节推进中", "长期玩法", "构筑验收"],
+    };
+  }
+
+  function renderSystemChipList(container, values) {
+    if (!container) {
+      return;
+    }
+    const list = Array.isArray(values) ? values.filter(Boolean) : [];
+    container.innerHTML = (list.length ? list : ["等待新进展"]).map(function mapChip(text) {
+      return "<span class=\"system-chip\">" + text + "</span>";
+    }).join("");
+  }
+
+  function syncProfessionConsole() {
+    const viewModel = createProfessionConsoleViewModel();
+    if (ui.professionStatusValue) {
+      ui.professionStatusValue.textContent = viewModel.status;
+    }
+    if (ui.professionTitleValue) {
+      ui.professionTitleValue.textContent = viewModel.title;
+    }
+    if (ui.professionHintValue) {
+      ui.professionHintValue.textContent = viewModel.summary;
+    }
+    renderSystemChipList(ui.professionTagList, viewModel.tags);
+    if (ui.combatPlayerMechanicRow && ui.combatPlayerMechanicLabel && ui.combatPlayerMechanicValue && ui.combatPlayerMechanicHint) {
+      ui.combatPlayerMechanicRow.classList.toggle("is-hidden", !viewModel.combatVisible);
+      ui.combatPlayerMechanicRow.setAttribute("aria-hidden", viewModel.combatVisible ? "false" : "true");
+      ui.combatPlayerMechanicLabel.textContent = viewModel.combatLabel;
+      ui.combatPlayerMechanicValue.textContent = viewModel.combatValue;
+      ui.combatPlayerMechanicHint.textContent = viewModel.combatHint;
+    }
+  }
+
+  function syncChallengeConsole() {
+    const viewModel = createChallengeConsoleViewModel();
+    if (ui.challengeStatusValue) {
+      ui.challengeStatusValue.textContent = viewModel.status;
+    }
+    if (ui.challengeTitleValue) {
+      ui.challengeTitleValue.textContent = viewModel.title;
+    }
+    if (ui.challengeSummaryValue) {
+      ui.challengeSummaryValue.textContent = viewModel.summary;
+    }
+    renderSystemChipList(ui.challengeTagList, viewModel.tags);
   }
 
   function syncCampaignProgress() {
@@ -1898,6 +2026,8 @@
       ui.classResourceBar.style.width = hudView.classResourcePercent + "%";
       ui.classResourceBar.className = "meter-fill " + (hudView.classResourceColorClass || "resource-neutral");
     }
+    syncProfessionConsole();
+    syncChallengeConsole();
     syncCampaignProgress();
     syncExplorePrompt();
 

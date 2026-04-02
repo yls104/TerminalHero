@@ -99,6 +99,13 @@
                   <span id="combatPlayerResourceLabel" class="combat-strip-sub">资源</span>
                   <span id="combatPlayerResourceValue" class="combat-strip-value">0 / 0</span>
                 </div>
+                <div id="combatPlayerMechanicRow" class="combat-player-mechanic is-hidden" aria-hidden="true">
+                  <div class="combat-player-mechanic-head">
+                    <span id="combatPlayerMechanicLabel" class="combat-player-mechanic-label">职业机制</span>
+                    <strong id="combatPlayerMechanicValue" class="combat-player-mechanic-value">0 / 0</strong>
+                  </div>
+                  <div id="combatPlayerMechanicHint" class="combat-player-mechanic-hint">等待机制启动</div>
+                </div>
               </section>
 
               <section class="panel-block enemy-panel is-hidden combat-hud-card enemy-strip-card" id="enemyPanel" aria-hidden="true">
@@ -180,6 +187,26 @@
               <span id="rewardValue" class="signal-chip reward-chip is-hidden" aria-hidden="true">奖励：-</span>
             </div>
             <div id="classSummary" class="class-summary">尚未选择职业。</div>
+            <div class="expedition-system-grid">
+              <div class="system-focus-card profession-focus-card">
+                <div class="system-focus-head">
+                  <span class="system-focus-kicker">职业机制</span>
+                  <span id="professionStatusValue" class="system-focus-status">未建立</span>
+                </div>
+                <strong id="professionTitleValue" class="system-focus-title">选择职业后解锁</strong>
+                <p id="professionHintValue" class="system-focus-summary">当前职业的二轮机制、兑现窗口和阅读提示会在这里集中展示。</p>
+                <div id="professionTagList" class="system-chip-list"></div>
+              </div>
+              <div class="system-focus-card challenge-focus-card">
+                <div class="system-focus-head">
+                  <span class="system-focus-kicker">终局挑战</span>
+                  <span id="challengeStatusValue" class="system-focus-status">未开放</span>
+                </div>
+                <strong id="challengeTitleValue" class="system-focus-title">无尽回廊</strong>
+                <p id="challengeSummaryValue" class="system-focus-summary">完成三章试炼后开放，用于测试构筑上限和长期纪录。</p>
+                <div id="challengeTagList" class="system-chip-list"></div>
+              </div>
+            </div>
             <div class="campaign-card">
               <div class="campaign-head">
                 <div class="campaign-heading-main">

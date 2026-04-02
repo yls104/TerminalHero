@@ -41,21 +41,20 @@
   function createHudViewModel(input) {
     const data = input || {};
     const player = data.player || {};
-    const stageLabel = data.stageLabel || "-";
-    const stageDescription = data.stageDescription || "";
     const className = player.className || "-";
     const buildNote = player.classBuildNote || "";
+    const professionState = player.professionState || {};
     const specializationText = player.buildSnapshot && player.buildSnapshot.activeTrackNames && player.buildSnapshot.activeTrackNames.length
       ? " 已激活专精：" + player.buildSnapshot.activeTrackNames.join(" / ") + "。"
       : "";
     const combatFocusText = player.buildSnapshot && player.buildSnapshot.combatFocuses && player.buildSnapshot.combatFocuses.length
       ? " 当前战斗倾向：" + player.buildSnapshot.combatFocuses.join(" / ") + "。"
       : "";
-    const relicTagText = player.buildSnapshot && player.buildSnapshot.relicTags && player.buildSnapshot.relicTags.length
-      ? " 当前遗物标签：" + player.buildSnapshot.relicTags.join(" / ") + "。"
-      : "";
     const classSummary = player.className
-      ? player.className + "，当前位于 " + stageLabel + "。" + stageDescription + (buildNote ? " 构筑提示：" + buildNote : "") + specializationText + combatFocusText + relicTagText
+      ? (buildNote || player.classDescription || (player.className + " 已就绪。"))
+        + (professionState.statusText ? " 当前机制：" + professionState.statusText + "。" : "")
+        + specializationText
+        + combatFocusText
       : "在城镇中选择职业，确认你这轮的成长路线。";
 
     return {
@@ -66,7 +65,7 @@
       goldText: String(player.gold || 0),
       skillPointText: String(player.skillPoints || 0),
       classText: "职业：" + className,
-      stageText: "区域：" + stageLabel,
+      stageText: "区域：" + (data.stageLabel || "-"),
       positionText: "坐标：(" + (player.position ? player.position.x : 0) + ", " + (player.position ? player.position.y : 0) + ")",
       classSummary: classSummary,
       hpPercent: toPercent(player.hp || 0, player.maxHp || 0),
