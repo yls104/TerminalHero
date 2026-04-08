@@ -1249,6 +1249,63 @@ body.mobile-side-panel-open .mobile-explore-hud {
   background: rgba(32, 23, 20, 0.6);
 }
 
+.combat-affix-panel {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 8px;
+  padding: 8px 10px;
+  border: 1px solid rgba(214, 168, 96, 0.2);
+  border-radius: 12px;
+  background:
+    linear-gradient(180deg, rgba(70, 42, 16, 0.92), rgba(36, 24, 13, 0.88));
+  box-shadow: inset 0 1px 0 rgba(255, 227, 182, 0.06);
+}
+
+.combat-affix-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.combat-affix-kicker {
+  font-size: 0.54rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(248, 212, 157, 0.74);
+}
+
+.combat-affix-title {
+  font-size: 0.82rem;
+  color: #fff5df;
+}
+
+.combat-affix-summary {
+  margin: 0;
+  font-size: 0.64rem;
+  line-height: 1.45;
+  color: rgba(249, 240, 220, 0.9);
+}
+
+.combat-affix-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.combat-affix-tag {
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+  padding: 0 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(249, 197, 109, 0.18);
+  background: rgba(18, 12, 7, 0.32);
+  color: #ffe8bf;
+  font-size: 0.56rem;
+  line-height: 1;
+}
+
 .action-hint {
   margin: 0;
   padding: 6px 10px;
@@ -1880,8 +1937,21 @@ body.mobile-side-panel-open .mobile-explore-hud {
   .combat-strip-name,
   .combat-strip-value,
   .combat-strip-sub,
+  .combat-affix-title,
   .combat-hud-layer .action-hint {
     font-size: 0.48rem;
+  }
+
+  .combat-affix-panel {
+    gap: 4px;
+    margin-bottom: 5px;
+    padding: 5px 6px;
+  }
+
+  .combat-affix-kicker,
+  .combat-affix-summary,
+  .combat-affix-tag {
+    font-size: 0.46rem;
   }
 
   .combat-hud-layer .timeline-chip-name {

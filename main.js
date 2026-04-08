@@ -83,6 +83,8 @@
   const renderDetailStatsHtml = viewModelApi.renderDetailStatsHtml || function fallbackDetailHtml() { return ""; };
   const createRunSummaryViewModel = viewModelApi.createRunSummaryViewModel || function fallbackRunSummaryViewModel() { return { overlayEyebrow: "", overlayTitle: "", rows: [] }; };
   const renderRunSummaryHtml = viewModelApi.renderRunSummaryHtml || function fallbackRunSummaryHtml() { return ""; };
+  const createCombatAffixViewModel = viewModelApi.createCombatAffixViewModel || function fallbackCombatAffixViewModel() { return { visible: false, title: "", summary: "", tags: [] }; };
+  const createChallengeFloorWarningViewModel = viewModelApi.createChallengeFloorWarningViewModel || function fallbackChallengeFloorWarningViewModel() { return { visible: false, eyebrow: "", title: "", summary: "", details: [], tags: [] }; };
   const createBuildCodexViewModel = viewModelApi.createBuildCodexViewModel || function fallbackBuildCodexViewModel() { return { overlayEyebrow: "", overlayTitle: "", summaryRows: [], sections: [] }; };
   const renderBuildCodexHtml = viewModelApi.renderBuildCodexHtml || function fallbackBuildCodexHtml() { return ""; };
   const createCombatTimelineViewModel = viewModelApi.createCombatTimelineViewModel || function fallbackCombatTimelineViewModel() { return { visible: false, statusText: "", entries: [] }; };
@@ -213,6 +215,10 @@
     combatPlayerMechanicLabel: document.querySelector("#combatPlayerMechanicLabel"),
     combatPlayerMechanicValue: document.querySelector("#combatPlayerMechanicValue"),
     combatPlayerMechanicHint: document.querySelector("#combatPlayerMechanicHint"),
+    combatAffixPanel: document.querySelector("#combatAffixPanel"),
+    combatAffixTitle: document.querySelector("#combatAffixTitle"),
+    combatAffixSummary: document.querySelector("#combatAffixSummary"),
+    combatAffixTags: document.querySelector("#combatAffixTags"),
     virtualJoystick: document.querySelector("#virtualJoystick"),
     joystickBase: document.querySelector("#joystickBase"),
     joystickKnob: document.querySelector("#joystickKnob"),
@@ -380,6 +386,8 @@
       challengeNewBestFloor: 0,
       challengeNewBestScore: 0,
       challengeOutcomeLabel: "",
+      challengeLastAffixSummary: "",
+      challengePressureSnapshots: [],
     };
   }
 
@@ -404,6 +412,15 @@
 
   function buildRunSummarySnapshot(overrides) {
     return Object.assign({}, runSummary, overrides || {});
+  }
+
+  function ensureChallengeReviewState() {
+    if (!Array.isArray(runSummary.challengePressureSnapshots)) {
+      runSummary.challengePressureSnapshots = [];
+    }
+    if (typeof runSummary.challengeLastAffixSummary !== "string") {
+      runSummary.challengeLastAffixSummary = "";
+    }
   }
 
   function getEndlessTrialProgress() {
@@ -452,6 +469,25 @@
       return currentStageContent.challenge.floor;
     }
     return currentChallengeRun.floor || 0;
+  }
+
+  function recordCurrentChallengePressureSnapshot() {
+    if (currentStageMode !== "endless" || !currentStageContent || !currentStageContent.challenge) {
+      return;
+    }
+    ensureChallengeReviewState();
+    const challenge = currentStageContent.challenge;
+    const affixLabels = Array.isArray(challenge.affixes)
+      ? challenge.affixes.map(function mapAffix(affix) {
+          return affix && (affix.shortLabel || affix.name) ? (affix.shortLabel || affix.name) : "";
+        }).filter(Boolean)
+      : [];
+    const floorLabel = challenge.bossFloor ? "首领层" : challenge.eliteFloor ? "精英层" : "试炼层";
+    const snapshotLabel = "第" + (challenge.floor || 0) + "层·" + floorLabel + "：" + (affixLabels.join("、") || challenge.affixSummary || "常规压力");
+    if (snapshotLabel && runSummary.challengePressureSnapshots.indexOf(snapshotLabel) < 0) {
+      runSummary.challengePressureSnapshots.push(snapshotLabel);
+    }
+    runSummary.challengeLastAffixSummary = challenge.affixSummary || affixLabels.join(" / ");
   }
 
   function getEndlessTrialMaxStartFloor() {
@@ -1465,7 +1501,13 @@
   function createChallengeConsoleViewModel() {
     const endlessProgress = getEndlessTrialProgress();
     if (currentStageMode === "endless") {
-      return {
+      const challenge = currentStageContent && currentStageContent.challenge ? currentStageContent.challenge : null;
+      const affixTags = challenge && Array.isArray(challenge.affixes)
+        ? challenge.affixes.map(function mapAffix(affix) {
+            return affix && (affix.shortLabel || affix.name) ? (affix.shortLabel || affix.name) : "";
+          }).filter(Boolean)
+        : [];
+      const endlessView = {
         status: "挑战中",
         title: "第 " + getCurrentChallengeFloor() + " 层 · " + (currentChallengeRun.score || 0) + " 分",
         summary: "已击破 " + (currentChallengeRun.floorsCleared || 0) + " 层，首领层 " + (currentChallengeRun.bossesCleared || 0) + " 次，可继续冲层或直接结算。",
@@ -1475,6 +1517,13 @@
           "起始层 " + (currentChallengeRun.startFloor || 1),
         ],
       };
+      if (affixTags.length) {
+        endlessView.tags = affixTags.concat(endlessView.tags).slice(0, 4);
+      }
+      if (challenge && challenge.affixSummary) {
+        endlessView.summary = challenge.affixSummary + " " + endlessView.summary;
+      }
+      return endlessView;
     }
     if (isEndlessTrialUnlocked()) {
       return {
@@ -1506,6 +1555,64 @@
     container.innerHTML = (list.length ? list : ["等待新进展"]).map(function mapChip(text) {
       return "<span class=\"system-chip\">" + text + "</span>";
     }).join("");
+  }
+
+  function renderCombatAffixTags(values) {
+    if (!ui.combatAffixTags) {
+      return;
+    }
+    const tags = Array.isArray(values) ? values.filter(Boolean) : [];
+    ui.combatAffixTags.innerHTML = tags.map(function mapTag(text) {
+      return "<span class=\"combat-affix-tag\">" + text + "</span>";
+    }).join("");
+  }
+
+  function syncCombatAffixPanel(snapshot) {
+    if (!ui.combatAffixPanel || !ui.combatAffixTitle || !ui.combatAffixSummary) {
+      return;
+    }
+    const affixView = createCombatAffixViewModel(snapshot);
+    ui.combatAffixPanel.classList.toggle("is-hidden", !affixView.visible);
+    ui.combatAffixPanel.setAttribute("aria-hidden", affixView.visible ? "false" : "true");
+    ui.combatAffixTitle.textContent = affixView.title || "当前压力";
+    ui.combatAffixSummary.textContent = affixView.summary || "本层特殊规则会在这里显示。";
+    renderCombatAffixTags(affixView.tags);
+  }
+
+  function buildChallengeFloorWarningHtml(viewModel) {
+    const detailHtml = Array.isArray(viewModel.details) && viewModel.details.length
+      ? "<div class=\"detail-stats\">"
+        + viewModel.details.map(function mapDetail(text) {
+          return "<p>" + text + "</p>";
+        }).join("")
+        + "</div>"
+      : "";
+    const tagsHtml = Array.isArray(viewModel.tags) && viewModel.tags.length
+      ? "<div class=\"combat-affix-tags\">"
+        + viewModel.tags.map(function mapTag(text) {
+          return "<span class=\"combat-affix-tag\">" + text + "</span>";
+        }).join("")
+        + "</div>"
+      : "";
+    return "<p>" + (viewModel.summary || "前方压力正在抬升，请先确认本层规则。") + "</p>" + detailHtml + tagsHtml;
+  }
+
+  function showChallengeFloorWarning() {
+    const challenge = currentStageContent && currentStageContent.challenge ? currentStageContent.challenge : null;
+    const warningView = createChallengeFloorWarningViewModel({
+      challenge: challenge,
+      themeLabel: challenge ? challenge.themeLabel : "",
+    });
+    if (!warningView.visible) {
+      return;
+    }
+    showOverlay(
+      warningView.eyebrow || "无尽回廊",
+      warningView.title || "进层预警",
+      buildChallengeFloorWarningHtml(warningView),
+      "开始挑战",
+      hideOverlay
+    );
   }
 
   function syncProfessionConsole() {
@@ -1935,6 +2042,7 @@
     syncUltimateButtonState(snapshot);
     syncActionHint(snapshot);
     syncTimelinePanel(snapshot);
+    syncCombatAffixPanel(snapshot);
     updateSkillMenuVisibility();
   }
 
@@ -2362,6 +2470,11 @@
         appendLog("Boss 传送门已显现，你可以随时进入首领房。");
       }
     } else if (stageName === ENDLESS_TRIAL_STAGE_ID && currentStageMode === "endless") {
+      recordCurrentChallengePressureSnapshot();
+      showChallengeFloorWarning();
+      if (currentStageContent.challenge && currentStageContent.challenge.affixSummary) {
+        appendLog("回廊压力：" + currentStageContent.challenge.affixSummary + "。");
+      }
       appendLog("回廊简报：" + [currentStageContent.stageLabel, currentStageContent.pressureLabel, currentStageContent.rewardLabel].filter(Boolean).join(" / ") + "。");
     }
   }

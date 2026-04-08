@@ -45,6 +45,10 @@ function validateHtmlContract(indexHtml) {
     "combatPlayerHp",
     "combatPlayerMp",
     "combatPlayerResourceRow",
+    "combatAffixPanel",
+    "combatAffixTitle",
+    "combatAffixSummary",
+    "combatAffixTags",
     "enemyPoiseRow",
     "enemyPoiseText",
     "enemyPoiseBar",
@@ -88,6 +92,8 @@ function validateStyleContract(styleCss) {
     ".action-hint",
     ".action-button-meta",
     ".action-menu button.is-insert-window",
+    ".combat-affix-panel",
+    ".combat-affix-tag",
     ".timeline-chip",
     ".battle-log p:nth-last-child(n + 5)",
     ".mini-button",
@@ -300,6 +306,31 @@ function validateDataAndViewModels() {
     snapshot: {},
   });
   assert(executionTimingView.metaText.includes("处决 +"), "技能菜单未展示处决收益信息");
+  const combatAffixView = viewApi.createCombatAffixViewModel({
+    inCombat: true,
+    challengeAffixSummary: "AFFIX_SUMMARY_TEST",
+    challengeAffixes: [
+      { id: "alpha", name: "Alpha Pressure", shortLabel: "Alpha", briefing: "Alpha briefing" },
+      { id: "beta", name: "Beta Pressure", shortLabel: "Beta", briefing: "Beta briefing" },
+    ],
+  });
+  assert(combatAffixView.visible, "createCombatAffixViewModel should be visible in combat with affixes");
+  assert(combatAffixView.summary === "AFFIX_SUMMARY_TEST", "createCombatAffixViewModel should prioritize challengeAffixSummary");
+  assert(Array.isArray(combatAffixView.tags) && combatAffixView.tags.join(",") === "Alpha,Beta", "createCombatAffixViewModel should expose compact affix tags");
+  const floorWarningView = viewApi.createChallengeFloorWarningViewModel({
+    themeLabel: "Theme Test",
+    challenge: {
+      floor: 12,
+      affixSummary: "WARNING_SUMMARY_TEST",
+      affixRule: { summary: "Rule Summary" },
+      affixes: [
+        { id: "warning", name: "Warning", shortLabel: "Burst" },
+      ],
+    },
+  });
+  assert(floorWarningView.visible, "createChallengeFloorWarningViewModel should be visible for endless floors with affixes");
+  assert(floorWarningView.summary === "WARNING_SUMMARY_TEST", "createChallengeFloorWarningViewModel should surface the warning summary");
+  assert(Array.isArray(floorWarningView.tags) && floorWarningView.tags[0] === "Burst", "createChallengeFloorWarningViewModel should reuse floor affix tags");
   entitiesApi.setRelicResolver(stageApi.findRelicByName);
   entitiesApi.player.relics = ["破阵狼徽", "处刑王冠"];
   entitiesApi.refreshBuildSnapshot();
@@ -487,9 +518,13 @@ function validateDataAndViewModels() {
     challengeScore: 1240,
     challengeBossesCleared: 1,
     challengeOutcomeLabel: "主动结算",
+    challengePressureSnapshots: ["PRESSURE_A", "PRESSURE_B"],
+    challengeLastAffixSummary: "FINAL_AFFIX_WARNING",
   }));
   assert(summaryHtml.includes("章节推进"), "结算视图未展示章节推进");
   assert(summaryHtml.includes("本轮积分"), "结算视图未展示无尽回廊积分");
+
+  assert(summaryHtml.includes("PRESSURE_A") && summaryHtml.includes("FINAL_AFFIX_WARNING"), "run summary should include pressure review data");
 
   const saveResult = saveApi.saveSnapshot({
     currentStageName: "azure_town",

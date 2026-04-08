@@ -132,6 +132,14 @@
             </div>
 
             <section id="actionPanel" class="panel-block combat-hud-card combat-action-dock" aria-hidden="true">
+              <div id="combatAffixPanel" class="combat-affix-panel is-hidden" aria-hidden="true">
+                <div class="combat-affix-head">
+                  <span class="combat-affix-kicker">回廊词缀</span>
+                  <strong id="combatAffixTitle" class="combat-affix-title">当前压力</strong>
+                </div>
+                <p id="combatAffixSummary" class="combat-affix-summary">本层特殊规则会在这里显示。</p>
+                <div id="combatAffixTags" class="combat-affix-tags"></div>
+              </div>
               <div class="action-menu is-hidden" id="actionMenu" aria-hidden="true">
                 <button id="btnBasicAttack" type="button" class="action-attack">普通攻击</button>
                 <button id="btnSkillMenu" type="button" class="action-skill">技能</button>

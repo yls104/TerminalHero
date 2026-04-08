@@ -211,6 +211,12 @@
         rows.push({ label: "新积分纪录", value: String(data.challengeNewBestScore) });
       }
     }
+    if (Array.isArray(data.challengePressureSnapshots) && data.challengePressureSnapshots.length) {
+      rows.push({ label: "鏈疆鍘嬪姏鍥為【", value: data.challengePressureSnapshots.slice(-3).join(" / ") });
+    }
+    if (data.challengeLastAffixSummary) {
+      rows.push({ label: "鏈€缁堝眰棰勮", value: data.challengeLastAffixSummary });
+    }
     rows.push(
       { label: "战斗胜利", value: String(data.combatsWon || 0) + " 场" },
       { label: "击败精英", value: String(data.elitesDefeated || 0) + " 个" },
@@ -463,6 +469,99 @@
     };
   }
 
+  /*
+  function createCombatAffixViewModel(snapshot) {
+    const data = snapshot || {};
+    const affixes = Array.isArray(data.challengeAffixes) ? data.challengeAffixes.filter(Boolean) : [];
+    if (!data.inCombat || !affixes.length) {
+      return {
+        visible: false,
+        title: "",
+        summary: "",
+        tags: [],
+      };
+    }
+    const primaryAffix = affixes[0] || {};
+    return {
+      visible: true,
+      title: affixes.length > 1 ? ("褰撳墠鍏? " + affixes.length + " 鏉¤鍒?) : (primaryAffix.name || "褰撳墠瑙勫垯"),
+      summary: data.challengeAffixSummary || primaryAffix.briefing || primaryAffix.summary || "",
+      tags: affixes.map(function mapAffix(affix) {
+        return affix.shortLabel || affix.name || "";
+      }).filter(Boolean).slice(0, 3),
+    };
+  }
+
+  function createChallengeFloorWarningViewModel(input) {
+    const data = input || {};
+    const challenge = data.challenge || {};
+    const affixes = Array.isArray(challenge.affixes) ? challenge.affixes.filter(Boolean) : [];
+    const floor = challenge.floor || 0;
+    const floorLabel = challenge.bossFloor ? "棣栭灞? : challenge.eliteFloor ? "绮捐嫳灞? : "璇曠偧灞?";
+    const title = "绗?" + floor + " 灞?路 " + floorLabel;
+    const detailParts = []
+      .concat(data.themeLabel ? ["涓婚鍖哄煙锛? + data.themeLabel] : [])
+      .concat(typeof challenge.scoreValue === "number" && challenge.scoreValue > 0 ? ["璇ヤ华鎴樺悗绉垎锛? + challenge.scoreValue] : [])
+      .concat(challenge.affixRule && challenge.affixRule.summary ? [challenge.affixRule.summary] : []);
+    return {
+      visible: Boolean(floor && affixes.length),
+      eyebrow: "鍥炲粖棰勮",
+      title: title,
+      summary: challenge.affixSummary || detailParts.join(" / "),
+      details: detailParts,
+      tags: affixes.map(function mapAffix(affix) {
+        return affix.shortLabel || affix.name || "";
+      }).filter(Boolean),
+    };
+  }
+
+  */
+
+  function createCombatAffixViewModel(snapshot) {
+    const data = snapshot || {};
+    const affixes = Array.isArray(data.challengeAffixes) ? data.challengeAffixes.filter(Boolean) : [];
+    if (!data.inCombat || !affixes.length) {
+      return {
+        visible: false,
+        title: "",
+        summary: "",
+        tags: [],
+      };
+    }
+    const primaryAffix = affixes[0] || {};
+    return {
+      visible: true,
+      title: affixes.length > 1 ? ("当前压力 · " + affixes.length + " 条规则") : (primaryAffix.name || "当前规则"),
+      summary: data.challengeAffixSummary || primaryAffix.briefing || primaryAffix.summary || "",
+      tags: affixes.map(function mapAffix(affix) {
+        return affix.shortLabel || affix.name || "";
+      }).filter(Boolean).slice(0, 3),
+    };
+  }
+
+  function createChallengeFloorWarningViewModel(input) {
+    const data = input || {};
+    const challenge = data.challenge || {};
+    const affixes = Array.isArray(challenge.affixes) ? challenge.affixes.filter(Boolean) : [];
+    const floor = challenge.floor || 0;
+    const floorLabel = challenge.bossFloor ? "首领层" : challenge.eliteFloor ? "精英层" : "试炼层";
+    const title = "第 " + floor + " 层 · " + floorLabel;
+    const detailParts = []
+      .concat(data.themeLabel ? ["区域主题：" + data.themeLabel] : [])
+      .concat(typeof challenge.scoreValue === "number" && challenge.scoreValue > 0 ? ["层积分：" + challenge.scoreValue] : [])
+      .concat(challenge.affixRule && challenge.affixRule.summary ? [challenge.affixRule.summary] : []);
+    return {
+      visible: Boolean(floor && affixes.length),
+      eyebrow: "进层预警",
+      title: title,
+      summary: challenge.affixSummary || detailParts.join(" / "),
+      details: detailParts,
+      tags: affixes.map(function mapAffix(affix) {
+        return affix.shortLabel || affix.name || "";
+      }).filter(Boolean),
+    };
+  }
+
   window.GameViewModels = {
     createHudViewModel: createHudViewModel,
     createEnemyViewModel: createEnemyViewModel,
@@ -470,6 +569,8 @@
     renderDetailStatsHtml: renderDetailStatsHtml,
     createRunSummaryViewModel: createRunSummaryViewModel,
     renderRunSummaryHtml: renderRunSummaryHtml,
+    createCombatAffixViewModel: createCombatAffixViewModel,
+    createChallengeFloorWarningViewModel: createChallengeFloorWarningViewModel,
     createBuildCodexViewModel: createBuildCodexViewModel,
     renderBuildCodexHtml: renderBuildCodexHtml,
     createCombatTimelineViewModel: createCombatTimelineViewModel,
