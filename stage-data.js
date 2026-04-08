@@ -123,6 +123,114 @@
 
   const STAGE_SEQUENCE = ["verdant_grove", "sunken_archive", "ember_hollow"];
 
+  const CORRIDOR_AFFIX_CATALOG = {
+    tempo_pressure: {
+      id: "tempo_pressure",
+      name: "抢轴压迫",
+      shortLabel: "抢轴压迫",
+      tier: "基础词缀",
+      family: "timeline_pressure",
+      targetScope: "enemy_team",
+      triggerTiming: "battle_open",
+      mechanicAxis: ["时间轴", "先手", "节奏压迫"],
+      effectPayload: {
+        timeline: {
+          enemyStartAvBonus: 8,
+          enemySpeedRatio: 0.08,
+        },
+      },
+      ui: {
+        summary: "敌方更容易抢到开局节奏。",
+        briefing: "本层敌人会以更激进的时间轴优势开局，拖节奏的代价会更高。",
+        inspect: [
+          "作用对象：敌方单位",
+          "触发时机：战斗开场",
+          "机制方向：时间轴 / 抢轴",
+          "后续原型阶段会把该词缀正式接入 AV 与先手结算。",
+        ],
+      },
+    },
+    resilience_regen: {
+      id: "resilience_regen",
+      name: "韧性再生",
+      shortLabel: "韧性再生",
+      tier: "基础词缀",
+      family: "poise_regen",
+      targetScope: "enemy_team",
+      triggerTiming: "turn_cycle",
+      mechanicAxis: ["韧性", "打断", "拖节奏惩罚"],
+      effectPayload: {
+        pressure: {
+          poiseRegenRatio: 0.18,
+          regenTurnInterval: 2,
+        },
+      },
+      ui: {
+        summary: "敌方会周期性恢复部分韧性。",
+        briefing: "如果你不能尽快打穿韧性，本层敌人的抗压能力会在战斗中持续回弹。",
+        inspect: [
+          "作用对象：敌方单位",
+          "触发时机：战斗轮转阶段",
+          "机制方向：韧性回复 / 打断惩罚",
+          "后续原型阶段会把该词缀正式接入压制轴恢复逻辑。",
+        ],
+      },
+    },
+    execution_dead_zone: {
+      id: "execution_dead_zone",
+      name: "处决禁区",
+      shortLabel: "处决禁区",
+      tier: "高压词缀",
+      family: "execution_window",
+      targetScope: "player_vs_boss",
+      triggerTiming: "execution_window",
+      mechanicAxis: ["处决", "爆发窗口", "首领考核"],
+      effectPayload: {
+        execution: {
+          offWindowRatio: 0.55,
+          favoredWindow: "stagger_only",
+        },
+      },
+      ui: {
+        summary: "错误时机会显著降低处决收益。",
+        briefing: "首领层会压缩你的爆发容错，只有真正踩准处决窗口才值得交出高价值技能。",
+        inspect: [
+          "作用对象：玩家对首领的处决收益",
+          "触发时机：处决与爆发结算阶段",
+          "机制方向：窗口考题 / 首领压力",
+          "后续原型阶段会把该词缀正式接入处决收益修正。",
+        ],
+      },
+    },
+  };
+
+  const CORRIDOR_FLOOR_AFFIX_RULES = {
+    normal: {
+      floorType: "normal",
+      label: "试炼层规则",
+      selectionProfile: { base: 1, max: 1 },
+      poolIds: ["tempo_pressure", "resilience_regen"],
+      requiredIds: [],
+      summary: "普通层只挂接 1 个基础压力词缀，用于稳定测试构筑的基础适应能力。",
+    },
+    elite: {
+      floorType: "elite",
+      label: "精英层规则",
+      selectionProfile: { base: 1, bonusFromFloor: 9, max: 2 },
+      poolIds: ["tempo_pressure", "resilience_regen", "execution_dead_zone"],
+      requiredIds: [],
+      summary: "精英层会在高层追加第二个词缀，把节奏干扰和压制压力叠上来。",
+    },
+    boss: {
+      floorType: "boss",
+      label: "首领层规则",
+      selectionProfile: { base: 2, max: 2 },
+      poolIds: ["tempo_pressure", "resilience_regen", "execution_dead_zone"],
+      requiredIds: ["execution_dead_zone"],
+      summary: "首领层默认叠加 2 个词缀，并强制包含首领考核词缀，避免只剩纯数值放大。",
+    },
+  };
+
   const CHAPTERS = [
     { id: 1, label: "第一章：林地试炼", stageId: "verdant_grove", requiredRenown: 0, summary: "从青藤密林开始，学会在高机动和中毒压力里建立自己的第一套节奏。" },
     { id: 2, label: "第二章：书库回响", stageId: "sunken_archive", requiredRenown: 2, summary: "深入沉没书库，在控场和法力消耗中磨出更完整的 build。" },
@@ -976,6 +1084,88 @@
     };
   }
 
+  function getCorridorFloorType(floorDescriptor) {
+    if (floorDescriptor && floorDescriptor.bossFloor) {
+      return "boss";
+    }
+    if (floorDescriptor && floorDescriptor.eliteFloor) {
+      return "elite";
+    }
+    return "normal";
+  }
+
+  function resolveCorridorAffixCount(floorDescriptor, rule) {
+    const profile = rule && rule.selectionProfile ? rule.selectionProfile : {};
+    let count = Math.max(0, Number(profile.base) || 0);
+    if (profile.bonusFromFloor && floorDescriptor.floor >= profile.bonusFromFloor) {
+      count += 1;
+    }
+    const requiredCount = Array.isArray(rule && rule.requiredIds) ? rule.requiredIds.length : 0;
+    const maxCount = Math.max(requiredCount, Number(profile.max) || count || 1);
+    return clamp(Math.max(requiredCount, count || 1), 1, maxCount);
+  }
+
+  function createCorridorAffixSnapshot(affix, floorDescriptor, floorType) {
+    const data = affix || {};
+    const ui = data.ui || {};
+    return {
+      id: data.id || "",
+      name: data.name || "",
+      shortLabel: ui.shortLabel || data.shortLabel || data.name || "",
+      tier: data.tier || "基础词缀",
+      family: data.family || "",
+      targetScope: data.targetScope || "",
+      triggerTiming: data.triggerTiming || "",
+      mechanicAxis: cloneValue(data.mechanicAxis || []),
+      effectPayload: cloneValue(data.effectPayload || {}),
+      summary: ui.summary || "",
+      briefing: ui.briefing || "",
+      inspect: cloneValue(ui.inspect || []),
+      floorType: floorType,
+      floor: floorDescriptor ? floorDescriptor.floor : 0,
+      themeStageId: floorDescriptor ? floorDescriptor.themeStageId : "",
+    };
+  }
+
+  function pickUniqueCorridorAffixIds(poolIds, count, requiredIds) {
+    const selected = [];
+    (requiredIds || []).forEach(function eachRequired(id) {
+      if (poolIds.indexOf(id) >= 0 && selected.indexOf(id) < 0) {
+        selected.push(id);
+      }
+    });
+    shuffle(poolIds || []).forEach(function eachId(id) {
+      if (selected.length >= count) {
+        return;
+      }
+      if (selected.indexOf(id) < 0) {
+        selected.push(id);
+      }
+    });
+    return selected.slice(0, count);
+  }
+
+  function createCorridorAffixBundle(floorDescriptor) {
+    const floorType = getCorridorFloorType(floorDescriptor);
+    const baseRule = CORRIDOR_FLOOR_AFFIX_RULES[floorType] || CORRIDOR_FLOOR_AFFIX_RULES.normal;
+    const selectionCount = resolveCorridorAffixCount(floorDescriptor, baseRule);
+    const selectedIds = pickUniqueCorridorAffixIds(baseRule.poolIds || [], selectionCount, baseRule.requiredIds || []);
+    return {
+      rule: {
+        floorType: floorType,
+        label: baseRule.label || "",
+        selectionCount: selectionCount,
+        poolIds: cloneValue(baseRule.poolIds || []),
+        requiredIds: cloneValue(baseRule.requiredIds || []),
+        summary: baseRule.summary || "",
+      },
+      affixIds: selectedIds.slice(),
+      affixes: selectedIds.map(function mapAffix(id) {
+        return createCorridorAffixSnapshot(CORRIDOR_AFFIX_CATALOG[id], floorDescriptor, floorType);
+      }),
+    };
+  }
+
   function scaleEndlessEnemy(template, floorDescriptor, themeMeta) {
     const base = cloneEnemyTemplate(template);
     const floor = floorDescriptor.floor;
@@ -1043,6 +1233,7 @@
   function generateEndlessStage(floor) {
     const descriptor = getEndlessFloorDescriptor(floor);
     const themeMeta = getStageMeta(descriptor.themeStageId);
+    const affixBundle = createCorridorAffixBundle(descriptor);
     const arena = createEndlessArena(descriptor.themeStageId, descriptor.bossFloor);
     const encounterPool = {};
     const elitePool = ELITE_TEMPLATES[themeMeta.elitePoolId] || [];
@@ -1087,9 +1278,16 @@
           floor: descriptor.floor,
           themeStageId: descriptor.themeStageId,
           themeLabel: themeMeta.label || descriptor.themeStageId,
+          floorType: affixBundle.rule.floorType,
           bossFloor: descriptor.bossFloor,
           eliteFloor: descriptor.eliteFloor,
           scoreValue: endlessTemplate.scoreValue || 0,
+          affixRule: affixBundle.rule,
+          affixIds: affixBundle.affixIds,
+          affixes: affixBundle.affixes,
+          affixSummary: affixBundle.affixes.map(function mapAffix(affix) {
+            return affix.shortLabel + "：" + affix.summary;
+          }).join(" / "),
         },
       },
     };
@@ -1525,6 +1723,8 @@
     STAGE_MAPS: STAGE_MAPS,
     STAGE_META: STAGE_META,
     STAGE_SEQUENCE: STAGE_SEQUENCE,
+    CORRIDOR_AFFIX_CATALOG: CORRIDOR_AFFIX_CATALOG,
+    CORRIDOR_FLOOR_AFFIX_RULES: CORRIDOR_FLOOR_AFFIX_RULES,
     CHAPTERS: CHAPTERS,
     SHOP_ITEMS: SHOP_ITEMS,
     TOWN_UPGRADES: TOWN_UPGRADES,
@@ -1534,6 +1734,8 @@
     positionKey: positionKey,
     getStageMeta: getStageMeta,
     getEndlessFloorDescriptor: getEndlessFloorDescriptor,
+    getCorridorFloorType: getCorridorFloorType,
+    createCorridorAffixBundle: createCorridorAffixBundle,
     getChapterByStageId: getChapterByStageId,
     createStageProgress: createStageProgress,
     createStageInstance: createStageInstance,

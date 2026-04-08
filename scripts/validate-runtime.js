@@ -442,7 +442,21 @@ function validateDataAndViewModels() {
   const endlessBossStage = stageApi.createStageInstance(stageApi.ENDLESS_TRIAL_STAGE_ID, { mode: "endless", floor: 5 });
   assert(endlessStage && endlessStage.contentPools && endlessStage.contentPools.challenge, "无尽回廊楼层未生成 challenge 元数据");
   assert(endlessStage.contentPools.challenge.floor === 1, "无尽回廊第 1 层元数据错误");
+  assert(Array.isArray(endlessStage.contentPools.challenge.affixes), "无尽回廊第 1 层缺少词缀快照");
+  assert(endlessStage.contentPools.challenge.affixes.length === 1, "无尽回廊普通层词缀数量错误");
+  assert(endlessStage.contentPools.challenge.affixRule && endlessStage.contentPools.challenge.affixRule.floorType === "normal", "无尽回廊普通层词缀规则类型错误");
+  assert(typeof endlessStage.contentPools.challenge.affixSummary === "string", "无尽回廊普通层词缀摘要缺失");
   assert(endlessBossStage.contentPools.challenge && endlessBossStage.contentPools.challenge.bossFloor, "无尽回廊第 5 层应为首领层");
+  assert(Array.isArray(endlessBossStage.contentPools.challenge.affixes), "无尽回廊第 5 层缺少词缀快照");
+  assert(endlessBossStage.contentPools.challenge.affixes.length === 2, "无尽回廊首领层词缀数量错误");
+  assert(endlessBossStage.contentPools.challenge.affixRule && endlessBossStage.contentPools.challenge.affixRule.floorType === "boss", "无尽回廊首领层词缀规则类型错误");
+  assert((endlessBossStage.contentPools.challenge.affixIds || []).includes("execution_dead_zone"), "无尽回廊首领层未强制包含首领考核词缀");
+  endlessBossStage.contentPools.challenge.affixes.forEach(function eachAffix(affix) {
+    assert(Boolean(stageApi.CORRIDOR_AFFIX_CATALOG[affix.id]), "无尽回廊词缀未在配置表中登记：" + affix.id);
+    assert(typeof affix.targetScope === "string" && affix.targetScope.length > 0, "无尽回廊词缀缺少作用对象：" + affix.id);
+    assert(typeof affix.triggerTiming === "string" && affix.triggerTiming.length > 0, "无尽回廊词缀缺少触发时机：" + affix.id);
+    assert(Array.isArray(affix.inspect) && affix.inspect.length > 0, "无尽回廊词缀缺少 inspect 文案：" + affix.id);
+  });
   assert(Object.keys(endlessBossStage.encounters || {}).length === 1, "无尽回廊楼层应只生成单场关键战斗");
 
   const archiveChapter = stageApi.getChapterByStageId("sunken_archive");
