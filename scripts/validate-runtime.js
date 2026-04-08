@@ -439,7 +439,10 @@ function validateDataAndViewModels() {
   assert(progress.longTerm.endlessTrial && typeof progress.longTerm.endlessTrial.bestFloor === "number", "longTerm.endlessTrial.bestFloor 缺失");
 
   const endlessStage = stageApi.createStageInstance(stageApi.ENDLESS_TRIAL_STAGE_ID, { mode: "endless", floor: 1 });
+  const endlessEliteStage = stageApi.createStageInstance(stageApi.ENDLESS_TRIAL_STAGE_ID, { mode: "endless", floor: 3 });
+  const endlessEliteHighStage = stageApi.createStageInstance(stageApi.ENDLESS_TRIAL_STAGE_ID, { mode: "endless", floor: 9 });
   const endlessBossStage = stageApi.createStageInstance(stageApi.ENDLESS_TRIAL_STAGE_ID, { mode: "endless", floor: 5 });
+  const endlessBossHighStage = stageApi.createStageInstance(stageApi.ENDLESS_TRIAL_STAGE_ID, { mode: "endless", floor: 15 });
   assert(endlessStage && endlessStage.contentPools && endlessStage.contentPools.challenge, "无尽回廊楼层未生成 challenge 元数据");
   assert(endlessStage.contentPools.challenge.floor === 1, "无尽回廊第 1 层元数据错误");
   assert(Array.isArray(endlessStage.contentPools.challenge.affixes), "无尽回廊第 1 层缺少词缀快照");
@@ -458,6 +461,20 @@ function validateDataAndViewModels() {
     assert(Array.isArray(affix.inspect) && affix.inspect.length > 0, "无尽回廊词缀缺少 inspect 文案：" + affix.id);
   });
   assert(Object.keys(endlessBossStage.encounters || {}).length === 1, "无尽回廊楼层应只生成单场关键战斗");
+
+  assert(endlessStage.contentPools.challenge.affixRule && endlessStage.contentPools.challenge.affixRule.selectionMode === "single_pressure", "endless normal floor selectionMode mismatch");
+  assert(endlessEliteStage && endlessEliteStage.contentPools.challenge && endlessEliteStage.contentPools.challenge.eliteFloor, "endless floor 3 should be elite");
+  assert(endlessEliteStage.contentPools.challenge.affixRule && endlessEliteStage.contentPools.challenge.affixRule.floorType === "elite", "endless elite floorType mismatch");
+  assert(endlessEliteStage.contentPools.challenge.affixRule && endlessEliteStage.contentPools.challenge.affixRule.selectionMode === "stacked_pressure", "endless elite selectionMode mismatch");
+  assert(Array.isArray(endlessEliteStage.contentPools.challenge.affixIds) && endlessEliteStage.contentPools.challenge.affixIds.length === 1, "endless floor 3 affix count mismatch");
+  assert(!(endlessEliteStage.contentPools.challenge.affixIds || []).includes("execution_dead_zone"), "elite floors should not use execution_dead_zone");
+  assert(endlessEliteHighStage && endlessEliteHighStage.contentPools.challenge && endlessEliteHighStage.contentPools.challenge.eliteFloor, "endless floor 9 should be elite");
+  assert(Array.isArray(endlessEliteHighStage.contentPools.challenge.affixIds) && endlessEliteHighStage.contentPools.challenge.affixIds.length === 2, "high elite floors should stack two pressure affixes");
+  assert(!(endlessEliteHighStage.contentPools.challenge.affixIds || []).includes("execution_dead_zone"), "high elite floors should not use boss-only affixes");
+  assert(endlessBossStage.contentPools.challenge.affixRule && endlessBossStage.contentPools.challenge.affixRule.selectionMode === "execution_exam", "endless boss selectionMode mismatch");
+  assert(endlessBossHighStage.contentPools.challenge && endlessBossHighStage.contentPools.challenge.bossFloor, "endless floor 15 should be boss");
+  assert(Array.isArray(endlessBossHighStage.contentPools.challenge.affixIds) && endlessBossHighStage.contentPools.challenge.affixIds.length === 3, "high boss floors should use all three affixes");
+  assert(Boolean(endlessBossHighStage.contentPools.challenge.affixRule && endlessBossHighStage.contentPools.challenge.affixRule.escalated), "high boss floors should mark affix escalation");
 
   const archiveChapter = stageApi.getChapterByStageId("sunken_archive");
   assert(archiveChapter && archiveChapter.label.includes("第二章"), "getChapterByStageId 未返回正确章节");

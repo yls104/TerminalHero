@@ -208,6 +208,7 @@
     normal: {
       floorType: "normal",
       label: "试炼层规则",
+      selectionMode: "single_pressure",
       selectionProfile: { base: 1, max: 1 },
       poolIds: ["tempo_pressure", "resilience_regen"],
       requiredIds: [],
@@ -216,15 +217,17 @@
     elite: {
       floorType: "elite",
       label: "精英层规则",
+      selectionMode: "stacked_pressure",
       selectionProfile: { base: 1, bonusFromFloor: 9, max: 2 },
-      poolIds: ["tempo_pressure", "resilience_regen", "execution_dead_zone"],
+      poolIds: ["tempo_pressure", "resilience_regen"],
       requiredIds: [],
       summary: "精英层会在高层追加第二个词缀，把节奏干扰和压制压力叠上来。",
     },
     boss: {
       floorType: "boss",
       label: "首领层规则",
-      selectionProfile: { base: 2, max: 2 },
+      selectionMode: "execution_exam",
+      selectionProfile: { base: 2, bonusFromFloor: 15, max: 3 },
       poolIds: ["tempo_pressure", "resilience_regen", "execution_dead_zone"],
       requiredIds: ["execution_dead_zone"],
       summary: "首领层默认叠加 2 个词缀，并强制包含首领考核词缀，避免只剩纯数值放大。",
@@ -1150,13 +1153,20 @@
     const baseRule = CORRIDOR_FLOOR_AFFIX_RULES[floorType] || CORRIDOR_FLOOR_AFFIX_RULES.normal;
     const selectionCount = resolveCorridorAffixCount(floorDescriptor, baseRule);
     const selectedIds = pickUniqueCorridorAffixIds(baseRule.poolIds || [], selectionCount, baseRule.requiredIds || []);
+    const selectionProfile = baseRule.selectionProfile || {};
+    const baseCount = Math.max(
+      Array.isArray(baseRule.requiredIds) ? baseRule.requiredIds.length : 0,
+      Number(selectionProfile.base) || 1
+    );
     return {
       rule: {
         floorType: floorType,
         label: baseRule.label || "",
+        selectionMode: baseRule.selectionMode || "",
         selectionCount: selectionCount,
         poolIds: cloneValue(baseRule.poolIds || []),
         requiredIds: cloneValue(baseRule.requiredIds || []),
+        escalated: selectionCount > baseCount,
         summary: baseRule.summary || "",
       },
       affixIds: selectedIds.slice(),
