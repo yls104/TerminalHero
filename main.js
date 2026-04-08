@@ -327,6 +327,31 @@
     };
   }
 
+  function getCurrentCombatAffixPayload() {
+    if (currentStageMode !== "endless" || !currentStageContent || !currentStageContent.challenge) {
+      return {
+        challengeAffixes: [],
+        challengeAffixSummary: "",
+      };
+    }
+    return {
+      challengeAffixes: cloneValue(currentStageContent.challenge.affixes || []),
+      challengeAffixSummary: currentStageContent.challenge.affixSummary || "",
+    };
+  }
+
+  function createCombatEncounterPayload(tile, x, y) {
+    const payload = {
+      tile: tile,
+      stageName: currentStageName,
+      enemyTemplate: currentEncounterPool[positionKey(x, y)],
+    };
+    const affixPayload = getCurrentCombatAffixPayload();
+    payload.challengeAffixes = affixPayload.challengeAffixes;
+    payload.challengeAffixSummary = affixPayload.challengeAffixSummary;
+    return payload;
+  }
+
   function createEmptyRunSummary() {
     return {
       stageId: "",
@@ -3236,11 +3261,7 @@
       hideOverlay();
       bossIntroTimeout = window.setTimeout(function startBoss() {
         if (combatController) {
-          combatController.startCombat({
-            tile: TILE.BOSS,
-            stageName: currentStageName,
-            enemyTemplate: currentEncounterPool[positionKey(x, y)],
-          });
+          combatController.startCombat(createCombatEncounterPayload(TILE.BOSS, x, y));
         }
       }, 160);
     });
@@ -3290,11 +3311,7 @@
     if (tile === TILE.ENEMY || tile === TILE.ELITE) {
       encounterPos = { x: x, y: y };
       if (combatController) {
-        combatController.startCombat({
-          tile: tile,
-          stageName: currentStageName,
-          enemyTemplate: currentEncounterPool[positionKey(x, y)],
-        });
+        combatController.startCombat(createCombatEncounterPayload(tile, x, y));
       }
       return;
     }

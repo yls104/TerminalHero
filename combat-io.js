@@ -71,6 +71,23 @@
     };
   }
 
+  function cloneChallengeAffix(affix) {
+    if (!affix) {
+      return null;
+    }
+    return {
+      id: affix.id || "",
+      name: affix.name || "",
+      shortLabel: affix.shortLabel || affix.name || "",
+      summary: affix.summary || "",
+      briefing: affix.briefing || "",
+      targetScope: affix.targetScope || "",
+      triggerTiming: affix.triggerTiming || "",
+      effectPayload: affix.effectPayload || {},
+      inspect: Array.isArray(affix.inspect) ? affix.inspect.slice() : [],
+    };
+  }
+
   function createCombatSnapshot(payload) {
     const data = payload || {};
     return {
@@ -146,6 +163,10 @@
             lastResolvedAction: data.timeline.lastResolvedAction || null,
           }
         : null,
+      challengeAffixes: Array.isArray(data.challengeAffixes)
+        ? data.challengeAffixes.map(cloneChallengeAffix).filter(Boolean)
+        : [],
+      challengeAffixSummary: data.challengeAffixSummary || "",
     };
   }
 

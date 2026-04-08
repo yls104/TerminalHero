@@ -112,6 +112,21 @@ function loadApis(context) {
   };
 }
 
+function createCorridorAffix(id, overrides) {
+  const base = {
+    id: id,
+    name: id,
+    shortLabel: id,
+    summary: "",
+    briefing: "",
+    targetScope: "enemy_team",
+    triggerTiming: "battle_open",
+    effectPayload: {},
+    inspect: ["test"],
+  };
+  return Object.assign(base, overrides || {});
+}
+
 function testTimelineInitializationAndSpeed(timelineApi) {
   const fastTimeline = timelineApi.createTimelineState({
     actors: [
@@ -602,6 +617,333 @@ function testEnemyPunishesPlayerBreak(context, apis) {
   }), "敌方未对玩家失衡窗口发动专属处决动作");
 }
 
+function testCorridorTempoPressure(context, apis) {
+  const entitiesApi = apis.entitiesApi;
+  const combatApi = apis.combatApi;
+
+  entitiesApi.applyClassToPlayer("warrior");
+  entitiesApi.player.level = 3;
+  entitiesApi.player.hp = entitiesApi.player.maxHp;
+  entitiesApi.player.mp = entitiesApi.player.maxMp;
+  entitiesApi.player.speed = 12;
+  entitiesApi.player.classResource.current = entitiesApi.player.classResource.max;
+  entitiesApi.unlockClassSkillIfNeeded();
+
+  const combatController = combatApi.createCombatController({
+    player: entitiesApi.player,
+    skills: entitiesApi.skills,
+    resolveSkill: entitiesApi.getResolvedSkill,
+    getUltimateSkills: entitiesApi.getResolvedUltimateSkills,
+    onPlayerSkillResolved: entitiesApi.applyProfessionAfterPlayerSkill,
+    onLog: function noopLog() {},
+    onStatusSync: function noopStatus() {},
+    onEffect: function noopEffect() {},
+    onStateChange: function noopState() {},
+    onCombatEnd: function noopEnd() {},
+  });
+
+  const started = combatController.startCombat({
+    tile: 3,
+    enemyTemplate: {
+      id: "tempo_enemy",
+      name: "抢轴试炼偶",
+      hp: 100,
+      attack: 8,
+      defense: 2,
+      speed: 11,
+      exp: 0,
+      gold: 0,
+      skills: [],
+      role: "basic",
+      assetKey: "enemy",
+      encounterType: "normal",
+      dropTableId: "field_default",
+    },
+    challengeAffixes: [
+      createCorridorAffix("tempo_pressure", {
+        name: "抢轴压迫",
+        shortLabel: "抢轴压迫",
+        effectPayload: {
+          timeline: {
+            enemyStartAvBonus: 16,
+            enemySpeedRatio: 0.2,
+          },
+        },
+      }),
+    ],
+    challengeAffixSummary: "抢轴压迫：敌方更容易抢到开局节奏。",
+  });
+  assert(started, "回廊抢轴词缀专项测试未能成功启动");
+
+  const initialState = combatController.getState();
+  assert(initialState.currentActorId === "enemy", "抢轴压迫未改变开场行动顺位");
+  assert(Array.isArray(initialState.challengeAffixes) && initialState.challengeAffixes[0].id === "tempo_pressure", "战斗快照未携带回廊词缀信息");
+  assert(initialState.challengeAffixSummary.indexOf("抢轴压迫") !== -1, "战斗快照未携带回廊词缀摘要");
+}
+
+function testCorridorResilienceRegen(context, apis) {
+  const logs = [];
+  const entitiesApi = apis.entitiesApi;
+  const combatApi = apis.combatApi;
+
+  entitiesApi.applyClassToPlayer("warrior");
+  entitiesApi.player.level = 3;
+  entitiesApi.player.hp = entitiesApi.player.maxHp;
+  entitiesApi.player.mp = entitiesApi.player.maxMp;
+  entitiesApi.player.speed = 12;
+  entitiesApi.player.classResource.current = entitiesApi.player.classResource.max;
+  entitiesApi.unlockClassSkillIfNeeded();
+
+  const combatController = combatApi.createCombatController({
+    player: entitiesApi.player,
+    skills: entitiesApi.skills,
+    resolveSkill: entitiesApi.getResolvedSkill,
+    getUltimateSkills: entitiesApi.getResolvedUltimateSkills,
+    onPlayerSkillResolved: entitiesApi.applyProfessionAfterPlayerSkill,
+    onLog(entry) {
+      logs.push(entry);
+    },
+    onStatusSync: function noopStatus() {},
+    onEffect: function noopEffect() {},
+    onStateChange: function noopState() {},
+    onCombatEnd: function noopEnd() {},
+  });
+
+  const started = combatController.startCombat({
+    tile: 3,
+    enemyTemplate: {
+      id: "regen_enemy",
+      name: "韧性试炼偶",
+      hp: 96,
+      attack: 6,
+      defense: 1,
+      speed: 4,
+      exp: 0,
+      gold: 0,
+      skills: [],
+      role: "basic",
+      assetKey: "enemy",
+      encounterType: "normal",
+      dropTableId: "field_default",
+      poiseMax: 6,
+    },
+    challengeAffixes: [
+      createCorridorAffix("resilience_regen", {
+        name: "韧性再生",
+        shortLabel: "韧性再生",
+        triggerTiming: "turn_cycle",
+        effectPayload: {
+          pressure: {
+            poiseRegenRatio: 0.5,
+            regenTurnInterval: 2,
+          },
+        },
+      }),
+    ],
+  });
+  assert(started, "回廊韧性再生词缀专项测试未能成功启动");
+
+  const usedSlash = combatController.playerAction("slash");
+  assert(usedSlash, "回廊韧性再生词缀专项测试中玩家未能成功出手");
+
+  const afterSlash = combatController.getState();
+  assert(afterSlash.enemyPressure && afterSlash.enemyPressure.poiseCurrent === 4, "韧性再生未在敌方轮转阶段恢复韧性");
+  assert(logs.some(function hasAffixLog(entry) {
+    return entry && entry.type === "corridor_affix" && entry.text.indexOf("韧性再生") !== -1;
+  }), "韧性再生生效后未产出专项日志");
+}
+
+function testCorridorExecutionDeadZone(context, apis) {
+  const entitiesApi = apis.entitiesApi;
+  const combatApi = apis.combatApi;
+
+  function preparePlayer() {
+    entitiesApi.applyClassToPlayer("warrior");
+    entitiesApi.player.level = 3;
+    entitiesApi.player.hp = entitiesApi.player.maxHp;
+    entitiesApi.player.mp = entitiesApi.player.maxMp;
+    entitiesApi.player.speed = 12;
+    entitiesApi.player.classResource.current = entitiesApi.player.classResource.max;
+    entitiesApi.unlockClassSkillIfNeeded();
+  }
+
+  function createController(logs) {
+    return combatApi.createCombatController({
+      player: entitiesApi.player,
+      skills: entitiesApi.skills,
+      resolveSkill: entitiesApi.getResolvedSkill,
+      getUltimateSkills: entitiesApi.getResolvedUltimateSkills,
+      onPlayerSkillResolved: entitiesApi.applyProfessionAfterPlayerSkill,
+      onLog(entry) {
+        logs.push(entry);
+      },
+      onStatusSync: function noopStatus() {},
+      onEffect: function noopEffect() {},
+      onStateChange: function noopState() {},
+      onCombatEnd: function noopEnd() {},
+    });
+  }
+
+  function startBossFight(controller, affixes) {
+    return controller.startCombat({
+      tile: 5,
+      enemyTemplate: {
+        id: "execution_boss",
+        name: "首领试炼偶",
+        hp: 240,
+        attack: 10,
+        defense: 4,
+        speed: 4,
+        exp: 0,
+        gold: 0,
+        skills: [],
+        role: "boss",
+        isBoss: true,
+        assetKey: "boss",
+        encounterType: "boss",
+        dropTableId: "boss_default",
+        poiseMax: 20,
+      },
+      challengeAffixes: affixes || [],
+    });
+  }
+
+  preparePlayer();
+  const plainLogs = [];
+  const plainController = createController(plainLogs);
+  assert(startBossFight(plainController, []), "处决禁区对照组未能成功启动");
+  const plainUsed = plainController.playerAction("earthshatter");
+  assert(plainUsed, "处决禁区对照组未能施放裂地猛击");
+  const plainState = plainController.getState();
+  const plainDamage = 240 - plainState.enemy.hp;
+
+  preparePlayer();
+  const affixLogs = [];
+  const affixController = createController(affixLogs);
+  assert(startBossFight(affixController, [
+    createCorridorAffix("execution_dead_zone", {
+      name: "处决禁区",
+      shortLabel: "处决禁区",
+      targetScope: "player_vs_boss",
+      triggerTiming: "execution_window",
+      effectPayload: {
+        execution: {
+          offWindowRatio: 0.5,
+          favoredWindow: "stagger_only",
+        },
+      },
+    }),
+  ]), "处决禁区专项测试未能成功启动");
+  const affixUsed = affixController.playerAction("earthshatter");
+  assert(affixUsed, "处决禁区专项测试未能施放裂地猛击");
+  const affixState = affixController.getState();
+  const affixDamage = 240 - affixState.enemy.hp;
+
+  assert(affixDamage < plainDamage, "处决禁区未压低非处决窗口下的爆发收益");
+  assert(affixLogs.some(function hasDeadZoneLog(entry) {
+    return entry && entry.type === "corridor_affix" && entry.text.indexOf("处决禁区") !== -1;
+  }), "处决禁区生效后未产出专项日志");
+}
+
+function testCorridorExecutionDeadZoneStable(context, apis) {
+  const entitiesApi = apis.entitiesApi;
+  const combatApi = apis.combatApi;
+
+  function preparePlayer() {
+    entitiesApi.applyClassToPlayer("warrior");
+    entitiesApi.player.level = 3;
+    entitiesApi.player.hp = entitiesApi.player.maxHp;
+    entitiesApi.player.mp = entitiesApi.player.maxMp;
+    entitiesApi.player.speed = 12;
+    entitiesApi.player.classResource.current = entitiesApi.player.classResource.max;
+    entitiesApi.unlockClassSkillIfNeeded();
+  }
+
+  function createController(logs) {
+    return combatApi.createCombatController({
+      player: entitiesApi.player,
+      skills: entitiesApi.skills,
+      resolveSkill: entitiesApi.getResolvedSkill,
+      getUltimateSkills: entitiesApi.getResolvedUltimateSkills,
+      onPlayerSkillResolved: entitiesApi.applyProfessionAfterPlayerSkill,
+      onLog(entry) {
+        logs.push(entry);
+      },
+      onStatusSync: function noopStatus() {},
+      onEffect: function noopEffect() {},
+      onStateChange: function noopState() {},
+      onCombatEnd: function noopEnd() {},
+    });
+  }
+
+  function startBossFight(controller, affixes) {
+    return controller.startCombat({
+      tile: 5,
+      playerUltimateCharge: 8,
+      enemyTemplate: {
+        id: "execution_boss",
+        name: "首领奖炼偶",
+        hp: 240,
+        attack: 10,
+        defense: 4,
+        speed: 4,
+        exp: 0,
+        gold: 0,
+        skills: [],
+        role: "boss",
+        isBoss: true,
+        assetKey: "boss",
+        encounterType: "boss",
+        dropTableId: "boss_default",
+        poiseMax: 20,
+      },
+      challengeAffixes: affixes || [],
+    });
+  }
+
+  preparePlayer();
+  const plainUltimate = entitiesApi.getResolvedUltimateSkills()[0];
+  assert(plainUltimate, "处决禁区对照组未能获取战士终结技");
+  const plainLogs = [];
+  const plainController = createController(plainLogs);
+  assert(startBossFight(plainController, []), "处决禁区对照组未能成功启动");
+  const plainUsed = plainController.playerAction("ultimate:" + plainUltimate.id);
+  assert(plainUsed, "处决禁区对照组未能施放战士终结技");
+  const plainState = plainController.getState();
+  const plainDamage = 240 - plainState.enemy.hp;
+  context.__drainTimers(4);
+
+  preparePlayer();
+  const affixUltimate = entitiesApi.getResolvedUltimateSkills()[0];
+  assert(affixUltimate, "处决禁区专项测试未能获取战士终结技");
+  const affixLogs = [];
+  const affixController = createController(affixLogs);
+  assert(startBossFight(affixController, [
+    createCorridorAffix("execution_dead_zone", {
+      name: "处决禁区",
+      shortLabel: "处决禁区",
+      targetScope: "player_vs_boss",
+      triggerTiming: "execution_window",
+      effectPayload: {
+        execution: {
+          offWindowRatio: 0.5,
+          favoredWindow: "stagger_only",
+        },
+      },
+    }),
+  ]), "处决禁区专项测试未能成功启动");
+  const affixUsed = affixController.playerAction("ultimate:" + affixUltimate.id);
+  assert(affixUsed, "处决禁区专项测试未能施放战士终结技");
+  const affixState = affixController.getState();
+  const affixDamage = 240 - affixState.enemy.hp;
+  context.__drainTimers(4);
+
+  assert(affixDamage < plainDamage, "处决禁区未压低非处决窗口下的爆发收益");
+  assert(affixLogs.some(function hasDeadZoneLog(entry) {
+    return entry && entry.type === "corridor_affix" && entry.text.indexOf("处决禁区") !== -1;
+  }), "处决禁区生效后未产出专项日志");
+}
+
 function validateSourceSyntax(relativePath) {
   const source = readFile(relativePath);
   try {
@@ -617,11 +959,14 @@ function main() {
   const apis = loadApis(context);
   testTimelineInitializationAndSpeed(apis.timelineApi);
   testDelayAndAdvanceAffectTiming(apis.timelineApi);
+  testCorridorTempoPressure(context, apis);
+  testCorridorResilienceRegen(context, apis);
+  testCorridorExecutionDeadZoneStable(context, apis);
   testPressureAxisFoundation(context, apis);
   testChargeInterruptFlow(context, apis);
   testEnemyPunishesPlayerBreak(context, apis);
   testUltimateInsertFlow(context, apis);
-  console.log("战斗专项验证通过：时间轴、压制轴、蓄力打断、敌方处决、速度收益、技能延迟、终结技插入与 UI 快照读取正常。");
+  console.log("战斗专项验证通过：时间轴、回廊词缀原型、压制轴、蓄力打断、敌方处决、速度收益、技能延迟、终结技插入与 UI 快照读取正常。");
 }
 
 main();

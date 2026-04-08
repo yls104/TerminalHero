@@ -305,6 +305,8 @@ function createCombatController(options) {
   let enemyStatus = createStatusRuntime();
   let playerPressure = createPressureRuntime(player, { side: "player" });
   let enemyPressure = createPressureRuntime(null, { side: "enemy" });
+  let activeChallengeAffixes = [];
+  let challengeAffixSummary = "";
 
   function clamp(value, min, max) {
     return Math.max(min, Math.min(max, value));
@@ -316,6 +318,130 @@ function createCombatController(options) {
 
   function rand(min, max) {
     return Math.random() * (max - min) + min;
+  }
+
+  function cloneValue(value) {
+    if (Array.isArray(value)) {
+      return value.map(cloneValue);
+    }
+    if (value && typeof value === "object") {
+      const clone = {};
+      Object.keys(value).forEach(function eachKey(key) {
+        clone[key] = cloneValue(value[key]);
+      });
+      return clone;
+    }
+    return value;
+  }
+
+  function normalizeChallengeAffix(affix) {
+    const data = affix || {};
+    return {
+      id: String(data.id || ""),
+      name: data.name || "",
+      shortLabel: data.shortLabel || data.name || "",
+      summary: data.summary || "",
+      briefing: data.briefing || "",
+      targetScope: data.targetScope || "",
+      triggerTiming: data.triggerTiming || "",
+      effectPayload: cloneValue(data.effectPayload || {}),
+      inspect: cloneValue(data.inspect || []),
+    };
+  }
+
+  function setEncounterAffixes(encounter) {
+    const rawAffixes = encounter && Array.isArray(encounter.challengeAffixes) ? encounter.challengeAffixes : [];
+    activeChallengeAffixes = rawAffixes.map(normalizeChallengeAffix).filter(function filterAffix(affix) {
+      return affix.id;
+    });
+    challengeAffixSummary = encounter && typeof encounter.challengeAffixSummary === "string"
+      ? encounter.challengeAffixSummary
+      : activeChallengeAffixes.map(function mapAffix(affix) {
+          return affix.shortLabel || affix.name;
+        }).join(" / ");
+  }
+
+  function clearEncounterAffixes() {
+    activeChallengeAffixes = [];
+    challengeAffixSummary = "";
+  }
+
+  function getActiveChallengeAffix(affixId) {
+    return activeChallengeAffixes.find(function findAffix(affix) {
+      return affix.id === affixId;
+    }) || null;
+  }
+
+  function isExecutionStyleAction(actionContext) {
+    const data = actionContext || {};
+    return Boolean(
+      data.actionType === "ultimate"
+      || toNumber(data.breakBonusDamageRatio, 0) > 0
+      || toNumber(data.bonusVsBrokenRatio, 0) > 0
+    );
+  }
+
+  function applyCombatStartAffixes() {
+    const tempoPressure = getActiveChallengeAffix("tempo_pressure");
+    if (!tempoPressure || !timelineState || !timelineApi.getActor || !timelineApi.setActorState || !currentEnemy) {
+      return;
+    }
+    const timelinePayload = (tempoPressure.effectPayload && tempoPressure.effectPayload.timeline) || {};
+    const enemyActor = timelineApi.getActor(timelineState, "enemy");
+    const speedRatio = Math.max(0, toNumber(timelinePayload.enemySpeedRatio, 0));
+    const startAvBonus = Math.max(0, toNumber(timelinePayload.enemyStartAvBonus, 0));
+    if (speedRatio > 0) {
+      currentEnemy.speed = Math.max(1, Math.round(currentEnemy.speed * (1 + speedRatio)));
+    }
+    if (!enemyActor) {
+      return;
+    }
+    timelineApi.setActorState(timelineState, "enemy", {
+      speed: getEffectiveSpeed(currentEnemy, enemyStatus),
+      currentAv: clamp(enemyActor.currentAv - startAvBonus, 0, 999),
+    });
+    if (timelineApi.buildQueuePreview) {
+      const preview = timelineApi.buildQueuePreview(timelineState, 1);
+      timelineState.currentActorId = preview[0] ? preview[0].unitId : timelineState.currentActorId;
+    }
+    log("回廊词缀【" + (tempoPressure.name || "抢轴压迫") + "】生效：敌方抢先压上时间轴。", {
+      type: "corridor_affix",
+      source: "system",
+      emphasis: true,
+      turn: "start",
+    });
+  }
+
+  function maybeApplyEnemyTurnAffixes(initial) {
+    const regenAffix = getActiveChallengeAffix("resilience_regen");
+    if (
+      initial
+      || !regenAffix
+      || !timelineState
+      || !enemyPressure
+      || enemyPressure.executionReady
+      || enemyPressure.poiseCurrent >= enemyPressure.poiseMax
+    ) {
+      return;
+    }
+    const pressurePayload = (regenAffix.effectPayload && regenAffix.effectPayload.pressure) || {};
+    const regenTurnInterval = Math.max(1, toNumber(pressurePayload.regenTurnInterval, 2));
+    if ((timelineState.roundIndex || 0) % regenTurnInterval !== 0) {
+      return;
+    }
+    const regenRatio = Math.max(0, toNumber(pressurePayload.poiseRegenRatio, 0));
+    const regenValue = Math.max(1, Math.round(enemyPressure.poiseMax * regenRatio));
+    const previous = enemyPressure.poiseCurrent;
+    enemyPressure.poiseCurrent = clamp(enemyPressure.poiseCurrent + regenValue, 0, enemyPressure.poiseMax);
+    if (enemyPressure.poiseCurrent > previous) {
+      log("回廊词缀【" + (regenAffix.name || "韧性再生") + "】生效：" + currentEnemy.name + " 恢复了 "
+        + (enemyPressure.poiseCurrent - previous) + " 点韧性。", {
+        type: "corridor_affix",
+        source: "system",
+        emphasis: true,
+        turn: "pressure",
+      });
+    }
   }
 
   function log(message, meta) {
@@ -575,6 +701,8 @@ function createCombatController(options) {
       poiseBonus: 0,
       broken: false,
       charging: false,
+      executionSuppressed: false,
+      executionPenaltyRatio: 1,
     };
     if (!pressureState || !actionContext) {
       return profile;
@@ -588,6 +716,22 @@ function createCombatController(options) {
       profile.charging = true;
       profile.multiplier *= 1 + Math.max(0, toNumber(actionContext.bonusVsChargingRatio, 0));
       profile.poiseBonus += Math.max(0, toNumber(actionContext.poiseBonusVsCharging, 0));
+    }
+    const executionDeadZone = getActiveChallengeAffix("execution_dead_zone");
+    if (
+      executionDeadZone
+      && targetSide === "enemy"
+      && currentEnemy
+      && currentEnemy.isBoss
+      && actionContext.sourceUnitId === "player"
+      && !pressureState.executionReady
+      && isExecutionStyleAction(actionContext)
+    ) {
+      const executionPayload = (executionDeadZone.effectPayload && executionDeadZone.effectPayload.execution) || {};
+      const penaltyRatio = clamp(toNumber(executionPayload.offWindowRatio, 1), 0.05, 1);
+      profile.executionSuppressed = penaltyRatio < 1;
+      profile.executionPenaltyRatio = penaltyRatio;
+      profile.multiplier *= penaltyRatio;
     }
     return profile;
   }
@@ -710,6 +854,8 @@ function createCombatController(options) {
       insertWindow: pendingInsertWindow,
       ultimate: getUltimateSnapshot(),
       timeline: timelineSnapshot,
+      challengeAffixes: activeChallengeAffixes.map(cloneValue),
+      challengeAffixSummary: challengeAffixSummary,
     });
   }
 
@@ -1355,8 +1501,11 @@ function createCombatController(options) {
     roundCount = 0;
     timelineState = null;
     playerUltimate = createUltimateRuntime();
+    playerStatus = createStatusRuntime();
+    enemyStatus = createStatusRuntime();
     playerPressure = createPressureRuntime(player, { side: "player" });
     enemyPressure = createPressureRuntime(null, { side: "enemy" });
+    clearEncounterAffixes();
     emitSnapshot();
     if (config.onCombatEnd) {
       config.onCombatEnd(payload);
@@ -1402,7 +1551,19 @@ function createCombatController(options) {
   }
 
   function logPressureWindowHit(targetSide, profile) {
-    if (!profile || profile.multiplier <= 1) {
+    if (!profile) {
+      return;
+    }
+    if (profile.executionSuppressed) {
+      log("回廊词缀【处决禁区】生效：当前不是稳定的处决窗口，爆发收益被压低了。", {
+        type: "corridor_affix",
+        source: targetSide === "enemy" ? "system" : "enemy",
+        emphasis: true,
+        turn: "pressure",
+      });
+      return;
+    }
+    if (profile.multiplier <= 1) {
       return;
     }
     if (profile.broken) {
@@ -1447,6 +1608,9 @@ function createCombatController(options) {
       label: label,
       log: log,
     });
+    if (actor.side === "enemy") {
+      maybeApplyEnemyTurnAffixes(initial);
+    }
     emitStatus();
     syncTimelineActors();
 
@@ -1521,6 +1685,7 @@ function createCombatController(options) {
     }
     const encounter = typeof input === "object" && input !== null ? input : { tile: input };
     sourceTile = encounter.tile;
+    setEncounterAffixes(encounter);
     currentEnemy = cloneEnemyTemplate(encounter.enemyTemplate || getEnemyTemplate(encounter.tile, player.level));
     playerStatus = createStatusRuntime();
     enemyStatus = createStatusRuntime();
@@ -1547,6 +1712,17 @@ function createCombatController(options) {
         { unitId: "enemy", side: "enemy", label: currentEnemy.name, hp: currentEnemy.hp, maxHp: currentEnemy.maxHp, speed: getEffectiveSpeed(currentEnemy, enemyStatus) },
       ],
     });
+    if (activeChallengeAffixes.length) {
+      log("当前回廊词缀：" + activeChallengeAffixes.map(function mapAffix(affix) {
+        return affix.name || affix.shortLabel;
+      }).join(" / ") + "。", {
+        type: "corridor_affix",
+        source: "system",
+        emphasis: true,
+        turn: "start",
+      });
+    }
+    applyCombatStartAffixes();
 
     const firstActor = getCurrentTimelineActor();
     log("遭遇 " + currentEnemy.name + "。", { type: "combat_start", source: "system", emphasis: true, turn: "start" });
